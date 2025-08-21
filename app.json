@@ -9,14 +9,16 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.securefinance.app"
+      "bundleIdentifier": "com.securefinance.app",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#2563EB"
       },
-      "package": "com.securefinance.app"
+      "package": "com.securefinance.app",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
