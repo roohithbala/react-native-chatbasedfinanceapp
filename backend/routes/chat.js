@@ -174,7 +174,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
     // Handle commands
     if (text.startsWith('@')) {
       try {
-        commandResult = await parseAndExecuteCommand(text, req.userId, groupId);
+        commandResult = await parseAndExecuteCommand(text, req.userId, groupId, req.user);
         
         if (commandResult.success) {
           let resultText = '';
@@ -294,9 +294,50 @@ router.post('/:groupId/messages', auth, async (req, res) => {
 
     // Emit socket events for real-time updates
     if (req.io) {
-      req.io.to(groupId).emit('message', formatMessage(message));
+      // Format message for socket emission
+      const socketMessage = {
+        _id: message._id.toString(),
+        text: message.text,
+        createdAt: message.createdAt.toISOString(),
+        user: {
+          _id: message.user._id.toString(),
+          name: message.user.name,
+          username: message.user.username,
+          avatar: message.user.avatar
+        },
+        type: message.type,
+        status: 'sent',
+        groupId: groupId,
+        readBy: message.readBy,
+        mentions: message.mentions,
+        reactions: message.reactions
+      };
+
+      // Emit to all group members
+      req.io.to(groupId).emit('receive-message', socketMessage);
+
+      // Also emit system message if it exists
       if (systemMessage) {
-        req.io.to(groupId).emit('message', formatMessage(systemMessage));
+        const socketSystemMessage = {
+          _id: systemMessage._id.toString(),
+          text: systemMessage.text,
+          createdAt: systemMessage.createdAt.toISOString(),
+          user: {
+            _id: 'system',
+            name: 'AI Assistant',
+            avatar: '🤖'
+          },
+          type: 'system',
+          status: 'sent',
+          groupId: groupId,
+          readBy: [],
+          commandType: commandResult?.type,
+          commandData: commandResult?.data || {},
+          mentions: [],
+          reactions: []
+        };
+
+        req.io.to(groupId).emit('receive-message', socketSystemMessage);
       }
     }
 
@@ -397,7 +438,7 @@ router.post('/:groupId/messages/:messageId/reactions', auth, async (req, res) =>
 });
 
 // Helper function to parse financial commands
-async function parseAndExecuteCommand(text, userId, groupId) {
+async function parseAndExecuteCommand(text, userId, groupId, user) {
   const lowerText = text.toLowerCase();
   
   if (lowerText.startsWith('@split')) {
@@ -463,7 +504,7 @@ async function parseAndExecuteCommand(text, userId, groupId) {
     });
 
     if (!splitGroup) {
-      const memberNames = [...users.map(u => u.name), req.user.name];
+      const memberNames = [...users.map(u => u.name), user.name];
       splitGroup = new Group({
         name: `Split Bill - ${memberNames.join(', ')}`,
         description: 'Automatic group for split bills',
@@ -511,7 +552,7 @@ async function parseAndExecuteCommand(text, userId, groupId) {
       description,
       amount,
       category: 'Split',
-      userId: req.userId,
+      userId: userId,
       groupId: splitGroup._id,
       tags: ['split-bill'],
       isRecurring: false,
@@ -520,7 +561,7 @@ async function parseAndExecuteCommand(text, userId, groupId) {
 
     // Get participant details for the response
     const participantDetails = await User.find({
-      _id: { $in: [...participants, req.userId] }
+      _id: { $in: [...participants, userId] }
     }).select('username name');
 
     const participantMap = participantDetails.reduce((acc, p) => {
@@ -537,7 +578,7 @@ async function parseAndExecuteCommand(text, userId, groupId) {
         participants: participantDetails.map(p => ({
           username: p.username,
           name: p.name,
-          amount: p._id.toString() === req.userId.toString() ? 
+          amount: p._id.toString() === userId.toString() ? 
             splitAmount + roundingAdjustment : 
             splitAmount
         })),

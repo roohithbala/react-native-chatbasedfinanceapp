@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Configuration
 const API_BASE_URL = __DEV__ 
-  ? 'http://10.30.251.172:5000/api' 
+  ? 'http://10.1.60.70:3001/api' 
   : 'https://your-production-api.com/api';
 
 // Create axios instance
@@ -213,14 +213,19 @@ export const expensesAPI = {
         timeout: 10000, // 10 second timeout
       });
       
-      // Validate response data
-      if (!response.data || !Array.isArray(response.data.expenses)) {
-        throw new Error('Invalid response format from server');
+      // Validate response data - be more flexible with empty responses
+      if (!response.data) {
+        throw new Error('No response data from server');
       }
+      
+      // Ensure expenses is always an array
+      const expenses = Array.isArray(response.data.expenses) 
+        ? response.data.expenses 
+        : [];
       
       return {
         ...response.data,
-        expenses: response.data.expenses
+        expenses: expenses
       };
     } catch (error: any) {
       console.error('Error fetching expenses:', error);
@@ -258,10 +263,15 @@ export const groupsAPI = {
   getGroups: async () => {
     try {
       const response = await api.get('/groups');
-      if (!response.data || response.data.status !== 'success' || !response.data.data?.groups) {
-        throw new Error('Invalid response format from server');
+      if (!response.data) {
+        throw new Error('No response data from server');
       }
-      return response.data.data;
+      
+      // Handle various response formats
+      const groups = response.data.groups || response.data.data?.groups || response.data;
+      return {
+        groups: Array.isArray(groups) ? groups : []
+      };
     } catch (error) {
       console.error('Error fetching groups:', error);
       throw error;
@@ -294,13 +304,17 @@ export const groupsAPI = {
     }
   },
 
-  addMember: async (groupId: string, email: string) => {
+  addMember: async (groupId: string, identifier: string, searchType: 'email' | 'username' = 'email') => {
     try {
-      if (!email?.trim()) {
-        throw new Error('Email is required');
+      if (!identifier?.trim()) {
+        throw new Error(`${searchType === 'email' ? 'Email' : 'Username'} is required`);
       }
 
-      const response = await api.post(`/groups/${groupId}/members`, { email: email.trim() });
+      const requestBody = searchType === 'email' 
+        ? { email: identifier.trim() }
+        : { username: identifier.trim() };
+
+      const response = await api.post(`/groups/${groupId}/members`, requestBody);
       
       if (!response.data || response.data.status !== 'success' || !response.data.data?.group) {
         throw new Error('Invalid response from server');
@@ -441,10 +455,11 @@ export const aiAPI = {
 
 // Budgets API
 export const budgetsAPI = {
-  getBudgets: async (period?: string) => {
+  getBudgets: async (groupId?: string) => {
     try {
+      const params = groupId ? { groupId } : {};
       const response = await api.get('/budgets', { 
-        params: { period },
+        params,
         timeout: 10000 // 10 second timeout
       });
       
@@ -467,7 +482,7 @@ export const budgetsAPI = {
     }
   },
 
-  setBudget: async (budgetData: { category: string; amount: number }) => {
+  setBudget: async (budgetData: { category: string; amount: number; groupId?: string }) => {
     try {
       const response = await api.post('/budgets', budgetData);
       if (!response.data || !response.data.status || response.data.status !== 'success' || !response.data.data?.budgets) {

@@ -15,53 +15,66 @@ class SocketService {
       
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
+        console.warn('⚠️ No auth token found for socket connection');
         throw new Error('No auth token found');
       }
 
+      console.log('🔌 Initializing socket connection...');
       const SOCKET_URL = __DEV__ 
-        ? 'http://10.30.251.172:5000' 
+        ? 'http://10.1.60.70:3002' 
         : 'https://your-production-api.com';
+
+      console.log('🔌 Connecting to socket server:', SOCKET_URL);
 
       this.socket = io(SOCKET_URL, {
         auth: {
           token
         },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // Allow fallback to polling
         timeout: 10000,
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
+        forceNew: true, // Force new connection
+        upgrade: true, // Allow upgrade to websocket
       });
 
       this.socket.on('connect', () => {
-        console.log('✅ Socket connected');
+        console.log('✅ Socket connected successfully');
         this.isConnected = true;
         this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
       });
 
-      this.socket.on('disconnect', () => {
-        console.log('❌ Socket disconnected');
+      this.socket.on('disconnect', (reason) => {
+        console.log('❌ Socket disconnected:', reason);
         this.isConnected = false;
         
         // Try to reconnect if not intentionally disconnected
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        if (reason !== 'io client disconnect' && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectTimeout = setTimeout(() => {
             this.reconnectAttempts++;
+            console.log(`🔄 Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
             this.connect();
           }, 1000);
         }
       });
 
       this.socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+        console.error('Socket connection error:', error.message);
         this.isConnected = false;
+        
+        // Don't retry automatically in React Native to avoid excessive retries
+        // The connection will be re-established when the app comes back online
       });
 
       return this.socket;
     } catch (error) {
-      console.error('Socket connection failed:', error);
-      throw error;
+      console.error('❌ Socket connection failed:', error instanceof Error ? error.message : error);
+      this.isConnected = false;
+      
+      // Don't throw error, just log it - socket will retry automatically
+      return null;
     }
   }
 
@@ -143,89 +156,102 @@ class SocketService {
     if (this.socket) {
       this.socket.on('receive-message', (data) => {
         try {
-          // Validate basic message structure
-          if (!data || typeof data !== 'object') {
-            throw new Error('Invalid message format: message is not an object');
-          }
-
-          // For direct socket events (no status wrapper)
-          if (data.text && data.user && data._id) {
-            const message = data;
-            // Handle system messages
-            const user = message.type === 'system' ? {
-              _id: 'system',
-              name: 'AI Assistant',
-              avatar: '🤖'
-            } : message.user;
-
-            const formattedMessage = {
-              _id: message._id.toString(),
-              text: message.text,
-              createdAt: message.createdAt || new Date().toISOString(),
+          // Handle direct socket messages from backend
+          if (data && typeof data === 'object' && data.text && data.user) {
+            const message = {
+              _id: data._id || Date.now().toString(),
+              text: data.text,
+              createdAt: data.createdAt || new Date().toISOString(),
               user: {
-                _id: user._id.toString(),
-                name: user.name || '',
-                avatar: user.avatar || '',
-                username: user.username || ''
+                _id: data.user._id?.toString() || data.user._id,
+                name: data.user.name || '',
+                avatar: data.user.avatar || '',
+                username: data.user.username || ''
               },
-              type: message.type || 'text',
-              status: message.status || 'sent',
-              readBy: message.readBy || [],
-              commandType: message.commandType,
-              systemMessage: message.type === 'system',
-              groupId: message.groupId?.toString(),
-              commandData: message.commandData || {},
-              systemData: message.systemData || {},
-              mediaUrl: message.mediaUrl,
-              mediaType: message.mediaType,
-              mediaSize: message.mediaSize,
-              mentions: message.mentions || [],
-              reactions: message.reactions || []
+              type: data.type || 'text',
+              status: data.status || 'sent',
+              readBy: data.readBy || [],
+              commandType: data.commandType,
+              systemMessage: data.type === 'system',
+              groupId: data.groupId?.toString(),
+              commandData: data.commandData || {},
+              systemData: data.systemData || {},
+              mediaUrl: data.mediaUrl,
+              mediaType: data.mediaType,
+              mediaSize: data.mediaSize,
+              mentions: data.mentions || [],
+              reactions: data.reactions || []
             };
-            callback(formattedMessage);
+            callback(message);
             return;
           }
 
-          // For API response format
+          // Handle API response format
           if (data.status === 'success' && data.data?.message) {
-            const message = data.data.message;
-            const user = message.type === 'system' ? {
-              _id: 'system',
-              name: 'AI Assistant',
-              avatar: '🤖'
-            } : message.user;
-
-            const formattedMessage = {
-              _id: message._id.toString(),
-              text: message.text,
-              createdAt: message.createdAt || new Date().toISOString(),
+            const msg = data.data.message;
+            const message = {
+              _id: msg._id?.toString() || Date.now().toString(),
+              text: msg.text,
+              createdAt: msg.createdAt || new Date().toISOString(),
               user: {
-                _id: user._id.toString(),
-                name: user.name || '',
-                avatar: user.avatar || '',
-                username: user.username || ''
+                _id: msg.user?._id?.toString() || msg.user?._id,
+                name: msg.user?.name || '',
+                avatar: msg.user?.avatar || '',
+                username: msg.user?.username || ''
               },
-              type: message.type || 'text',
-              status: message.status || 'sent',
-              readBy: message.readBy || [],
-              commandType: message.commandType,
-              systemMessage: message.type === 'system',
-              groupId: message.groupId?.toString(),
-              commandData: message.commandData || {},
-              systemData: message.systemData || {},
-              mediaUrl: message.mediaUrl,
-              mediaType: message.mediaType,
-              mediaSize: message.mediaSize,
-              mentions: message.mentions || [],
-              reactions: message.reactions || []
+              type: msg.type || 'text',
+              status: msg.status || 'sent',
+              readBy: msg.readBy || [],
+              commandType: msg.commandType,
+              systemMessage: msg.type === 'system',
+              groupId: msg.groupId?.toString(),
+              commandData: msg.commandData || {},
+              systemData: msg.systemData || {},
+              mediaUrl: msg.mediaUrl,
+              mediaType: msg.mediaType,
+              mediaSize: msg.mediaSize,
+              mentions: msg.mentions || [],
+              reactions: msg.reactions || []
             };
-            callback(formattedMessage);
+            callback(message);
             return;
           }
 
-          throw new Error('Invalid message format: missing required fields');
+          console.warn('Invalid message format received:', data);
         } catch (error) {
           console.error('Error handling received message:', error);
+        }
+      });
+
+      // Also listen for system messages
+      this.socket.on('system-message', (data) => {
+        try {
+          const message = {
+            _id: data._id || 'sys-' + Date.now(),
+            text: data.text,
+            createdAt: data.createdAt || new Date().toISOString(),
+            user: {
+              _id: 'system',
+              name: 'AI Assistant',
+              avatar: '🤖'
+            },
+            type: 'system',
+            status: 'sent',
+            readBy: [],
+            commandType: data.commandType,
+            systemMessage: true,
+            groupId: data.groupId?.toString(),
+            commandData: data.commandData || {},
+            systemData: data.systemData || {},
+            mediaUrl: null,
+            mediaType: null,
+            mediaSize: 0,
+            mentions: [],
+            reactions: []
+          };
+          callback(message);
+        } catch (error) {
+          console.error('Error handling system message:', error);
         }
       });
     }
@@ -240,6 +266,154 @@ class SocketService {
     }
   }
 
+  // WhatsApp-like features
+  private typingTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  private typingUsers: Map<string, Set<string>> = new Map();
+  private offlineQueue: Array<{
+    groupId?: string;
+    userId?: string;
+    message: any;
+    timestamp: number;
+  }> = [];
+  private isOnline = true;
+
+  // Typing indicators
+  startTyping(groupId: string) {
+    if (!this.socket || !this.isConnected) return;
+
+    this.socket.emit('typing-start', { groupId });
+  }
+
+  stopTyping(groupId: string) {
+    if (!this.socket || !this.isConnected) return;
+
+    this.socket.emit('typing-stop', { groupId });
+  }
+
+  onTypingStart(callback: (data: { groupId: string; user: any }) => void) {
+    if (this.socket) {
+      this.socket.on('user-typing-start', (data) => {
+        callback(data);
+      });
+    }
+  }
+
+  onTypingStop(callback: (data: { groupId: string; user: any }) => void) {
+    if (this.socket) {
+      this.socket.on('user-typing-stop', (data) => {
+        callback(data);
+      });
+    }
+  }
+
+  // Read receipts
+  markMessageAsRead(messageId: string, groupId: string) {
+    if (!this.socket || !this.isConnected) {
+      // Queue for offline
+      this.offlineQueue.push({
+        groupId,
+        message: { messageId, action: 'mark-read' },
+        timestamp: Date.now()
+      });
+      return;
+    }
+
+    this.socket.emit('mark-read', { messageId, groupId });
+  }
+
+  onMessageRead(callback: (data: { messageId: string; userId: string; readAt: Date }) => void) {
+    if (this.socket) {
+      this.socket.on('message-read', (data) => {
+        callback(data);
+      });
+    }
+  }
+
+  // Message status updates
+  onMessageStatusUpdate(callback: (data: { messageId: string; status: string; userId: string }) => void) {
+    if (this.socket) {
+      this.socket.on('message-status-update', (data) => {
+        callback(data);
+      });
+    }
+  }
+
+  // Online/offline support
+  setOnlineStatus(online: boolean) {
+    this.isOnline = online;
+    if (online && this.offlineQueue.length > 0) {
+      this.processOfflineQueue();
+    }
+  }
+
+  private async processOfflineQueue() {
+    if (!this.socket || !this.isConnected) return;
+
+    const queue = [...this.offlineQueue];
+    this.offlineQueue = [];
+
+    for (const item of queue) {
+      try {
+        if (item.message.action === 'mark-read') {
+          this.socket.emit('mark-read', {
+            messageId: item.message.messageId,
+            groupId: item.groupId
+          });
+        } else if (item.groupId) {
+          // Resend message
+          this.socket.emit('send-message', {
+            groupId: item.groupId,
+            message: item.message,
+            type: 'group'
+          });
+        }
+      } catch (error) {
+        console.error('Failed to process offline queue item:', error);
+        // Re-queue failed items
+        this.offlineQueue.push(item);
+      }
+    }
+  }
+
+  // Connection status monitoring
+  onConnectionStatusChange(callback: (online: boolean) => void) {
+    // For React Native, we'll use a simpler approach
+    // Monitor network connectivity using NetInfo or basic connectivity checks
+    const checkConnection = () => {
+      // In React Native, we can use a basic connectivity check
+      // For now, we'll just assume we're online when socket is connected
+      const wasOnline = this.isOnline;
+      this.isOnline = this.isConnected;
+      
+      if (wasOnline !== this.isOnline) {
+        callback(this.isOnline);
+        if (this.isOnline) {
+          this.processOfflineQueue();
+        }
+      }
+    };
+
+    // Check immediately
+    checkConnection();
+
+    // Set up periodic checks every 30 seconds
+    const interval = setInterval(checkConnection, 30000);
+
+    // Return cleanup function
+    return () => {
+      clearInterval(interval);
+    };
+  }
+
+  // Get offline queue status
+  getOfflineQueueStatus() {
+    return {
+      queued: this.offlineQueue.length,
+      isOnline: this.isOnline,
+      isConnected: this.isConnected
+    };
+  }
+
   removeAllListeners() {
     if (this.socket) {
       this.socket.removeAllListeners();
@@ -247,7 +421,11 @@ class SocketService {
   }
 
   getConnectionStatus() {
-    return this.isConnected;
+    return {
+      isConnected: this.isConnected,
+      reconnectAttempts: this.reconnectAttempts,
+      socketExists: !!this.socket
+    };
   }
 }
 

@@ -19,18 +19,19 @@ interface AddMemberModalProps {
 }
 
 export default function AddMemberModal({ visible, onClose, groupId }: AddMemberModalProps) {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [searchType, setSearchType] = useState<'email' | 'username'>('username');
   const { addMemberToGroup, isLoading } = useFinanceStore();
 
   const handleAddMember = async () => {
-    if (!email.trim() || !groupId) {
-      Alert.alert('Error', 'Please enter a valid email address');
+    if (!identifier.trim() || !groupId) {
+      Alert.alert('Error', `Please enter a valid ${searchType}`);
       return;
     }
 
     try {
-      await addMemberToGroup(groupId, email.trim());
-      setEmail('');
+      await addMemberToGroup(groupId, identifier.trim(), searchType);
+      setIdentifier('');
       onClose();
       Alert.alert('Success', 'Member added successfully');
     } catch (error: any) {
@@ -55,22 +56,44 @@ export default function AddMemberModal({ visible, onClose, groupId }: AddMemberM
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>Email Address</Text>
+          <Text style={styles.label}>Add Member</Text>
+          
+          {/* Search Type Toggle */}
+          <View style={styles.searchTypeContainer}>
+            <TouchableOpacity
+              style={[styles.searchTypeButton, searchType === 'username' && styles.searchTypeButtonActive]}
+              onPress={() => setSearchType('username')}
+            >
+              <Text style={[styles.searchTypeText, searchType === 'username' && styles.searchTypeTextActive]}>
+                Username
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.searchTypeButton, searchType === 'email' && styles.searchTypeButtonActive]}
+              onPress={() => setSearchType('email')}
+            >
+              <Text style={[styles.searchTypeText, searchType === 'email' && styles.searchTypeTextActive]}>
+                Email
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>{searchType === 'username' ? 'Username' : 'Email Address'}</Text>
           <TextInput
             style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Enter email address"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
+            value={identifier}
+            onChangeText={setIdentifier}
+            placeholder={searchType === 'username' ? "Enter username" : "Enter email address"}
+            keyboardType={searchType === 'email' ? 'email-address' : 'default'}
+            autoCapitalize={searchType === 'username' ? 'none' : 'none'}
+            autoComplete={searchType === 'email' ? 'email' : 'username'}
             autoCorrect={false}
           />
 
           <TouchableOpacity
-            style={[styles.addButton, (!email.trim() || isLoading) && styles.addButtonDisabled]}
+            style={[styles.addButton, (!identifier.trim() || isLoading) && styles.addButtonDisabled]}
             onPress={handleAddMember}
-            disabled={!email.trim() || isLoading}
+            disabled={!identifier.trim() || isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
@@ -118,6 +141,31 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#374151',
     marginBottom: 8,
+  },
+  searchTypeContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    padding: 2,
+    marginBottom: 16,
+  },
+  searchTypeButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  searchTypeButtonActive: {
+    backgroundColor: '#2563EB',
+  },
+  searchTypeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  searchTypeTextActive: {
+    color: 'white',
   },
   input: {
     backgroundColor: '#F3F4F6',

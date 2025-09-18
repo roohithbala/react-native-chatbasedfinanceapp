@@ -37,7 +37,6 @@ export default function ProfileScreen() {
     selectedGroup, 
     selectGroup, 
     createGroup, 
-    joinGroupByCode,
     generateInviteLink,
     logout,
     clearStorage,

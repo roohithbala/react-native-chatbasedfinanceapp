@@ -67,12 +67,22 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   ownBubble: {
-    backgroundColor: '#DCF8C6',
+    backgroundColor: '#EFF6FF',
     borderTopRightRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   otherBubble: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'white',
     borderTopLeftRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   messageText: {
     fontSize: 16,
@@ -100,6 +110,6 @@ const styles = StyleSheet.create({
     color: '#667781',
   },
   statusRead: {
-    color: '#53bdeb',
+    color: '#2563EB',
   },
 });

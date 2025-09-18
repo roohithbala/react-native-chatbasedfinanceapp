@@ -11,6 +11,7 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,20 +40,6 @@ interface User {
   email: string;
 }
 
-interface GroupChatPreview {
-  _id: string;
-  name: string;
-  description?: string;
-  lastMessage?: string;
-  lastMessageAt?: string;
-  unreadCount: number;
-  members: Array<{
-    _id: string;
-    name: string;
-    username: string;
-  }>;
-}
-
 export default function ChatsScreen() {
   const [recentChats, setRecentChats] = useState<ChatPreview[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,6 +55,14 @@ export default function ChatsScreen() {
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+
+  // Three-dot menu states
+  const [showMenu, setShowMenu] = useState(false);
+  const [selectedChat, setSelectedChat] = useState<any>(null);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [mutedChats, setMutedChats] = useState<Set<string>>(new Set());
+  const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
+  const [archivedChats, setArchivedChats] = useState<Set<string>>(new Set());
 
   const { 
     groups, 
@@ -178,6 +173,132 @@ export default function ChatsScreen() {
     });
   };
 
+  // Three-dot menu handlers
+  const handleMenuPress = (chat: any, event: any) => {
+    setSelectedChat(chat);
+    setMenuPosition({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+    setShowMenu(true);
+  };
+
+  const handleMenuOption = (option: string) => {
+    if (!selectedChat) return;
+
+    switch (option) {
+      case 'mute':
+        const newMuted = new Set(mutedChats);
+        if (newMuted.has(selectedChat._id)) {
+          newMuted.delete(selectedChat._id);
+        } else {
+          newMuted.add(selectedChat._id);
+        }
+        setMutedChats(newMuted);
+        Alert.alert('Success', `Chat ${newMuted.has(selectedChat._id) ? 'muted' : 'unmuted'}`);
+        break;
+
+      case 'block':
+        const newBlocked = new Set(blockedUsers);
+        if (newBlocked.has(selectedChat._id)) {
+          newBlocked.delete(selectedChat._id);
+        } else {
+          newBlocked.add(selectedChat._id);
+        }
+        setBlockedUsers(newBlocked);
+        Alert.alert('Success', `User ${newBlocked.has(selectedChat._id) ? 'blocked' : 'unblocked'}`);
+        break;
+
+      case 'archive':
+        const newArchived = new Set(archivedChats);
+        if (newArchived.has(selectedChat._id)) {
+          newArchived.delete(selectedChat._id);
+        } else {
+          newArchived.add(selectedChat._id);
+        }
+        setArchivedChats(newArchived);
+        Alert.alert('Success', `Chat ${newArchived.has(selectedChat._id) ? 'archived' : 'unarchived'}`);
+        break;
+
+      case 'delete':
+        Alert.alert(
+          'Delete Conversation',
+          'Are you sure you want to delete this conversation? This action cannot be undone.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => {
+                // Remove from recent chats or groups
+                if (activeTab === 'direct') {
+                  setRecentChats(prev => prev.filter(chat => chat._id !== selectedChat._id));
+                } else {
+                  // For groups, you might want to leave the group instead
+                  Alert.alert('Info', 'To delete a group conversation, you need to leave the group first.');
+                }
+                Alert.alert('Success', 'Conversation deleted');
+              }
+            }
+          ]
+        );
+        break;
+
+      case 'clear':
+        Alert.alert(
+          'Clear Chat History',
+          'Are you sure you want to clear all messages in this conversation?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Clear',
+              style: 'destructive',
+              onPress: () => {
+                Alert.alert('Success', 'Chat history cleared');
+              }
+            }
+          ]
+        );
+        break;
+
+      case 'report':
+        Alert.alert(
+          'Report User',
+          'Are you sure you want to report this user?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Report',
+              style: 'destructive',
+              onPress: () => {
+                Alert.alert('Success', 'User reported. Our team will review this report.');
+              }
+            }
+          ]
+        );
+        break;
+
+      case 'splitBill':
+        router.push({
+          pathname: '/split-bill',
+          params: {
+            chatId: selectedChat._id,
+            chatType: activeTab,
+            participantName: selectedChat.user?.name || selectedChat.name
+          }
+        });
+        break;
+
+      case 'viewProfile':
+        if (activeTab === 'direct') {
+          router.push(`/profile/${selectedChat._id}`);
+        } else {
+          router.push(`/group-info/${selectedChat._id}`);
+        }
+        break;
+    }
+
+    setShowMenu(false);
+    setSelectedChat(null);
+  };
+
   const renderUserItem = ({ item }: { item: User }) => (
     <TouchableOpacity
       style={styles.chatItem}
@@ -202,62 +323,123 @@ export default function ChatsScreen() {
     </TouchableOpacity>
   );
 
-  const renderGroupItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.chatItem}
-      onPress={() => handleGroupSelect(item)}
-    >
-      <View style={[styles.avatarContainer, styles.groupAvatar]}>
-        <Ionicons name="people" size={24} color="#FFFFFF" />
-      </View>
-      <View style={styles.chatInfo}>
-        <View style={styles.chatHeader}>
-          <Text style={styles.chatName}>{item.name}</Text>
-          <Text style={styles.memberCount}>
-            {item.members?.length || 0} members
-          </Text>
-        </View>
-        <Text style={styles.groupDescription} numberOfLines={1}>
-          {item.description || 'Group chat for shared expenses'}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderGroupItem = ({ item }: { item: any }) => {
+    const isAdmin = item.members?.some((member: any) => 
+      member.userId === currentUser?._id && member.role === 'admin'
+    );
+    const isMuted = mutedChats.has(item._id);
+    const isArchived = archivedChats.has(item._id);
 
-  const renderDirectChatItem = ({ item }: { item: ChatPreview }) => (
-    <TouchableOpacity
-      style={styles.chatItem}
-      onPress={() => handleUserSelect(item._id)}
-    >
-      <View style={styles.avatarContainer}>
-        {item.user.avatar ? (
-          <Text style={styles.avatarText}>{item.user.avatar}</Text>
-        ) : (
-          <Text style={styles.avatarText}>
-            {item.user.name.charAt(0).toUpperCase()}
-          </Text>
-        )}
-      </View>
-      <View style={styles.chatInfo}>
-        <View style={styles.chatHeader}>
-          <Text style={styles.chatName}>{item.user.name}</Text>
-          <Text style={styles.chatTime}>
-            {format(new Date(item.lastMessageAt), 'MMM d')}
-          </Text>
+    return (
+      <TouchableOpacity
+        style={styles.chatItem}
+        onPress={() => handleGroupSelect(item)}
+        onLongPress={(event) => handleMenuPress(item, event)}
+      >
+        <View style={[styles.avatarContainer, styles.groupAvatar]}>
+          <Ionicons name="people" size={24} color="#FFFFFF" />
         </View>
-        <View style={styles.chatPreview}>
-          <Text style={styles.lastMessage} numberOfLines={1}>
-            {item.lastMessage}
-          </Text>
-          {item.unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+        <View style={styles.chatInfo}>
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatName}>{item.name}</Text>
+            <View style={styles.chatActions}>
+              {isMuted && <Ionicons name="volume-mute" size={16} color="#64748B" style={styles.statusIcon} />}
+              {isArchived && <Ionicons name="archive" size={16} color="#64748B" style={styles.statusIcon} />}
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  handleMenuPress(item, event);
+                }}
+              >
+                <Ionicons name="ellipsis-vertical" size={16} color="#64748B" />
+              </TouchableOpacity>
             </View>
+          </View>
+          <Text style={styles.groupDescription} numberOfLines={1}>
+            {item.description || 'Group chat for shared expenses'}
+          </Text>
+          <View style={styles.chatMeta}>
+            <Text style={styles.memberCount}>
+              {item.members?.length || 0} members
+            </Text>
+            {isAdmin && (
+              <TouchableOpacity
+                style={styles.addMemberButton}
+                onPress={() => router.push({
+                  pathname: '/add-members',
+                  params: { 
+                    groupId: item._id,
+                    groupName: item.name 
+                  }
+                })}
+              >
+                <Ionicons name="person-add" size={16} color="#2563EB" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderDirectChatItem = ({ item }: { item: ChatPreview }) => {
+    const isMuted = mutedChats.has(item._id);
+    const isBlocked = blockedUsers.has(item._id);
+    const isArchived = archivedChats.has(item._id);
+
+    return (
+      <TouchableOpacity
+        style={styles.chatItem}
+        onPress={() => handleUserSelect(item._id)}
+        onLongPress={(event) => handleMenuPress(item, event)}
+      >
+        <View style={styles.avatarContainer}>
+          {item.user.avatar ? (
+            <Text style={styles.avatarText}>{item.user.avatar}</Text>
+          ) : (
+            <Text style={styles.avatarText}>
+              {item.user.name.charAt(0).toUpperCase()}
+            </Text>
           )}
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.chatInfo}>
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatName}>{item.user.name}</Text>
+            <View style={styles.chatActions}>
+              {isMuted && <Ionicons name="volume-mute" size={16} color="#64748B" style={styles.statusIcon} />}
+              {isBlocked && <Ionicons name="ban" size={16} color="#EF4444" style={styles.statusIcon} />}
+              {isArchived && <Ionicons name="archive" size={16} color="#64748B" style={styles.statusIcon} />}
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  handleMenuPress(item, event);
+                }}
+              >
+                <Ionicons name="ellipsis-vertical" size={16} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.chatPreview}>
+            <Text style={styles.lastMessage} numberOfLines={1}>
+              {item.lastMessage}
+            </Text>
+            <View style={styles.chatMeta}>
+              <Text style={styles.chatTime}>
+                {format(new Date(item.lastMessageAt), 'MMM d')}
+              </Text>
+              {item.unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderTabContent = () => {
     if (isSearching && searchQuery.trim()) {
@@ -352,13 +534,7 @@ export default function ChatsScreen() {
             <View style={styles.headerActions}>
               <TouchableOpacity
                 style={styles.headerButton}
-                onPress={() => setShowJoinGroup(true)}
-              >
-                <Ionicons name="add-circle" size={24} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.headerButton}
-                onPress={() => setShowCreateGroup(true)}
+                onPress={() => router.push('/create-group')}
               >
                 <Ionicons name="people" size={24} color="white" />
               </TouchableOpacity>
@@ -544,6 +720,98 @@ export default function ChatsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Three-dot Menu Modal */}
+      <Modal
+        visible={showMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+        >
+          <View style={[styles.menuContent, { top: menuPosition.y, left: menuPosition.x }]}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleMenuOption('viewProfile')}
+            >
+              <Ionicons name="person" size={20} color="#374151" />
+              <Text style={styles.menuItemText}>
+                {activeTab === 'direct' ? 'View Profile' : 'Group Info'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleMenuOption('splitBill')}
+            >
+              <Ionicons name="receipt" size={20} color="#374151" />
+              <Text style={styles.menuItemText}>Split Bill</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleMenuOption('mute')}
+            >
+              <Ionicons name="volume-mute" size={20} color="#374151" />
+              <Text style={styles.menuItemText}>
+                {mutedChats.has(selectedChat?._id) ? 'Unmute' : 'Mute'}
+              </Text>
+            </TouchableOpacity>
+
+            {activeTab === 'direct' && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => handleMenuOption('block')}
+              >
+                <Ionicons name="ban" size={20} color="#EF4444" />
+                <Text style={[styles.menuItemText, styles.dangerText]}>
+                  {blockedUsers.has(selectedChat?._id) ? 'Unblock' : 'Block'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleMenuOption('archive')}
+            >
+              <Ionicons name="archive" size={20} color="#374151" />
+              <Text style={styles.menuItemText}>
+                {archivedChats.has(selectedChat?._id) ? 'Unarchive' : 'Archive'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleMenuOption('clear')}
+            >
+              <Ionicons name="trash" size={20} color="#F59E0B" />
+              <Text style={[styles.menuItemText, styles.warningText]}>Clear Chat</Text>
+            </TouchableOpacity>
+
+            {activeTab === 'direct' && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => handleMenuOption('report')}
+              >
+                <Ionicons name="flag" size={20} color="#EF4444" />
+                <Text style={[styles.menuItemText, styles.dangerText]}>Report</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleMenuOption('delete')}
+            >
+              <Ionicons name="trash" size={20} color="#EF4444" />
+              <Text style={[styles.menuItemText, styles.dangerText]}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -559,6 +827,26 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+  },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginHorizontal: 2,
+  },
+  activeTab: {
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   headerContent: {
     flexDirection: 'row',
@@ -618,26 +906,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     borderRadius: 12,
     padding: 4,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  activeTab: {
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   tabText: {
     fontSize: 14,
@@ -711,10 +979,39 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     flex: 1,
   },
+  chatActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusIcon: {
+    marginRight: 4,
+  },
+  menuButton: {
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+  },
+  chatMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   memberCount: {
     fontSize: 12,
     color: '#64748B',
+    marginRight: 8,
+  },
+  groupActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addMemberButton: {
     marginLeft: 8,
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
   },
   chatTime: {
     fontSize: 12,
@@ -844,5 +1141,44 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Menu styles
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  menuContent: {
+    position: 'absolute',
+    backgroundColor: 'white',
+    borderRadius: 8,
+    paddingVertical: 8,
+    minWidth: 180,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#374151',
+    flex: 1,
+  },
+  dangerText: {
+    color: '#EF4444',
+  },
+  warningText: {
+    color: '#F59E0B',
   },
 });

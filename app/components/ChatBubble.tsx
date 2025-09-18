@@ -86,19 +86,32 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   ownBubble: {
-    backgroundColor: '#DCF8C6', // WhatsApp green
+    backgroundColor: '#EFF6FF',
     borderTopRightRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   otherBubble: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'white',
     borderTopLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   systemBubble: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   messageText: {
     fontSize: 16,
@@ -133,6 +146,6 @@ const styles = StyleSheet.create({
     color: '#667781',
   },
   statusRead: {
-    color: '#53bdeb', // WhatsApp blue ticks
+    color: '#2563EB', // App's primary blue
   },
 });

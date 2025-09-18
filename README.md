@@ -140,6 +140,34 @@ A comprehensive MERN stack finance application with real-time chat, AI-powered i
 
 ## 🤖 AI Features
 
+### Free AI Model Integration
+The app now uses OpenAI's GPT-3.5-turbo model for cost-effective financial analysis instead of backend-dependent solutions.
+
+#### Setup Free AI
+1. **Get OpenAI API Key**:
+   - Visit [OpenAI Platform](https://platform.openai.com/api-keys)
+   - Create a new API key
+   - Copy the API key
+
+2. **Configure Environment**:
+   ```bash
+   # Create .env file in the root directory
+   EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key_here
+   ```
+
+3. **Free Tier Benefits**:
+   - No backend server costs for AI analysis
+   - Generous free credits from OpenAI
+   - Direct client-side AI processing
+   - Automatic fallback to basic insights if API fails
+
+### AI Capabilities
+- **Spending Analysis**: Intelligent categorization and pattern recognition
+- **Budget Optimization**: Personalized budget recommendations
+- **Financial Predictions**: Future spending forecasts based on historical data
+- **Emotional Analysis**: Detection of emotional spending patterns
+- **Smart Insights**: Actionable financial advice and recommendations
+
 ### Spending Predictions
 - Analyzes historical spending patterns
 - Predicts budget overages before they happen

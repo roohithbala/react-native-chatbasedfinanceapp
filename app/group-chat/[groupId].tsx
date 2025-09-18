@@ -10,6 +10,7 @@ import {
   Platform,
   Alert,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +35,13 @@ interface ChatUser {
   username: string;
 }
 
+interface SplitBillData {
+  description: string;
+  amount: string;
+  participants: ChatUser[];
+  category: string;
+}
+
 export default function GroupChatScreen() {
   const { groupId, groupName } = useLocalSearchParams<{ 
     groupId: string; 
@@ -47,9 +55,23 @@ export default function GroupChatScreen() {
   const [showMentions, setShowMentions] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const mentionTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [showSplitBillModal, setShowSplitBillModal] = useState(false);
+  const [splitBillData, setSplitBillData] = useState<SplitBillData>({
+    description: '',
+    amount: '',
+    participants: [],
+    category: 'Food'
+  });
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<ChatUser[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline' | 'connecting'>('connecting');
+  const [isOnline, setIsOnline] = useState(true);
+  const [isSplitMode, setIsSplitMode] = useState(false);
   
+  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+  const mentionTimeout = useRef<NodeJS.Timeout | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
   const { usersAPI } = require('@/app/services/api');
   const { currentUser, groups, selectGroup, selectedGroup } = useFinanceStore();
 
@@ -63,35 +85,40 @@ export default function GroupChatScreen() {
     }
 
     return () => {
+      // Clean up typing indicators
+      if (isTyping && groupId) {
+        socketService.stopTyping(groupId);
+      }
       socketService.disconnect();
     };
   }, [groupId, currentGroup]);
 
-  const handleMentionSearch = async (query: string) => {
-    if (mentionTimeout.current) {
-      clearTimeout(mentionTimeout.current);
-    }
-
-    setMentionQuery(query);
-    
-    if (query.length < 1) {
-      setShowMentions(false);
-      return;
-    }
-
-    mentionTimeout.current = setTimeout(async () => {
-      try {
-        const users = await usersAPI.searchByUsername(query);
-        setMentionResults(users);
-        setShowMentions(users.length > 0);
-      } catch (error) {
-        console.error('Error searching users:', error);
-      }
-    }, 300);
-  };
-
   const handleMessageChange = (text: string) => {
     setMessage(text);
+    
+    // Handle typing indicators
+    if (text.trim() && !isTyping && groupId) {
+      setIsTyping(true);
+      socketService.startTyping(groupId);
+    } else if (!text.trim() && isTyping && groupId) {
+      setIsTyping(false);
+      socketService.stopTyping(groupId);
+    }
+
+    // Clear existing typing timeout
+    if (typingTimeout.current) {
+      clearTimeout(typingTimeout.current);
+    }
+
+    // Set new typing timeout
+    if (text.trim()) {
+      typingTimeout.current = setTimeout(() => {
+        if (isTyping && groupId) {
+          setIsTyping(false);
+          socketService.stopTyping(groupId);
+        }
+      }, 2000); // Stop typing after 2 seconds of inactivity
+    }
     
     // Check for @ mentions
     const lastAtIndex = text.lastIndexOf('@');
@@ -115,21 +142,139 @@ export default function GroupChatScreen() {
     setShowMentions(false);
   };
 
+  const handleMentionSearch = async (query: string) => {
+    if (mentionTimeout.current) {
+      clearTimeout(mentionTimeout.current);
+    }
+
+    setMentionQuery(query);
+    
+    if (query.length < 1) {
+      setShowMentions(false);
+      return;
+    }
+
+    mentionTimeout.current = setTimeout(async () => {
+      try {
+        // Only search within group members
+        const groupMembers = currentGroup?.members || [];
+        const memberUsernames = groupMembers.map(m => m.user.username);
+        
+        const users = await usersAPI.searchByUsername(query);
+        // Filter to only show group members
+        const filteredUsers = users.filter((user: ChatUser) => 
+          memberUsernames.includes(user.username) && 
+          user._id !== currentUser?._id
+        );
+        
+        setMentionResults(filteredUsers);
+        setShowMentions(filteredUsers.length > 0);
+      } catch (error) {
+        console.error('Error searching users:', error);
+      }
+    }, 300);
+  };
+
+  const startSplitBill = () => {
+    setIsSplitMode(true);
+    setMessage('@split ');
+    setSplitBillData({
+      description: '',
+      amount: '',
+      participants: [],
+      category: 'Food'
+    });
+  };
+
+  const handleSplitBillSubmit = async () => {
+    if (!splitBillData.description.trim() || !splitBillData.amount.trim()) {
+      Alert.alert('Error', 'Please enter description and amount');
+      return;
+    }
+
+    if (splitBillData.participants.length === 0) {
+      Alert.alert('Error', 'Please select at least one participant');
+      return;
+    }
+
+    const amount = parseFloat(splitBillData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    // Create the split bill command
+    const participantMentions = splitBillData.participants.map(p => `@${p.username}`).join(' ');
+    const command = `@split ${splitBillData.description} $${amount} ${participantMentions}`;
+    
+    setMessage(command);
+    setShowSplitBillModal(false);
+    setIsSplitMode(false);
+    
+    // Send the message
+    await sendMessage();
+  };
+
   const connectSocket = async () => {
     try {
       if (!groupId) return;
       await socketService.connect();
       socketService.joinGroup(groupId);
       
+      // Set up WhatsApp-like features
+      socketService.onConnectionStatusChange((online) => {
+        setConnectionStatus(online ? 'online' : 'offline');
+        setIsOnline(online);
+      });
+
       socketService.onReceiveMessage((msg) => {
-        setMessages(prev => [msg, ...prev]);
+        console.log('Received message:', msg);
+        // Only add message if it's not already in the list
+        setMessages(prev => {
+          const messageExists = prev.some(m => m._id === msg._id);
+          if (messageExists) return prev;
+          return [msg, ...prev];
+        });
+      });
+
+      socketService.onTypingStart((data) => {
+        const { groupId: typingGroupId, user } = data;
+        if (typingGroupId === groupId) {
+          setTypingUsers(prev => {
+            const userExists = prev.some(u => u._id === user._id);
+            if (userExists) return prev;
+            return [...prev, { _id: user._id, name: user.name, username: user.username }];
+          });
+        }
+      });
+
+      socketService.onTypingStop((data) => {
+        const { groupId: typingGroupId, user } = data;
+        if (typingGroupId === groupId) {
+          setTypingUsers(prev => prev.filter(u => u._id !== user._id));
+        }
+      });
+
+      socketService.onMessageRead((data) => {
+        const { messageId, userId } = data;
+        setMessages(prev => prev.map(msg => 
+          msg._id === messageId 
+            ? { 
+                ...msg, 
+                readBy: [...(msg.readBy || []), { userId, readAt: new Date().toISOString() }] 
+              }
+            : msg
+        ));
       });
 
       socketService.onError((error) => {
-        Alert.alert('Error', error.message);
+        console.error('Socket error:', error);
+        setConnectionStatus('offline');
+        Alert.alert('Connection Error', error.message || 'Failed to connect to chat server');
       });
     } catch (error) {
       console.error('Socket connection error:', error);
+      setConnectionStatus('offline');
       Alert.alert('Connection Error', 'Failed to connect to chat server');
     }
   };
@@ -150,7 +295,8 @@ export default function GroupChatScreen() {
       setMessages([
         {
           _id: 'welcome',
-          text: `Welcome to ${groupName || currentGroup?.name || 'Group Chat'}! 🎉\n\nUse commands:\n@split [description] $[amount] @user1 @user2\n@addexpense [description] $[amount]\n@predict - Get spending predictions\n@summary - View group expenses`,
+          text: `Welcome to ${groupName || currentGroup?.name || 'Group Chat'}! 🎉\n\nUse commands:\n@split [description] $[amount] @user1 @user2\n@addexpense [description] $[amount]\n@predict - Get spending predictions\n@summary - View group expenses` +
+          `\n\n💡 Tip: Use the "Split Bill" button for easy bill splitting!`,
           createdAt: new Date().toISOString(),
           user: { _id: 'system', name: 'AI Assistant' },
           type: 'system',
@@ -179,10 +325,13 @@ export default function GroupChatScreen() {
   const sendMessage = async () => {
     if (!message.trim() || !currentUser || !groupId) return;
 
+    const messageText = message.trim();
+    setMessage(''); // Clear message immediately for better UX
+
     try {
       const response = await chatAPI.sendMessage(groupId, { 
-        text: message,
-        type: message.startsWith('@') ? 'system' : 'text',
+        text: messageText,
+        type: messageText.startsWith('@') ? 'command' : 'text',
         status: 'sent'
       });
 
@@ -190,47 +339,14 @@ export default function GroupChatScreen() {
         throw new Error('Failed to send message');
       }
 
-      // Add user's message
-      const newMessage: Message = {
-        _id: response.data.message._id,
-        text: message,
-        createdAt: new Date().toISOString(),
-        user: { 
-          _id: currentUser._id, 
-          name: currentUser.name,
-          avatar: currentUser.avatar
-        },
-        groupId: groupId,
-        type: message.startsWith('@') ? 'command' : 'text',
-        status: 'sent',
-        readBy: []
-      };
+      // The message will be added via socket event, so we don't need to add it here
+      // This prevents duplicate messages
 
-      // Add system message if available
-      const systemMessage = response.data.systemMessage;
-      if (systemMessage) {
-        setMessages(prev => [
-          {
-            _id: systemMessage._id || 'sys-' + Date.now(),
-            text: systemMessage.text || '',
-            createdAt: systemMessage.createdAt || new Date().toISOString(),
-            user: { _id: 'system', name: 'AI Assistant' },
-            type: 'system',
-            status: 'sent',
-            groupId: groupId,
-            readBy: []
-          },
-          newMessage,
-          ...prev
-        ]);
-      } else {
-        setMessages(prev => [newMessage, ...prev]);
-      }
-
-      setMessage('');
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     } catch (error: any) {
       console.error('Error sending message:', error);
+      // Restore the message if sending failed
+      setMessage(messageText);
       Alert.alert('Error', error.message || 'Failed to send message. Please try again.');
     }
   };
@@ -268,7 +384,7 @@ export default function GroupChatScreen() {
           <Ionicons name="people-outline" size={48} color="#6B7280" />
           <Text style={styles.noGroupTitle}>Group Not Found</Text>
           <Text style={styles.noGroupText}>
-            The group you're looking for doesn't exist or you don't have access to it.
+            The group you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
           </Text>
           <TouchableOpacity 
             style={styles.backButton}
@@ -302,9 +418,23 @@ export default function GroupChatScreen() {
               <Text style={styles.groupName}>
                 {groupName || currentGroup.name}
               </Text>
-              <Text style={styles.memberCount}>
-                {currentGroup.members.length} members
-              </Text>
+              <View style={styles.statusRow}>
+                <Text style={styles.memberCount}>
+                  {currentGroup.members.length} members
+                </Text>
+                <View style={styles.connectionIndicator}>
+                  <View style={[
+                    styles.connectionDot,
+                    connectionStatus === 'online' && styles.connectionDotOnline,
+                    connectionStatus === 'connecting' && styles.connectionDotConnecting,
+                    connectionStatus === 'offline' && styles.connectionDotOffline
+                  ]} />
+                  <Text style={styles.connectionText}>
+                    {connectionStatus === 'online' ? 'Online' : 
+                     connectionStatus === 'connecting' ? 'Connecting...' : 'Offline'}
+                  </Text>
+                </View>
+              </View>
             </View>
             
             <View style={styles.headerActions}>
@@ -351,13 +481,13 @@ export default function GroupChatScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <TouchableOpacity 
               style={styles.commandChip}
-              onPress={() => setMessage('@split Dinner $50 @alice @bob')}
+              onPress={startSplitBill}
             >
-              <Text style={styles.commandChipText}>@split</Text>
+              <Text style={styles.commandChipText}>💰 Split Bill</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.commandChip}
-              onPress={() => setMessage('@addexpense Coffee $5')}
+              onPress={() => setMessage('@addexpense Lunch $15')}
             >
               <Text style={styles.commandChipText}>@addexpense</Text>
             </TouchableOpacity>
@@ -401,6 +531,18 @@ export default function GroupChatScreen() {
           </View>
         )}
 
+        {/* Typing Indicators */}
+        {typingUsers.length > 0 && (
+          <View style={styles.typingContainer}>
+            <Text style={styles.typingText}>
+              {typingUsers.length === 1 
+                ? `${typingUsers[0].name} is typing...`
+                : `${typingUsers.length} people are typing...`
+              }
+            </Text>
+          </View>
+        )}
+
         {/* Input */}
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
@@ -430,6 +572,179 @@ export default function GroupChatScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Enhanced Split Bill Modal */}
+      <Modal
+        visible={showSplitBillModal}
+        animationType="slide"
+        presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'overFullScreen'}
+        transparent={false}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => {
+                setShowSplitBillModal(false);
+                setIsSplitMode(false);
+              }}>
+                <Text style={styles.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>💰 Create Split Bill</Text>
+              <TouchableOpacity onPress={handleSplitBillSubmit}>
+                <Text style={styles.modalSave}>Create</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>📝 Description</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={splitBillData.description}
+                  onChangeText={(text) => setSplitBillData(prev => ({ ...prev, description: text }))}
+                  placeholder="What are you splitting?"
+                  placeholderTextColor="#94A3B8"
+                  maxLength={100}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>💰 Amount</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={splitBillData.amount}
+                  onChangeText={(text) => {
+                    const cleaned = text.replace(/[^0-9.]/g, '');
+                    const parts = cleaned.split('.');
+                    if (parts.length > 2) return;
+                    if (parts[1] && parts[1].length > 2) return;
+                    setSplitBillData(prev => ({ ...prev, amount: cleaned }));
+                  }}
+                  placeholder="0.00"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="decimal-pad"
+                  maxLength={10}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>👥 Select Participants</Text>
+                <Text style={styles.participantsHint}>
+                  Choose group members to split with:
+                </Text>
+                <View style={styles.participantsContainer}>
+                  {currentGroup.members
+                    .filter(member => member.userId !== currentUser?._id)
+                    .map((member) => {
+                      const isSelected = splitBillData.participants.some(p => p._id === member.userId);
+                      return (
+                        <TouchableOpacity
+                          key={member.userId}
+                          style={[
+                            styles.participantChip,
+                            isSelected && styles.participantChipSelected,
+                          ]}
+                          onPress={() => {
+                            setSplitBillData(prev => ({
+                              ...prev,
+                              participants: isSelected
+                                ? prev.participants.filter(p => p._id !== member.userId)
+                                : [...prev.participants, {
+                                    _id: member.userId,
+                                    name: member.user.name,
+                                    username: member.user.username
+                                  }]
+                            }));
+                          }}
+                        >
+                          <Text style={styles.participantAvatar}>
+                            {member.user.name.charAt(0).toUpperCase()}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.participantName,
+                              isSelected && styles.participantNameSelected,
+                            ]}
+                          >
+                            {member.user.name}
+                          </Text>
+                          {isSelected && (
+                            <Ionicons name="checkmark" size={16} color="#10B981" />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                </View>
+                {splitBillData.participants.length > 0 && (
+                  <Text style={styles.selectedCount}>
+                    {splitBillData.participants.length} participant{splitBillData.participants.length !== 1 ? 's' : ''} selected
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>📂 Category</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.categoryScroll}
+                >
+                  {[
+                    'Food & Dining', 'Groceries', 'Restaurant', 'Coffee & Drinks', 'Delivery',
+                    'Transportation', 'Taxi/Ride', 'Gas/Fuel', 'Parking', 'Public Transit',
+                    'Entertainment', 'Movies', 'Games', 'Events', 'Concert', 'Sports',
+                    'Shopping', 'Clothing', 'Electronics', 'Home Goods', 'Books',
+                    'Travel', 'Flights', 'Hotel', 'Vacation', 'Accommodation',
+                    'Bills & Utilities', 'Electricity', 'Water', 'Internet', 'Phone', 'Rent',
+                    'Health & Fitness', 'Doctor', 'Pharmacy', 'Gym', 'Sports Equipment',
+                    'Education', 'Courses', 'Books', 'School Supplies', 'Tuition',
+                    'Services', 'Cleaning', 'Repair', 'Maintenance', 'Professional',
+                    'Subscriptions', 'Streaming', 'Software', 'Magazines', 'Memberships',
+                    'Gifts', 'Birthday', 'Holiday', 'Wedding', 'Special Occasion',
+                    'Other'
+                  ].map((cat) => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.categoryChip,
+                        splitBillData.category === cat && styles.categoryChipActive,
+                      ]}
+                      onPress={() => setSplitBillData(prev => ({ ...prev, category: cat }))}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          splitBillData.category === cat && styles.categoryTextActive,
+                        ]}
+                      >
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {splitBillData.amount && splitBillData.participants.length > 0 && (
+                <View style={styles.splitPreview}>
+                  <Text style={styles.previewTitle}>Split Preview:</Text>
+                  <Text style={styles.previewText}>
+                    Total: ${parseFloat(splitBillData.amount) || 0}
+                  </Text>
+                  <Text style={styles.previewText}>
+                    Each person pays: ${(parseFloat(splitBillData.amount) / (splitBillData.participants.length + 1)).toFixed(2)}
+                  </Text>
+                  <Text style={styles.previewText}>
+                    Participants: {splitBillData.participants.map(p => p.name).join(', ')}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -619,5 +934,200 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#E5E7EB',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: 'white',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  modalCancel: {
+    fontSize: 16,
+    color: '#64748B',
+  },
+  modalSave: {
+    fontSize: 16,
+    color: '#2563EB',
+    fontWeight: '600',
+  },
+  modalContent: {
+    padding: 20,
+  },
+  inputGroup: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 8,
+  },
+  modalTextInput: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    color: '#1E293B',
+  },
+  amountInput: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 20,
+    fontWeight: 'bold',
+    borderWidth: 2,
+    borderColor: '#10B981',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  participantsHint: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 12,
+  },
+  participantsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  participantChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  participantChipSelected: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#10B981',
+  },
+  participantAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E5E7EB',
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+    marginRight: 8,
+    textAlignVertical: 'center',
+  },
+  participantName: {
+    fontSize: 14,
+    color: '#64748B',
+    marginRight: 8,
+  },
+  participantNameSelected: {
+    color: '#047857',
+    fontWeight: '600',
+  },
+  selectedCount: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  categoryScroll: {
+    marginTop: 8,
+  },
+  categoryChip: {
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  categoryChipActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  categoryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  categoryTextActive: {
+    color: 'white',
+  },
+  splitPreview: {
+    backgroundColor: '#F0F9FF',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 8,
+  },
+  previewText: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  connectionIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  connectionDotOnline: {
+    backgroundColor: '#10B981',
+  },
+  connectionDotConnecting: {
+    backgroundColor: '#F59E0B',
+  },
+  connectionDotOffline: {
+    backgroundColor: '#EF4444',
+  },
+  connectionText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  typingContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  typingText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontStyle: 'italic',
   },
 });

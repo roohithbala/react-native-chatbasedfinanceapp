@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Dimensions,
   ColorValue,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,13 +19,62 @@ import { useFinanceStore } from '../../lib/store/financeStore';
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function InsightsScreen() {
-  const { expenses, budgets, loadExpenses, loadBudgets } = useFinanceStore();
+  const { 
+    expenses, 
+    budgets, 
+    loadExpenses, 
+    loadBudgets,
+    currentUser,
+    loadPredictions,
+    loadInsights,
+    predictions,
+    insights
+  } = useFinanceStore();
   
+  const [isLoading, setIsLoading] = useState(false);
+  const [aiInsights, setAiInsights] = useState<any>(null);
+  const [aiPredictions, setAiPredictions] = useState<any>(null);
+  const [fallbackInsights, setFallbackInsights] = useState<any[]>([]);
+
   // Load data when component mounts
-  React.useEffect(() => {
-    loadExpenses().catch(console.error);
-    loadBudgets().catch(console.error);
+  useEffect(() => {
+    loadInitialData();
   }, []);
+
+  const loadInitialData = async () => {
+    try {
+      setIsLoading(true);
+      await Promise.all([
+        loadExpenses(),
+        loadBudgets(),
+        loadAIInsights()
+      ]);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      Alert.alert('Error', 'Failed to load insights data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadAIInsights = async () => {
+    try {
+      const [summaryData, predictionsData] = await Promise.all([
+        loadInsights(),
+        loadPredictions()
+      ]);
+      
+      // The free AI service returns insights and predictions directly
+      // No need for complex response format handling
+      setAiInsights(Array.isArray(summaryData) ? summaryData : []);
+      setAiPredictions(Array.isArray(predictionsData) ? predictionsData : []);
+    } catch (error) {
+      console.error('Error loading AI data:', error);
+      // Use fallback data if AI fails
+      setAiInsights([]);
+      setAiPredictions([]);
+    }
+  };
 
   // Sample data for demo
   // Calculate spending trend from actual expenses
@@ -88,7 +139,7 @@ export default function InsightsScreen() {
       .filter(cat => cat.population > 0); // Only show categories with spending
   }, [expenses]);
 
-  const insights = [
+  const sampleInsights = [
     {
       id: 1,
       title: 'Spending Pattern Alert',
@@ -220,21 +271,42 @@ export default function InsightsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>AI Insights & Predictions</Text>
-          {insights.map((insight) => (
-            <TouchableOpacity key={insight.id} style={styles.insightCard}>
-              <LinearGradient
-                colors={getInsightColor(insight.type)}
-                style={styles.insightGradient}
-              >
-                <View style={styles.insightHeader}>
-                  <Text style={styles.insightEmoji}>{insight.icon}</Text>
-                  <Text style={styles.insightTitle}>{insight.title}</Text>
-                </View>
-                <Text style={styles.insightDescription}>{insight.description}</Text>
-              </LinearGradient>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>AI Insights & Predictions</Text>
+            <TouchableOpacity 
+              style={styles.refreshButton}
+              onPress={loadAIInsights}
+              disabled={isLoading}
+            >
+              <Ionicons 
+                name="refresh" 
+                size={20} 
+                color={isLoading ? "#94A3B8" : "#8B5CF6"} 
+              />
             </TouchableOpacity>
-          ))}
+          </View>
+          
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#8B5CF6" />
+              <Text style={styles.loadingText}>Analyzing your spending patterns...</Text>
+            </View>
+          ) : (
+            (aiInsights && aiInsights.length > 0 ? aiInsights : sampleInsights).map((insight: any) => (
+              <TouchableOpacity key={insight.id || insight.title} style={styles.insightCard}>
+                <LinearGradient
+                  colors={getInsightColor(insight.type)}
+                  style={styles.insightGradient}
+                >
+                  <View style={styles.insightHeader}>
+                    <Text style={styles.insightEmoji}>{insight.icon}</Text>
+                    <Text style={styles.insightTitle}>{insight.title}</Text>
+                  </View>
+                  <Text style={styles.insightDescription}>{insight.description}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         <View style={styles.section}>
@@ -435,6 +507,27 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3E8FF',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#64748B',
     textAlign: 'center',
   },
 });

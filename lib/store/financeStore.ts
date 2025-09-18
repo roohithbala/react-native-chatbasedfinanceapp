@@ -6,8 +6,7 @@ import {
   authAPI, 
   expensesAPI, 
   groupsAPI, 
-  chatAPI, 
-  aiAPI,
+  chatAPI,
   budgetsAPI 
 } from '@/app/services/api';
 import type { Message } from '@/app/types/chat';
@@ -19,6 +18,7 @@ import type {
   SplitBillStats 
 } from '@/app/services/splitBillService';
 import SplitBillService from '@/app/services/splitBillService';
+import freeAIService, { SpendingAnalysis } from '@/lib/services/freeAIService';
 
 export type { SplitBill };
 
@@ -42,7 +42,18 @@ export interface Expense {
   amount: number;
   category: string;
   userId: string;
+  groupId?: string;
   createdAt: Date;
+  tags?: string[];
+  location?: string;
+}
+
+export interface CreateExpenseData {
+  description: string;
+  amount: number;
+  category: string;
+  userId: string;
+  groupId?: string;
   tags?: string[];
   location?: string;
 }
@@ -65,16 +76,16 @@ export interface Group {
   description?: string;
   avatar: string;
   inviteCode: string;
-  members: Array<{
+  members: {
     userId: string;
     role: 'admin' | 'member';
     user: User;
-  }>;
-  budgets: Array<{
+  }[];
+  budgets: {
     category: string;
     amount: number;
     period: string;
-  }>;
+  }[];
 }
 
 interface FinanceState {
@@ -101,7 +112,7 @@ interface FinanceState {
   updateProfile: (userData: User) => Promise<void>;
   
   // Expense actions
-  addExpense: (expense: Omit<Expense, '_id'>) => Promise<void>;
+  addExpense: (expense: CreateExpenseData) => Promise<void>;
   loadExpenses: () => Promise<void>;
   updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
@@ -115,8 +126,8 @@ interface FinanceState {
   getSplitBillStats: (groupId?: string, period?: 'week' | 'month' | 'year') => Promise<SplitBillStats>;
   
   // Budget actions
-  setBudget: (category: string, amount: number) => void;
-  loadBudgets: () => Promise<void>;
+  setBudget: (category: string, amount: number, groupId?: string) => Promise<void>;
+  loadBudgets: (groupId?: string) => Promise<void>;
   
   // Group actions
   loadGroups: () => Promise<void>;
@@ -124,7 +135,7 @@ interface FinanceState {
   joinGroupByCode: (inviteCode: string) => Promise<void>;
   selectGroup: (group: Group) => void;
   generateInviteLink: (groupId: string) => string;
-  addMemberToGroup: (groupId: string, email: string) => Promise<void>;
+  addMemberToGroup: (groupId: string, identifier: string, searchType?: 'email' | 'username') => Promise<void>;
   
   // Chat actions
   loadMessages: (groupId: string) => Promise<void>;
@@ -472,7 +483,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   },
 
   // Expense actions
-  addExpense: async (expenseData: Omit<Expense, '_id'>) => {
+  addExpense: async (expenseData: CreateExpenseData) => {
     try {
       set({ isLoading: true, error: null });
       const response = await expensesAPI.addExpense(expenseData);
@@ -704,52 +715,65 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   },
 
   // Budget actions
-  setBudget: async (category, amount) => {
+  setBudget: async (category, amount, groupId) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await budgetsAPI.setBudget({ category, amount });
-      
-      // Always reload budgets after setting to ensure fresh data
-      await get().loadBudgets();
-      
-      set({ isLoading: false });
-      return true;
+      const response = await budgetsAPI.setBudget({ category, amount, groupId });
+
+      // The budgetsAPI.setBudget already extracts the data property
+      // So response.budgets contains the updated budget object directly
+      if (response && response.budgets) {
+        const budgets = typeof response.budgets === 'object' && !Array.isArray(response.budgets)
+          ? response.budgets
+          : {};
+        set({
+          budgets: budgets,
+          error: null,
+          isLoading: false
+        });
+      } else {
+        // If no budgets returned, reload them
+        await get().loadBudgets(groupId);
+      }
     } catch (error: any) {
-      set({ 
+      set({
         error: error.response?.data?.message || error.message || 'Failed to set budget',
-        isLoading: false 
+        isLoading: false
       });
       throw error;
     }
   },
 
-  loadBudgets: async () => {
+  loadBudgets: async (groupId) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await budgetsAPI.getBudgets();
-      
-      // Only update state if we have valid budget data from server
-      if (response && response.data && response.data.budgets) {
-        // Ensure budgets is an array or object
-        const budgets = Array.isArray(response.data.budgets) ? response.data.budgets : response.data.budgets || {};
-        set({ 
+      const response = await budgetsAPI.getBudgets(groupId);
+
+      // The budgetsAPI.getBudgets already extracts the data property
+      // So response.budgets contains the budget object directly
+      if (response && response.budgets) {
+        // Ensure budgets is an object with category keys
+        const budgets = typeof response.budgets === 'object' && !Array.isArray(response.budgets)
+          ? response.budgets
+          : {};
+        set({
           budgets: budgets,
           error: null,
-          isLoading: false 
+          isLoading: false
         });
       } else {
-        // If no budgets exist yet, set to empty array/object
-        set({ 
+        // If no budgets exist yet, set to empty object
+        set({
           budgets: {},
           error: null,
-          isLoading: false 
+          isLoading: false
         });
       }
     } catch (error: any) {
       console.error('Error loading budgets:', error);
-      
+
       let errorMessage = 'Failed to load budgets';
-      
+
       if (error.message === 'Network Error') {
         errorMessage = 'Network error: Please check your internet connection and try again';
       } else if (error.response?.data?.message) {
@@ -757,13 +781,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
-      set({ 
+
+      set({
         error: errorMessage,
         budgets: {}, // Reset to empty object on error
-        isLoading: false 
+        isLoading: false
       });
-      
+
       // Show alert for better user experience
       Alert.alert('Error', errorMessage);
     }
@@ -775,10 +799,19 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       set({ isLoading: true, error: null });
       const response = await groupsAPI.getGroups();
       // Handle both formats: {groups: [...]} or {data: {groups: [...]}}
-      const groups = response.groups || response.data?.groups || response;
-      set({ 
-        groups: Array.isArray(groups) ? groups : [],
-        isLoading: false 
+      let groups: any[] = [];
+      if (response && typeof response === 'object') {
+        if ('groups' in response && Array.isArray(response.groups)) {
+          groups = response.groups;
+        } else if ('data' in response && response.data && typeof response.data === 'object' && 'groups' in response.data && Array.isArray(response.data.groups)) {
+          groups = response.data.groups;
+        } else if (Array.isArray(response)) {
+          groups = response;
+        }
+      }
+      set({
+        groups: groups,
+        isLoading: false
       });
     } catch (error: any) {
       console.error('Load groups error:', error);
@@ -860,11 +893,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     return `https://securefinance.app/join/${group.inviteCode}`;
   },
 
-  addMemberToGroup: async (groupId: string, email: string) => {
+  addMemberToGroup: async (groupId: string, identifier: string, searchType: 'email' | 'username' = 'email') => {
     try {
       set({ isLoading: true, error: null });
 
-      const response = await groupsAPI.addMember(groupId, email);
+      const response = await groupsAPI.addMember(groupId, identifier, searchType);
       
       if (!response || !response.group) {
         throw new Error('Invalid response from server');
@@ -950,14 +983,23 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   loadPredictions: async () => {
     try {
       set({ isLoading: true, error: null });
-      const response = await aiAPI.getPredictions();
+      
+      // Use free AI service instead of backend API
+      const expenses = get().expenses;
+      const budgets = get().budgets;
+      
+      const analysis: SpendingAnalysis = await freeAIService.analyzeSpending(expenses, budgets);
+      
       set({ 
-        predictions: response.data,
+        predictions: analysis.predictions || [],
+        insights: analysis.insights || [],
         isLoading: false 
       });
     } catch (error: any) {
+      console.error('Error loading predictions:', error);
       set({ 
-        error: error.response?.data?.message || error.message || 'Failed to load predictions',
+        error: error.message || 'Failed to load predictions',
+        predictions: [],
         isLoading: false 
       });
       throw error;
@@ -967,14 +1009,23 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   loadInsights: async () => {
     try {
       set({ isLoading: true, error: null });
-      const response = await aiAPI.getSummary();
+      
+      // Use free AI service instead of backend API
+      const expenses = get().expenses;
+      const budgets = get().budgets;
+      
+      const analysis: SpendingAnalysis = await freeAIService.analyzeSpending(expenses, budgets);
+      
       set({ 
-        insights: response.data,
+        insights: analysis.insights || [],
+        predictions: analysis.predictions || [],
         isLoading: false 
       });
     } catch (error: any) {
+      console.error('Error loading insights:', error);
       set({ 
-        error: error.response?.data?.message || error.message || 'Failed to load insights',
+        error: error.message || 'Failed to load insights',
+        insights: [],
         isLoading: false 
       });
       throw error;

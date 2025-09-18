@@ -28,18 +28,20 @@ export default function BudgetScreen() {
     loadBudgets,
     isLoading,
     error,
-    selectedGroup,
-    groups
+    selectedGroup
   } = useFinanceStore();
 
-  // Load expenses and budgets when component mounts
+  // Load expenses and budgets when component mounts or when budget type/group changes
   React.useEffect(() => {
     const loadData = async () => {
       try {
+        console.log('Loading budget data for type:', selectedBudgetType, 'group:', selectedGroup?.name);
+        const groupId = selectedBudgetType === 'group' && selectedGroup ? selectedGroup._id : undefined;
         await Promise.all([
           loadExpenses(),
-          loadBudgets()
+          loadBudgets(groupId)
         ]);
+        console.log('Budget data loaded successfully');
       } catch (err) {
         console.error('Error loading budget data:', err);
         Alert.alert(
@@ -49,7 +51,7 @@ export default function BudgetScreen() {
       }
     };
     loadData();
-  }, []);
+  }, [selectedBudgetType, selectedGroup, loadBudgets, loadExpenses]);
 
   const categories = ['Food', 'Transport', 'Entertainment', 'Shopping', 'Bills', 'Health', 'Other'];
   const categoryIcons = {
@@ -73,10 +75,32 @@ export default function BudgetScreen() {
   };
 
   const getSpentAmount = (category: string) => {
-    if (!expenses || !Array.isArray(expenses)) return 0;
-    return expenses
-      .filter(expense => expense && typeof expense === 'object' && expense.category === category)
-      .reduce((sum, expense) => sum + (expense.amount || 0), 0);
+    if (!expenses || !Array.isArray(expenses)) {
+      console.log('No expenses array available');
+      return 0;
+    }
+
+    let filteredExpenses;
+    if (selectedBudgetType === 'group' && selectedGroup) {
+      // For group budgets, only count expenses from the selected group
+      filteredExpenses = expenses.filter(expense =>
+        expense && typeof expense === 'object' &&
+        expense.category === category &&
+        expense.groupId === selectedGroup._id
+      );
+      console.log(`Group expenses for ${category}:`, filteredExpenses.length, 'expenses found');
+    } else {
+      // For personal budgets, count all personal expenses
+      filteredExpenses = expenses.filter(expense =>
+        expense && typeof expense === 'object' &&
+        expense.category === category
+      );
+      console.log(`Personal expenses for ${category}:`, filteredExpenses.length, 'expenses found');
+    }
+
+    const total = filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+    console.log(`Total spent for ${category}:`, total);
+    return total;
   };
 
   const getProgressPercentage = (spent: number, limit: number) => {
@@ -103,7 +127,8 @@ export default function BudgetScreen() {
     }
 
     try {
-      await setBudget(category, budgetLimit);
+      const groupId = selectedBudgetType === 'group' && selectedGroup ? selectedGroup._id : undefined;
+      await setBudget(category, budgetLimit, groupId);
       setLimit('');
       setShowAddModal(false);
       Alert.alert('Success', `Budget set for ${category}!`);
@@ -114,6 +139,10 @@ export default function BudgetScreen() {
 
   const totalBudget = Object.values(budgets || {}).reduce((sum, budget) => sum + (typeof budget === 'number' ? budget : 0), 0);
   const totalSpent = Array.isArray(expenses) ? expenses.reduce((sum, expense) => sum + (expense?.amount || 0), 0) : 0;
+
+  console.log('Budgets state:', budgets);
+  console.log('Total budget:', totalBudget);
+  console.log('Total spent:', totalSpent);
 
   if (isLoading) {
     return (
@@ -271,7 +300,7 @@ export default function BudgetScreen() {
               {progressPercentage >= 90 && (
                 <View style={styles.warningContainer}>
                   <Text style={styles.warningText}>
-                    ⚠️ You're approaching your budget limit!
+                    ⚠️ You&apos;re approaching your budget limit!
                   </Text>
                 </View>
               )}

@@ -20,32 +20,21 @@ router.get('/', auth, async (req, res) => {
       isActive: true
     }).sort('-createdAt');
     
-    // If user has no groups, create default groups
+    // If user has no groups, create default Personal group only
     if (groups.length === 0) {
-      const defaultGroups = [
-        {
-          name: 'Personal',
-          description: 'Personal expenses and finances',
-          inviteCode: generateInviteCode(),
-          members: [{
-            userId: req.userId,
-            role: 'admin'
-          }]
-        },
-        {
-          name: 'Family',
-          description: 'Family shared expenses',
-          inviteCode: generateInviteCode(),
-          members: [{
-            userId: req.userId,
-            role: 'admin'
-          }]
-        }
-      ];
+      const defaultGroup = {
+        name: 'Personal',
+        description: 'Your personal expenses and finances',
+        inviteCode: generateInviteCode(),
+        members: [{
+          userId: req.userId,
+          role: 'admin'
+        }]
+      };
       
-      // Create default groups
-      const createdGroups = await Group.insertMany(defaultGroups);
-      groups = createdGroups;
+      // Create default Personal group
+      const createdGroup = await Group.create(defaultGroup);
+      groups = [createdGroup];
     }
     
     res.json({
@@ -196,7 +185,18 @@ router.get('/:id', auth, async (req, res) => {
 // Add member to group
 router.post('/:id/members', auth, async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, username } = req.body;
+
+    // Validate that either email or username is provided
+    if ((!email && !username) || (email && username)) {
+      return res.status(400).json({ 
+        status: 'error',
+        message: 'Please provide either email or username (not both)' 
+      });
+    }
+
+    const searchField = email ? 'email' : 'username';
+    const searchValue = (email || username).trim();
 
     const group = await Group.findOne({
       _id: req.params.id,
@@ -211,11 +211,19 @@ router.post('/:id/members', auth, async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    // Check if group is "Personal" type - don't allow adding members to personal groups
+    if (group.name === 'Personal') {
+      return res.status(400).json({ 
+        status: 'error',
+        message: 'Cannot add members to Personal group. Create a new group for sharing expenses.' 
+      });
+    }
+
+    const user = await User.findOne({ [searchField]: searchValue });
     if (!user) {
       return res.status(404).json({ 
         status: 'error',
-        message: 'User not found' 
+        message: `${searchField === 'email' ? 'User with this email' : 'User with this username'} not found` 
       });
     }
 

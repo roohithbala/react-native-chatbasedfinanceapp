@@ -8,28 +8,48 @@ const router = express.Router();
 // Get user budgets
 router.get('/', auth, async (req, res) => {
   try {
-    const { period = 'monthly' } = req.query;
-    
-    const budgets = await Budget.find({
+    const { period = 'monthly', groupId } = req.query;
+
+    let query = {
       userId: req.userId,
       period,
       isActive: true
-    }).sort({ category: 1 });
+    };
+
+    // If groupId is provided, get group budgets instead
+    if (groupId) {
+      query = {
+        groupId: groupId,
+        period,
+        isActive: true
+      };
+    }
+
+    const budgets = await Budget.find(query)
+      .sort({ category: 1 });
 
     // Calculate spent amounts for each budget
     const budgetsWithSpent = await Promise.all(
       budgets.map(async (budget) => {
-        const expenses = await Expense.find({
-          userId: req.userId,
+        const expenseQuery = {
           category: budget.category,
           createdAt: {
             $gte: budget.startDate,
             $lte: budget.endDate
           }
-        });
+        };
+
+        // If it's a group budget, get expenses for the group
+        if (budget.groupId) {
+          expenseQuery.groupId = budget.groupId;
+        } else {
+          expenseQuery.userId = budget.userId;
+        }
+
+        const expenses = await Expense.find(expenseQuery);
 
         const spent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-        
+
         return {
           ...budget.toObject(),
           spent,
@@ -39,16 +59,36 @@ router.get('/', auth, async (req, res) => {
       })
     );
 
-    // Transform the budgets into a category-based object
+    // Transform the budgets into a category-based object for frontend compatibility
     const budgetObject = budgetsWithSpent.reduce((acc, budget) => {
       acc[budget.category] = budget.amount;
+      return acc;
+    }, {});
+
+    // Also return detailed budget information
+    const detailedBudgets = budgetsWithSpent.reduce((acc, budget) => {
+      acc[budget.category] = {
+        amount: budget.amount,
+        spent: budget.spent,
+        remaining: budget.remaining,
+        percentage: budget.percentage,
+        period: budget.period,
+        startDate: budget.startDate,
+        endDate: budget.endDate,
+        isGroupBudget: !!budget.groupId
+      };
       return acc;
     }, {});
 
     res.json({
       status: 'success',
       data: {
-        budgets: budgetObject
+        budgets: budgetObject, // Simple format for frontend compatibility
+        detailedBudgets, // Detailed format for advanced features
+        totalBudgets: budgetsWithSpent.length,
+        totalAmount: budgetsWithSpent.reduce((sum, b) => sum + b.amount, 0),
+        totalSpent: budgetsWithSpent.reduce((sum, b) => sum + b.spent, 0),
+        totalRemaining: budgetsWithSpent.reduce((sum, b) => sum + b.remaining, 0)
       }
     });
   } catch (error) {
@@ -83,7 +123,7 @@ router.post('/', auth, async (req, res) => {
     if (!['Food', 'Transport', 'Entertainment', 'Shopping', 'Bills', 'Health', 'Other'].includes(category)) {
       return res.status(400).json({
         status: 'error',
-        message: 'Invalid category'
+        message: 'Invalid category. Must be one of: Food, Transport, Entertainment, Shopping, Bills, Health, Other'
       });
     }
 
