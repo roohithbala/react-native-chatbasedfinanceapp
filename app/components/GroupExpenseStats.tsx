@@ -24,6 +24,17 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
         setStats(data);
       } catch (error) {
         console.error('Error loading stats:', error);
+        // Set fallback empty stats to prevent crashes
+        setStats({
+          overview: {
+            totalAmount: 0,
+            count: 0,
+            settled: 0,
+            pending: 0
+          },
+          byCategory: [],
+          byParticipant: []
+        });
       } finally {
         setLoading(false);
       }
