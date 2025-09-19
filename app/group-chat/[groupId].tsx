@@ -237,6 +237,11 @@ export default function GroupChatScreen() {
       });
 
       socketService.onReceiveMessage((msg) => {
+        if (!msg || !msg._id) {
+          console.warn('Invalid message received:', msg);
+          return;
+        }
+        
         console.log('Received message:', msg);
         // Only add message if it's not already in the list
         setMessages(prev => {
@@ -247,24 +252,43 @@ export default function GroupChatScreen() {
       });
 
       socketService.onTypingStart((data) => {
+        if (!data || !data.user) {
+          console.warn('Invalid typing start data:', data);
+          return;
+        }
+        
         const { groupId: typingGroupId, user } = data;
-        if (typingGroupId === groupId) {
+        if (typingGroupId === groupId && user) {
           setTypingUsers(prev => {
             const userExists = prev.some(u => u._id === user._id);
             if (userExists) return prev;
-            return [...prev, { _id: user._id, name: user.name, username: user.username }];
+            return [...prev, { 
+              _id: user._id, 
+              name: user.name || 'Unknown', 
+              username: user.username || 'unknown' 
+            }];
           });
         }
       });
 
       socketService.onTypingStop((data) => {
+        if (!data || !data.user) {
+          console.warn('Invalid typing stop data:', data);
+          return;
+        }
+        
         const { groupId: typingGroupId, user } = data;
-        if (typingGroupId === groupId) {
+        if (typingGroupId === groupId && user) {
           setTypingUsers(prev => prev.filter(u => u._id !== user._id));
         }
       });
 
       socketService.onMessageRead((data) => {
+        if (!data || !data.messageId || !data.userId) {
+          console.warn('Invalid message read data:', data);
+          return;
+        }
+        
         const { messageId, userId } = data;
         setMessages(prev => prev.map(msg => 
           msg._id === messageId 
@@ -279,7 +303,7 @@ export default function GroupChatScreen() {
       socketService.onError((error) => {
         console.error('Socket error:', error);
         setConnectionStatus('offline');
-        Alert.alert('Connection Error', error.message || 'Failed to connect to chat server');
+        Alert.alert('Connection Error', error?.message || 'Failed to connect to chat server');
       });
     } catch (error) {
       console.error('Socket connection error:', error);
@@ -356,11 +380,16 @@ export default function GroupChatScreen() {
       console.error('Error sending message:', error);
       // Restore the message if sending failed
       setMessage(messageText);
-      Alert.alert('Error', error.message || 'Failed to send message. Please try again.');
+      Alert.alert('Error', error?.message || 'Failed to send message. Please try again.');
     }
   };
 
   const renderMessage = (msg: Message) => {
+    if (!msg || !msg.user) {
+      console.warn('Invalid message object:', msg);
+      return null;
+    }
+    
     const isOwnMessage = msg.user._id === currentUser?._id;
 
     return (
@@ -431,11 +460,11 @@ export default function GroupChatScreen() {
             
             <View style={styles.groupInfo}>
               <Text style={styles.groupName}>
-                {groupName || currentGroup.name}
+                {groupName || (currentGroup?.name) || 'Group Chat'}
               </Text>
               <View style={styles.statusRow}>
                 <Text style={styles.memberCount}>
-                  {currentGroup.members.length} members
+                  {currentGroup?.members?.length || 0} members
                 </Text>
                 <View style={styles.connectionIndicator}>
                   <View style={[
@@ -525,23 +554,30 @@ export default function GroupChatScreen() {
         {showMentions && mentionResults.length > 0 && (
           <View style={styles.mentionsContainer}>
             <ScrollView style={styles.mentionsList}>
-              {mentionResults.map((user) => (
-                <TouchableOpacity
-                  key={user._id}
-                  style={styles.mentionItem}
-                  onPress={() => insertMention(user)}
-                >
-                  <View style={styles.mentionAvatar}>
-                    <Text style={styles.mentionAvatarText}>
-                      {user.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={styles.mentionInfo}>
-                    <Text style={styles.mentionName}>{user.name}</Text>
-                    <Text style={styles.mentionUsername}>@{user.username}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {mentionResults.map((user) => {
+                if (!user || !user.name || !user.username) {
+                  console.warn('Invalid user object in mentions:', user);
+                  return null;
+                }
+                
+                return (
+                  <TouchableOpacity
+                    key={user._id}
+                    style={styles.mentionItem}
+                    onPress={() => insertMention(user)}
+                  >
+                    <View style={styles.mentionAvatar}>
+                      <Text style={styles.mentionAvatarText}>
+                        {user.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.mentionInfo}>
+                      <Text style={styles.mentionName}>{user.name}</Text>
+                      <Text style={styles.mentionUsername}>@{user.username}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         )}
@@ -551,7 +587,7 @@ export default function GroupChatScreen() {
           <View style={styles.typingContainer}>
             <Text style={styles.typingText}>
               {typingUsers.length === 1 
-                ? `${typingUsers[0].name} is typing...`
+                ? `${typingUsers[0]?.name || 'Someone'} is typing...`
                 : `${typingUsers.length} people are typing...`
               }
             </Text>
@@ -649,9 +685,14 @@ export default function GroupChatScreen() {
                   Choose group members to split with:
                 </Text>
                 <View style={styles.participantsContainer}>
-                  {currentGroup.members
-                    .filter(member => member.userId !== currentUser?._id)
-                    .map((member) => {
+                  {currentGroup?.members
+                    ?.filter(member => member?.userId && member.userId !== currentUser?._id)
+                    ?.map((member) => {
+                      if (!member || !member.user) {
+                        console.warn('Invalid member object:', member);
+                        return null;
+                      }
+                      
                       const isSelected = splitBillData.participants.some(p => p._id === member.userId);
                       return (
                         <TouchableOpacity
@@ -667,14 +708,14 @@ export default function GroupChatScreen() {
                                 ? prev.participants.filter(p => p._id !== member.userId)
                                 : [...prev.participants, {
                                     _id: member.userId,
-                                    name: member.user.name,
-                                    username: member.user.username
+                                    name: member.user.name || 'Unknown',
+                                    username: member.user.username || 'unknown'
                                   }]
                             }));
                           }}
                         >
                           <Text style={styles.participantAvatar}>
-                            {member.user.name.charAt(0).toUpperCase()}
+                            {(member.user.name || 'U').charAt(0).toUpperCase()}
                           </Text>
                           <Text
                             style={[
@@ -682,14 +723,14 @@ export default function GroupChatScreen() {
                               isSelected && styles.participantNameSelected,
                             ]}
                           >
-                            {member.user.name}
+                            {member.user.name || 'Unknown'}
                           </Text>
                           {isSelected && (
                             <Ionicons name="checkmark" size={16} color="#10B981" />
                           )}
                         </TouchableOpacity>
                       );
-                    })}
+                    }) || []}
                 </View>
                 {splitBillData.participants.length > 0 && (
                   <Text style={styles.selectedCount}>
@@ -750,7 +791,10 @@ export default function GroupChatScreen() {
                     Each person pays: ₹{((parseFloat(splitBillData.amount) || 0) / (splitBillData.participants.length + 1)).toFixed(2)}
                   </Text>
                   <Text style={styles.previewText}>
-                    Participants: {splitBillData.participants.map(p => p.name).join(', ')}
+                    Participants: {splitBillData.participants
+                      .filter(p => p && p.name)
+                      .map(p => p.name)
+                      .join(', ') || 'None selected'}
                   </Text>
                 </View>
               )}
