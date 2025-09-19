@@ -10,7 +10,7 @@ export interface GroupExpense {
   description: string;
   amount: number;
   category: string;
-  groupId: string;
+  groupId?: string; // Made optional to support direct chat expenses
   paidBy: string;
   participants: GroupExpenseParticipant[];
   currency: string;

@@ -123,16 +123,16 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
       <View style={styles.summaryContainer}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Total Paid</Text>
-          <Text style={styles.summaryValue}>₹{(summary.totalPaid || 0).toFixed(2)}</Text>
+          <Text style={styles.summaryValue}>₹{(summary?.totalPaid || 0).toFixed(2)}</Text>
         </View>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Total Owed</Text>
-          <Text style={styles.summaryValue}>₹{(summary.totalOwed || 0).toFixed(2)}</Text>
+          <Text style={styles.summaryValue}>₹{(summary?.totalOwed || 0).toFixed(2)}</Text>
         </View>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Balance</Text>
-          <Text style={[styles.summaryValue, (summary.balance || 0) >= 0 ? styles.positive : styles.negative]}>
-            ₹{(summary.balance || 0).toFixed(2)}
+          <Text style={[styles.summaryValue, (summary?.balance || 0) >= 0 ? styles.positive : styles.negative]}>
+            ₹{(summary?.balance || 0).toFixed(2)}
           </Text>
         </View>
       </View>
@@ -140,48 +140,48 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
       {/* Participant Status */}
       <Text style={styles.sectionTitle}>Participants</Text>
       <ScrollView style={styles.participantsContainer}>
-        {summary.participants.map((participant) => (
-          <View key={participant.userId} style={styles.participantCard}>
+        {summary?.participants?.map((participant) => (
+          <View key={participant?.userId || Math.random()} style={styles.participantCard}>
             <View style={styles.participantInfo}>
-              <Text style={styles.participantName}>{participant.name || 'Unknown User'}</Text>
+              <Text style={styles.participantName}>{participant?.name || 'Unknown User'}</Text>
               <Text style={styles.participantAmount}>
-                Owed: ₹{(participant.amountOwed || 0).toFixed(2)}
+                Owed: ₹{(participant?.amountOwed || 0).toFixed(2)}
               </Text>
               <Text style={styles.participantAmount}>
-                Paid: ₹{(participant.amountPaid || 0).toFixed(2)}
+                Paid: ₹{(participant?.amountPaid || 0).toFixed(2)}
               </Text>
-              <Text style={[styles.participantBalance, (participant.balance || 0) >= 0 ? styles.positive : styles.negative]}>
-                Balance: ₹{(participant.balance || 0).toFixed(2)}
+              <Text style={[styles.participantBalance, (participant?.balance || 0) >= 0 ? styles.positive : styles.negative]}>
+                Balance: ₹{(participant?.balance || 0).toFixed(2)}
               </Text>
             </View>
 
             <View style={styles.participantActions}>
-              {participant.isPaid ? (
+              {participant?.isPaid ? (
                 <View style={styles.paidBadge}>
                   <Text style={styles.paidBadgeText}>Paid</Text>
                 </View>
               ) : (
                 <TouchableOpacity
                   style={styles.payButton}
-                  onPress={() => handleMarkAsPaid(participant.userId)}
+                  onPress={() => handleMarkAsPaid(participant?.userId)}
                 >
                   <Text style={styles.payButtonText}>Mark Paid</Text>
                 </TouchableOpacity>
               )}
             </View>
           </View>
-        ))}
+        )) || []}
       </ScrollView>
 
       {/* Outstanding Debts */}
-      {debts.length > 0 && (
+      {debts && debts.length > 0 && (
         <>
           <Text style={styles.sectionTitle}>Outstanding Debts</Text>
           <ScrollView style={styles.debtsContainer}>
             {debts.map((debt, index) => (
               <View key={index} style={styles.debtCard}>
                 <Text style={styles.debtText}>
-                  {debt.fromUserName} owes {debt.toUserName} ₹{(debt.amount || 0).toFixed(2)}
+                  {debt?.fromUserName || 'Unknown'} owes {debt?.toUserName || 'Unknown'} ₹{(debt?.amount || 0).toFixed(2)}
                 </Text>
               </View>
             ))}

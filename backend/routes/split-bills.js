@@ -21,6 +21,9 @@ router.get('/', auth, async (req, res) => {
     
     if (groupId) {
       query.groupId = groupId;
+    } else if (groupId === null) {
+      // Explicitly filter for direct chat split bills (no groupId)
+      query.groupId = { $exists: false };
     }
 
     if (status === 'pending') {
@@ -45,7 +48,11 @@ router.get('/', auth, async (req, res) => {
       .skip((page - 1) * limit)
       .populate('createdBy', 'name avatar')
       .populate('participants.userId', 'name avatar')
-      .populate('groupId', 'name');
+      .populate({
+        path: 'groupId',
+        select: 'name',
+        options: { allowEmpty: true }
+      });
 
     const total = await SplitBill.countDocuments(query);
 
@@ -76,20 +83,35 @@ router.post('/', auth, async (req, res) => {
     } = req.body;
 
     // Validation
-    if (!description || !totalAmount || !groupId || !participants || !participants.length) {
+    if (!description || !totalAmount || !participants || !participants.length) {
       return res.status(400).json({ 
-        message: 'Description, total amount, group ID, and participants are required' 
+        message: 'Description, total amount, and participants are required' 
       });
     }
 
-    // Validate group exists and user is a member
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found' });
-    }
+    // If groupId is provided, validate group exists and user is a member
+    if (groupId) {
+      const group = await Group.findById(groupId);
+      if (!group) {
+        return res.status(404).json({ message: 'Group not found' });
+      }
 
-    if (!group.members.some(m => m.userId.toString() === req.userId)) {
-      return res.status(403).json({ message: 'You must be a group member to create a split bill' });
+      if (!group.members.some(m => m.userId.toString() === req.userId)) {
+        return res.status(403).json({ message: 'You must be a group member to create a split bill' });
+      }
+    } else {
+      // For direct chat split bills, validate that all participants exist
+      const participantIds = participants.map(p => p.userId);
+      const users = await User.find({ _id: { $in: participantIds } });
+      
+      if (users.length !== participantIds.length) {
+        return res.status(400).json({ message: 'One or more participants not found' });
+      }
+
+      // Ensure the creator is included in participants for direct chat
+      if (!participantIds.includes(req.userId)) {
+        return res.status(400).json({ message: 'Creator must be a participant in direct chat split bills' });
+      }
     }
 
     // Validate total amount matches sum of participant amounts
@@ -122,7 +144,11 @@ router.post('/', auth, async (req, res) => {
     await splitBill
       .populate('createdBy', 'name avatar')
       .populate('participants.userId', 'name avatar')
-      .populate('groupId', 'name');
+      .populate({
+        path: 'groupId',
+        select: 'name',
+        options: { allowEmpty: true }
+      });
 
     res.status(201).json({
       message: 'Split bill created successfully',
@@ -140,7 +166,11 @@ router.get('/:id', auth, async (req, res) => {
     const splitBill = await SplitBill.findById(req.params.id)
       .populate('createdBy', 'name avatar')
       .populate('participants.userId', 'name avatar')
-      .populate('groupId', 'name');
+      .populate({
+        path: 'groupId',
+        select: 'name',
+        options: { allowEmpty: true }
+      });
 
     if (!splitBill) {
       return res.status(404).json({ message: 'Split bill not found' });
@@ -198,7 +228,11 @@ router.patch('/:id/mark-paid', auth, async (req, res) => {
     await splitBill
       .populate('createdBy', 'name avatar')
       .populate('participants.userId', 'name avatar')
-      .populate('groupId', 'name');
+      .populate({
+        path: 'groupId',
+        select: 'name',
+        options: { allowEmpty: true }
+      });
 
     res.json({
       message: 'Payment marked as paid',

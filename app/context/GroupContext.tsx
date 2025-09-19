@@ -38,17 +38,20 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
       setError(null);
 
-      // Convert group members to required format
-      const members = selectedGroup.members.map(member => ({
-        userId: member.userId,
-        name: member.user.name,
-        avatar: member.user.avatar,
-        role: member.role,
-      }));
+      // Convert group members to required format with defensive checks
+      const members = selectedGroup.members
+        .filter(member => member && member.userId) // Filter out invalid members
+        .map(member => ({
+          userId: member.userId,
+          name: member.user?.name || 'Unknown User',
+          avatar: member.user?.avatar || undefined,
+          role: member.role || 'member',
+        }));
 
       setGroupMembers(members);
     } catch (err: any) {
       setError(err.message || 'Failed to load group members');
+      setGroupMembers([]); // Set empty array on error
     } finally {
       setIsLoading(false);
     }

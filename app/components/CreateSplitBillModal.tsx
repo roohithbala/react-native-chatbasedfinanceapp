@@ -46,16 +46,18 @@ export default function CreateSplitBillModal({
 
   // Initialize participants with current user
   React.useEffect(() => {
-    if (currentUser && groupMembers) {
+    if (currentUser && groupMembers && Array.isArray(groupMembers)) {
       setParticipants(
         groupMembers
-          .filter((member: GroupMember) => member.userId !== currentUser?._id)
+          .filter((member: GroupMember) => member && member.userId && member.userId !== currentUser?._id)
           .map((member: GroupMember) => ({
             userId: member.userId,
-            name: member.name,
+            name: member.name || 'Unknown User',
             amount: '',
           }))
       );
+    } else {
+      setParticipants([]);
     }
   }, [currentUser, groupMembers]);
 
@@ -260,20 +262,24 @@ export default function CreateSplitBillModal({
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Participants</Text>
-              {participants.map((participant, index) => (
-                <View key={participant.userId} style={styles.participantRow}>
-                  <Text style={styles.participantName}>{participant.name}</Text>
-                  <TextInput
-                    style={styles.participantAmount}
-                    value={participant.amount}
-                    onChangeText={(value) => handleParticipantAmountChange(value, index)}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                    placeholderTextColor="#94A3B8"
-                    editable={splitType === 'custom'}
-                  />
-                </View>
-              ))}
+              {participants && participants.length > 0 ? (
+                participants.map((participant, index) => (
+                  <View key={participant?.userId || index} style={styles.participantRow}>
+                    <Text style={styles.participantName}>{participant?.name || 'Unknown User'}</Text>
+                    <TextInput
+                      style={styles.participantAmount}
+                      value={participant?.amount || ''}
+                      onChangeText={(value) => handleParticipantAmountChange(value, index)}
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                      placeholderTextColor="#94A3B8"
+                      editable={splitType === 'custom'}
+                    />
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noParticipantsText}>No participants available</Text>
+              )}
             </View>
           </ScrollView>
         </Card>
@@ -398,5 +404,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     textAlign: 'right',
+  },
+  noParticipantsText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 16,
   },
 });

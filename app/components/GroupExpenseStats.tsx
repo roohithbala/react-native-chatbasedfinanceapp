@@ -37,22 +37,33 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
   }
 
   const categoryData = {
-    labels: stats.byCategory.map((cat: any) => cat.category || cat._id || 'Other'),
+    labels: stats.byCategory?.map((cat: any) => cat.category || cat._id || 'Other') || [],
     datasets: [{
-      data: stats.byCategory.map((cat: any) => {
+      data: stats.byCategory?.map((cat: any) => {
         const amount = cat.amount || cat.totalAmount || 0;
         return isNaN(amount) ? 0 : Number(amount);
-      })
+      }) || []
     }]
   };
 
-  const participantData = stats.byParticipant.map((part: any) => ({
-    name: part.name || part.user?.name || part._id || 'Unknown',
-    amount: isNaN(part.amount || part.totalAmount) ? 0 : Number(part.amount || part.totalAmount),
-    color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
-    legendFontColor: "#7F7F7F",
-    legendFontSize: 12
-  })).filter((part: any) => part.amount > 0); // Only show participants with amounts > 0
+  const participantData = stats.byParticipant.map((part: any) => {
+    // Safely extract participant information
+    let name = 'Unknown';
+    let amount = 0;
+
+    if (part) {
+      name = part.name || part.user?.name || part._id || 'Unknown';
+      amount = isNaN(part.amount || part.totalAmount) ? 0 : Number(part.amount || part.totalAmount);
+    }
+
+    return {
+      name,
+      amount,
+      color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+      legendFontColor: "#7F7F7F",
+      legendFontSize: 12
+    };
+  }).filter((part: any) => part && part.amount > 0); // Only show participants with amounts > 0
 
   const chartConfig = {
     backgroundColor: "#ffffff",
@@ -70,19 +81,19 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
         <Text style={styles.title}>Overview</Text>
         <View style={styles.stats}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>₹{(stats.overview.totalAmount || 0).toFixed(2)}</Text>
+            <Text style={styles.statValue}>₹{(stats.overview?.totalAmount || 0).toFixed(2)}</Text>
             <Text style={styles.statLabel}>Total Amount</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.overview.count}</Text>
+            <Text style={styles.statValue}>{stats.overview?.count || 0}</Text>
             <Text style={styles.statLabel}>Total Expenses</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.overview.settled}</Text>
+            <Text style={styles.statValue}>{stats.overview?.settled || 0}</Text>
             <Text style={styles.statLabel}>Settled</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.overview.pending}</Text>
+            <Text style={styles.statValue}>{stats.overview?.pending || 0}</Text>
             <Text style={styles.statLabel}>Pending</Text>
           </View>
         </View>

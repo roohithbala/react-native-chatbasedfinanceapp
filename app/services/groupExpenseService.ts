@@ -18,10 +18,10 @@ class GroupExpenseService {
       description: splitBill.description,
       amount: splitBill.totalAmount,
       category: splitBill.category,
-      groupId: splitBill.groupId,
+      groupId: splitBill.groupId, // Now optional
       paidBy: splitBill.createdBy._id,
       participants: splitBill.participants.map(p => ({
-        userId: p.userId._id,
+        userId: (p.userId && typeof p.userId === 'object') ? (p.userId as any)._id : p.userId as string,
         amount: p.amount,
         isPaid: p.isPaid,
         paidAt: p.paidAt
@@ -240,14 +240,32 @@ class GroupExpenseService {
       splitBills.forEach((bill: any) => {
         if (bill.participants && Array.isArray(bill.participants)) {
           bill.participants.forEach((participant: any) => {
-            const userId = participant.userId?._id || participant.userId;
-            const userName = participant.userId?.name || participant.name || 'Unknown';
+            // Safely extract user information
+            let userId = 'Unknown';
+            let userName = 'Unknown';
+
+            if (participant.userId) {
+              if (typeof participant.userId === 'string') {
+                userId = participant.userId;
+                userName = 'Unknown User';
+              } else if (participant.userId._id) {
+                userId = participant.userId._id;
+                userName = participant.userId.name || 'Unknown User';
+              } else {
+                userId = participant.userId;
+                userName = 'Unknown User';
+              }
+            } else if (participant.name) {
+              userName = participant.name;
+              userId = participant._id || `user_${Math.random()}`;
+            }
+
             if (!participantMap.has(userId)) {
-              participantMap.set(userId, { 
-                userId, 
-                name: userName, 
-                totalAmount: 0, 
-                billCount: 0 
+              participantMap.set(userId, {
+                userId,
+                name: userName,
+                totalAmount: 0,
+                billCount: 0
               });
             }
             const participantData = participantMap.get(userId);

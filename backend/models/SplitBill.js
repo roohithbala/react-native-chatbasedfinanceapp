@@ -51,7 +51,7 @@ const splitBillSchema = new mongoose.Schema({
   groupId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group',
-    required: true
+    required: false
   },
   participants: [{
     userId: {
@@ -236,6 +236,15 @@ splitBillSchema.statics.getUserStats = async function(userId) {
 };
 
 splitBillSchema.statics.getGroupStats = async function(groupId) {
+  if (!groupId) {
+    // For direct chat split bills, return empty stats or handle differently
+    return {
+      totals: [],
+      byMember: [],
+      byCategory: []
+    };
+  }
+
   const stats = await this.aggregate([
     { $match: { groupId: mongoose.Types.ObjectId(groupId) } },
     {
@@ -387,10 +396,38 @@ splitBillSchema.methods.getPaymentSummary = function() {
   const totalPaid = this.payments.reduce((sum, payment) => sum + payment.amount, 0);
   const totalOwed = this.participants.reduce((sum, participant) => sum + participant.amount, 0);
   
+  // Calculate balance for the current user (creator perspective)
+  const currentUserId = this.createdBy.toString();
+  const userPaid = this.payments
+    .filter(p => p.fromUserId.toString() === currentUserId)
+    .reduce((sum, p) => sum + p.amount, 0);
+  const userOwed = this.participants
+    .filter(p => p.userId.toString() === currentUserId)
+    .reduce((sum, p) => sum + p.amount, 0);
+  const balance = userPaid - userOwed;
+  
+  // Build detailed participant information
+  const participants = this.participants.map(participant => {
+    const participantPaid = this.payments
+      .filter(p => p.fromUserId.toString() === participant.userId.toString())
+      .reduce((sum, p) => sum + p.amount, 0);
+    
+    return {
+      userId: participant.userId._id || participant.userId,
+      name: participant.userId.name || 'Unknown User',
+      amountOwed: participant.amount,
+      amountPaid: participantPaid,
+      balance: participantPaid - participant.amount,
+      isPaid: participant.isPaid
+    };
+  });
+  
   return {
-    totalAmount: this.totalAmount,
     totalPaid,
     totalOwed,
+    balance,
+    participants,
+    totalAmount: this.totalAmount,
     remainingAmount: this.totalAmount - totalPaid,
     isFullyPaid: totalPaid >= this.totalAmount,
     participantsPaid: this.participants.filter(p => p.isPaid).length,
@@ -405,8 +442,10 @@ splitBillSchema.methods.getDebts = function() {
   this.participants.forEach(participant => {
     if (!participant.isPaid) {
       debts.push({
-        from: participant.userId,
-        to: this.createdBy,
+        fromUserId: participant.userId._id || participant.userId,
+        toUserId: this.createdBy._id || this.createdBy,
+        fromUserName: participant.userId.name || 'Unknown User',
+        toUserName: this.createdBy.name || 'Unknown User',
         amount: participant.amount,
         description: this.description
       });
@@ -418,6 +457,14 @@ splitBillSchema.methods.getDebts = function() {
 
 // Static methods for settlement calculations
 splitBillSchema.statics.calculateGroupSettlement = async function(groupId) {
+  if (!groupId) {
+    // For direct chat split bills, return empty settlements
+    return {
+      settlements: [],
+      memberBalances: {}
+    };
+  }
+
   const splitBills = await this.find({ 
     groupId,
     isSettled: false 

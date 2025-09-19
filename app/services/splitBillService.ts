@@ -11,7 +11,7 @@ export interface SplitBill {
   _id: string;
   description: string;
   totalAmount: number;
-  groupId: string;
+  groupId?: string; // Made optional for direct chat split bills
   createdBy: {
     _id: string;
     name: string;
@@ -37,7 +37,7 @@ export interface SplitBill {
 export interface CreateSplitBillParams {
   description: string;
   totalAmount: number;
-  groupId: string;
+  groupId?: string; // Made optional for direct chat split bills
   participants: Array<{
     userId: string;
     amount: number;

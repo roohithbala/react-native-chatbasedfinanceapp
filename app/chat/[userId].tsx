@@ -111,7 +111,7 @@ export default function ChatDetailScreen() {
       const splitBillData = {
         description: data.description,
         totalAmount: data.amount,
-        groupId: null, // Direct chat split bill
+        groupId: undefined, // Direct chat split bill
         participants: [
           {
             userId: currentUser._id,
@@ -129,8 +129,7 @@ export default function ChatDetailScreen() {
       };
 
       // Create the split bill
-      const { createSplitBill } = useFinanceStore.getState();
-      const result = await createSplitBill(splitBillData);
+      const result = await useFinanceStore.getState().createSplitBill(splitBillData);
 
       // Send confirmation message
       const confirmationMessage = `✅ Split bill created!\n📝 ${data.description}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / 2).toFixed(2)}\n� You paid your share - ${otherUser?.name || 'Friend'} owes you ₹${((data.amount || 0) / 2).toFixed(2)}`;
