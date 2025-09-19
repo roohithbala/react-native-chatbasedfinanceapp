@@ -19,6 +19,7 @@ import { chatAPI } from '@/app/services/api';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import AddMemberModal from '@/app/components/AddMemberModal';
 import ChatBubble from '@/app/components/ChatBubble';
+import LocationMentionInput from '@/app/components/LocationMentionInput';
 import { Message as BaseMessage } from '@/app/types/chat';
 
 interface Message extends Omit<BaseMessage, 'readBy' | 'status'> {
@@ -27,6 +28,14 @@ interface Message extends Omit<BaseMessage, 'readBy' | 'status'> {
     readAt: string;
   }>;
   status: 'sent' | 'delivered' | 'read';
+  locationMentions?: Array<{
+    locationId: string;
+    locationName: string;
+    coordinates: {
+      latitude: number;
+      longitude: number;
+    };
+  }>;
 }
 
 interface ChatUser {
@@ -363,6 +372,12 @@ export default function GroupChatScreen() {
         status={msg.status}
         type={msg.type}
         senderName={!isOwnMessage ? msg.user.name : undefined}
+        locationMentions={msg.locationMentions}
+        onLocationMentionPress={(location) => {
+          // Handle location mention press - could navigate to map or show location details
+          console.log('Location pressed:', location);
+          // TODO: Navigate to location details or show on map
+        }}
       />
     );
   };
@@ -407,11 +422,11 @@ export default function GroupChatScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.backButton}
               onPress={() => router.back()}
             >
-              <Ionicons name="arrow-back" size={24} color="#2563EB" />
+              <Ionicons name="arrow-back" size={20} color="#2563EB" />
             </TouchableOpacity>
             
             <View style={styles.groupInfo}>
@@ -546,27 +561,25 @@ export default function GroupChatScreen() {
         {/* Input */}
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
-            <TextInput
+            <LocationMentionInput
               style={styles.textInput}
               value={message}
               onChangeText={handleMessageChange}
-              placeholder="Type @ to mention someone..."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              maxLength={500}
-              returnKeyType="send"
-              onSubmitEditing={sendMessage}
-              blurOnSubmit={false}
+              placeholder="Type @ to mention someone or a location..."
+              onLocationMention={(location) => {
+                console.log('Location mentioned:', location);
+                // Handle location mention - could show location preview or navigate to map
+              }}
             />
             <TouchableOpacity
               style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]}
               onPress={sendMessage}
               disabled={!message.trim()}
             >
-              <Ionicons 
-                name="send" 
-                size={20} 
-                color={message.trim() ? '#FFFFFF' : '#9CA3AF'} 
+              <Ionicons
+                name="send"
+                size={20}
+                color={message.trim() ? '#FFFFFF' : '#9CA3AF'}
               />
             </TouchableOpacity>
           </View>
@@ -731,10 +744,10 @@ export default function GroupChatScreen() {
                 <View style={styles.splitPreview}>
                   <Text style={styles.previewTitle}>Split Preview:</Text>
                   <Text style={styles.previewText}>
-                    Total: ${parseFloat(splitBillData.amount) || 0}
+                    Total: ₹{parseFloat(splitBillData.amount) || 0}
                   </Text>
                   <Text style={styles.previewText}>
-                    Each person pays: ${(parseFloat(splitBillData.amount) / (splitBillData.participants.length + 1)).toFixed(2)}
+                    Each person pays: ₹{((parseFloat(splitBillData.amount) || 0) / (splitBillData.participants.length + 1)).toFixed(2)}
                   </Text>
                   <Text style={styles.previewText}>
                     Participants: {splitBillData.participants.map(p => p.name).join(', ')}
@@ -829,10 +842,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backButton: {
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   backButtonText: {
     color: '#FFFFFF',
@@ -868,8 +885,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   headerButton: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   messagesContainer: {
     flex: 1,

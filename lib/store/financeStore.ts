@@ -182,7 +182,7 @@ const mockAPI = {
               notifications: true,
               biometric: false,
               darkMode: false,
-              currency: 'USD',
+              currency: 'INR',
             }
           }
         };
@@ -203,7 +203,7 @@ const mockAPI = {
               notifications: true,
               biometric: false,
               darkMode: false,
-              currency: 'USD',
+              currency: 'INR',
             }
           }
         };

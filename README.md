@@ -1,265 +1,391 @@
-# SecureFinance - Encrypted Chat-Based Finance App
+# React Native Chat-Based Finance App
 
-A comprehensive MERN stack finance application with real-time chat, AI-powered insights, and collaborative money management.
+A comprehensive mobile application that combines real-time chat functionality with financial management features, built with React Native, Expo, and Node.js.
 
-## 🚀 Features
+## 📋 Table of Contents
 
-### Core Functionality
-- **End-to-end encrypted chat** with financial command parsing
-- **Intelligent bill splitting** with flexible percentage allocation
-- **AI-powered spending predictions** with emotion analysis
-- **Collaborative group budget management** with real-time sync
-- **Advanced expense tracking** with categorization and analytics
-- **Secure authentication** with JWT and optional biometric login
+- [Features](#features)
+- [Architecture Overview](#architecture-overview)
+- [App Flow Diagrams](#app-flow-diagrams)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Setup Instructions](#setup-instructions)
+- [API Documentation](#api-documentation)
 
-### Chat Commands
-- `@split Dinner $120 @alice @bob` - Split bills among tagged users
-- `@addexpense Coffee $5` - Add personal expenses
-- `@setbudget Food $500` - Set category budgets
-- `@predict` - Get AI spending predictions
-- `@summary` - View expense summaries
+## ✨ Features
 
-## 🛠 Technology Stack
+### 💬 Chat Functionality
+- **Real-time messaging** with WebSocket support
+- **Group chats** for expense sharing
+- **Direct messaging** between users
+- **Three-dot menu** with comprehensive options:
+  - Mute/unmute notifications
+  - Block/unblock users
+  - Archive/unarchive chats
+  - Clear chat history
+  - Report users
+  - Delete conversations
+- **Typing indicators** and read receipts
+- **Message reactions** and mentions
 
-### Frontend (React Native + Expo)
-- **React Native** with Expo Go for cross-platform mobile development
-- **Expo Router** for navigation
-- **Zustand** for state management
-- **Socket.io Client** for real-time communication
-- **React Native Gifted Chat** for chat interface
-- **Axios** for API communication
+### 💰 Finance Management
+- **Expense tracking** with categories
+- **Split bill functionality** within chats
+- **Budget management** with alerts
+- **AI-powered insights** and predictions
+- **Group expense sharing**
+- **Payment tracking** and settlement
 
-### Backend (Node.js + Express)
-- **Express.js** REST API server
-- **MongoDB Atlas** cloud database
-- **Socket.io** for real-time messaging
-- **JWT** authentication
-- **Mongoose** ODM for MongoDB
-- **Helmet** for security headers
-- **Rate limiting** for API protection
+### 🔐 Authentication & Security
+- **JWT-based authentication**
+- **Biometric authentication** support
+- **Secure API communication**
+- **Data encryption** and validation
 
-## 📱 Setup Instructions
+### 🎨 User Experience
+- **Modern UI** with consistent theming
+- **Responsive design** for all screen sizes
+- **Offline support** with data synchronization
+- **Push notifications** for important updates
+
+## 🏗️ Architecture Overview
+
+The app follows a modern React Native architecture with:
+
+- **Frontend**: React Native + Expo
+- **Backend**: Node.js + Express.js
+- **Database**: MongoDB
+- **Real-time**: Socket.io
+- **State Management**: Zustand
+- **Navigation**: Expo Router
+- **Styling**: StyleSheet with theming
+
+## 📊 App Flow Diagrams
+
+### 1. Main Application Flow
+
+```mermaid
+flowchart TD
+    A[App Launch] --> B{Authentication Check}
+    B -->|Not Authenticated| C[Auth Screen]
+    B -->|Authenticated| D[Main Tab Navigation]
+
+    D --> F[Home Tab]
+    D --> G[Expenses Tab]
+    D --> H[Chats Tab]
+    D --> I[Budget Tab]
+    D --> J[Insights Tab]
+    D --> K[Profile Tab]
+```
+
+### 2. Authentication State Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> AppLaunch
+    AppLaunch --> AuthenticationCheck: App starts
+    AuthenticationCheck --> AuthScreen: Not authenticated
+    AuthenticationCheck --> MainApp: Authenticated
+
+    AuthScreen --> LoginForm: Show login
+    AuthScreen --> RegisterForm: Show register
+    LoginForm --> Authenticating: Submit login
+    RegisterForm --> Authenticating: Submit register
+    Authenticating --> AuthScreen: Authentication failed
+    Authenticating --> MainApp: Authentication success
+```
+
+### 3. Chat Functionality Flow
+
+```mermaid
+flowchart TD
+    A[Chats Tab] --> B[Group List]
+    A --> C[Direct Chat List]
+    A --> D[Create Group]
+    A --> E[Join Group]
+
+    B --> F[Group Chat Screen]
+    C --> G[Direct Chat Screen]
+
+    F --> H[Send Message]
+    F --> I[Three Dot Menu]
+    F --> J[Split Bill]
+
+    I --> K[Mute/Unmute]
+    I --> L[Block/Unblock]
+    I --> M[Archive/Unarchive]
+    I --> N[Clear Chat]
+    I --> O[Report]
+    I --> P[Delete]
+```
+
+### 4. Data Flow Architecture
+
+```mermaid
+flowchart TD
+    A[User Input] --> B[Components]
+    B --> C[Zustand Store]
+    C --> D[API Services]
+    D --> E[Backend Server]
+    E --> F[MongoDB]
+    E --> G[Socket.io]
+
+    G --> H[Real-time Updates]
+    H --> C
+
+    C --> I[AsyncStorage]
+    I --> J[Persistent Data]
+```
+
+## 🛠️ Technology Stack
+
+### Frontend
+- **React Native 0.79.5** - Mobile framework
+- **Expo SDK 53** - Development platform
+- **TypeScript** - Type safety
+- **Expo Router** - Navigation
+- **Zustand** - State management
+- **Axios** - HTTP client
+- **Socket.io-client** - Real-time communication
+
+### Backend
+- **Node.js** - Runtime
+- **Express.js** - Web framework
+- **MongoDB** - Database
+- **Socket.io** - Real-time communication
+- **JWT** - Authentication
+- **Bcrypt** - Password hashing
+
+### Development Tools
+- **ESLint** - Code linting
+- **Prettier** - Code formatting
+- **Expo CLI** - Development server
+
+## 📁 Project Structure
+
+```
+react-native-chatbasedfinanceapp/
+├── app/                          # Main application code
+│   ├── _layout.tsx              # Root layout
+│   ├── auth.tsx                 # Authentication screen
+│   ├── (tabs)/                  # Tab navigation
+│   │   ├── _layout.tsx         # Tab layout
+│   │   ├── index.tsx           # Home tab
+│   │   ├── expenses.tsx        # Expenses tab
+│   │   ├── chats.tsx           # Chats tab
+│   │   ├── budget.tsx          # Budget tab
+│   │   ├── insights.tsx        # Insights tab
+│   │   └── profile.tsx         # Profile tab
+│   ├── chat/                    # Chat screens
+│   │   └── [userId].tsx        # Direct chat
+│   ├── group-chat/              # Group chat screens
+│   │   └── [groupId].tsx       # Group chat
+│   ├── components/              # Reusable components
+│   ├── services/                # API services
+│   ├── types/                   # TypeScript types
+│   └── utils/                   # Utility functions
+├── backend/                     # Backend server
+│   ├── server.js               # Main server file
+│   ├── models/                 # Database models
+│   ├── routes/                 # API routes
+│   └── middleware/             # Express middleware
+├── assets/                      # Static assets
+└── lib/                         # Shared libraries
+    ├── store/                  # Zustand stores
+    └── services/               # Shared services
+```
+
+## 🚀 Setup Instructions
 
 ### Prerequisites
-- Node.js 18+ installed
-- MongoDB Atlas account
-- Expo CLI installed globally: `npm install -g @expo/cli`
+- Node.js 18+
+- npm or yarn
+- MongoDB
+- Expo CLI
+- Android Studio (for Android development)
 
-### Backend Setup
+### 1. Clone and Install
 
-1. **Configure MongoDB Atlas:**
-   - Create a MongoDB Atlas account at https://cloud.mongodb.com
-   - Create a new cluster
-   - Get your connection string
-   - Update `.env` file with your MongoDB URI
+```bash
+git clone <repository-url>
+cd react-native-chatbasedfinanceapp
 
-2. **Install backend dependencies:**
-   ```bash
-   cd backend
-   npm install
-   ```
+# Install frontend dependencies
+npm install
 
-3. **Configure environment variables:**
-   ```bash
-   # Update .env file with your values
-   MONGODB_URI=mongodb+srv://username:password@cluster0.mongodb.net/securefinance
-   JWT_SECRET=your-super-secret-jwt-key
-   PORT=3001
-   ```
-
-4. **Start the backend server:**
-   ```bash
-   npm run dev
-   ```
-
-### Frontend Setup
-
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Start the Expo development server:**
-   ```bash
-   npm run dev
-   ```
-
-3. **Open in Expo Go:**
-   - Install Expo Go app on your mobile device
-   - Scan the QR code displayed in terminal
-   - Or press 'w' to open in web browser
-
-## 🏗 Project Structure
-
-```
-├── app/                          # React Native frontend
-│   ├── (tabs)/                   # Tab-based navigation
-│   │   ├── index.tsx            # Chat screen
-│   │   ├── expenses.tsx         # Expenses management
-│   │   ├── budget.tsx           # Budget tracking
-│   │   ├── insights.tsx         # AI insights & analytics
-│   │   └── profile.tsx          # User profile & settings
-│   ├── components/              # Reusable components
-│   │   └── AuthScreen.tsx       # Authentication screen
-│   ├── services/                # API and socket services
-│   │   ├── api.ts              # REST API client
-│   │   └── socketService.ts    # Socket.io client
-│   └── store/                   # State management
-│       └── financeStore.ts      # Zustand store
-├── backend/                     # Node.js backend
-│   ├── models/                  # MongoDB schemas
-│   │   ├── User.js             # User model
-│   │   ├── Expense.js          # Expense model
-│   │   ├── SplitBill.js        # Split bill model
-│   │   ├── Group.js            # Group model
-│   │   ├── Message.js          # Chat message model
-│   │   └── Budget.js           # Budget model
-│   ├── routes/                  # API routes
-│   │   ├── auth.js             # Authentication routes
-│   │   ├── expenses.js         # Expense management
-│   │   ├── groups.js           # Group management
-│   │   ├── chat.js             # Chat functionality
-│   │   ├── ai.js               # AI insights & predictions
-│   │   ├── budgets.js          # Budget management
-│   │   └── users.js            # User management
-│   ├── middleware/              # Express middleware
-│   │   └── auth.js             # JWT authentication
-│   └── server.js               # Main server file
-└── .env                        # Environment variables
+# Install backend dependencies
+cd backend
+npm install
+cd ..
 ```
 
-## 🔐 Security Features
+### 2. Environment Configuration
 
-- **End-to-end encryption** for all financial data
-- **JWT authentication** with secure token management
-- **Rate limiting** to prevent API abuse
-- **Input validation** and sanitization
-- **CORS protection** for cross-origin requests
-- **Helmet.js** for security headers
-- **Password hashing** with bcrypt
-
-## 🤖 AI Features
-
-### Free AI Model Integration
-The app now uses OpenAI's GPT-3.5-turbo model for cost-effective financial analysis instead of backend-dependent solutions.
-
-#### Setup Free AI
-1. **Get OpenAI API Key**:
-   - Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-   - Create a new API key
-   - Copy the API key
-
-2. **Configure Environment**:
-   ```bash
-   # Create .env file in the root directory
-   EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key_here
-   ```
-
-3. **Free Tier Benefits**:
-   - No backend server costs for AI analysis
-   - Generous free credits from OpenAI
-   - Direct client-side AI processing
-   - Automatic fallback to basic insights if API fails
-
-### AI Capabilities
-- **Spending Analysis**: Intelligent categorization and pattern recognition
-- **Budget Optimization**: Personalized budget recommendations
-- **Financial Predictions**: Future spending forecasts based on historical data
-- **Emotional Analysis**: Detection of emotional spending patterns
-- **Smart Insights**: Actionable financial advice and recommendations
-
-### Spending Predictions
-- Analyzes historical spending patterns
-- Predicts budget overages before they happen
-- Provides personalized saving suggestions
-- Tracks spending trends and anomalies
-
-### Emotional Analysis
-- Detects emotional spending patterns
-- Identifies stress-induced purchases
-- Provides mindful spending recommendations
-- Tracks spending behavior changes
-
-### Smart Insights
-- Category-based spending analysis
-- Weekly and monthly trend reports
-- Collaborative group spending insights
-- Automated budget optimization suggestions
-
-## 📊 API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `GET /api/auth/me` - Get current user
-- `PUT /api/auth/profile` - Update profile
-- `POST /api/auth/logout` - User logout
-
-### Expenses
-- `GET /api/expenses` - Get user expenses
-- `POST /api/expenses` - Add new expense
-- `PUT /api/expenses/:id` - Update expense
-- `DELETE /api/expenses/:id` - Delete expense
-- `GET /api/expenses/stats` - Get spending statistics
-
-### Groups
-- `GET /api/groups` - Get user groups
-- `POST /api/groups` - Create new group
-- `GET /api/groups/:id` - Get group details
-- `POST /api/groups/:id/members` - Add group member
-- `POST /api/groups/:id/split` - Split bill in group
-
-### Chat
-- `GET /api/chat/:groupId/messages` - Get group messages
-- `POST /api/chat/:groupId/messages` - Send message
-- `PUT /api/chat/:groupId/messages/read` - Mark as read
-
-### AI & Insights
-- `GET /api/ai/predict` - Get spending predictions
-- `GET /api/ai/emotions` - Get emotional analysis
-- `GET /api/ai/summary/:period` - Get spending summary
-
-## 🚀 Deployment
-
-### Backend Deployment
-1. Deploy to services like Railway, Render, or Heroku
-2. Set environment variables in production
-3. Update CORS settings for production domain
-
-### Frontend Deployment
-1. Build for production: `expo build`
-2. Deploy to app stores or use Expo's hosting
-3. Update API URLs for production
-
-## 🔧 Development
-
-### Running in Development
-1. Start backend: `npm run server:dev`
-2. Start frontend: `npm run dev`
-3. Open Expo Go app and scan QR code
-
-### Testing
-- Backend API can be tested with Postman or similar tools
-- Frontend can be tested in Expo Go or web browser
-- Socket.io connections can be tested with socket.io client tools
-
-## 📝 Environment Variables
-
-Create a `.env` file in the root directory:
+Create `.env` file in the root directory:
 
 ```env
-# MongoDB Atlas Connection
-MONGODB_URI=mongodb+srv://username:password@cluster0.mongodb.net/securefinance
+# OpenAI API Key (optional)
+EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key_here
 
-# JWT Secret (use a strong, random string)
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-
-# Server Configuration
-PORT=3001
-NODE_ENV=development
+# Backend API URL
+EXPO_PUBLIC_API_URL=http://10.247.4.172:3001/api
 
 # Frontend URL for CORS
-FRONTEND_URL=http://localhost:8081
+EXPO_PUBLIC_FRONTEND_URL=http://10.247.4.172:8081
+```
+
+Create `.env` file in the `backend` directory:
+
+```env
+MONGODB_URI=mongodb://localhost:27017/chatbasedfinance
+JWT_SECRET=your_super_secret_jwt_key_here
+FRONTEND_URL=http://10.247.4.172:8081
+NODE_ENV=development
+PORT=3001
+```
+
+### 3. Start MongoDB
+
+```bash
+# Make sure MongoDB is running on localhost:27017
+mongod
+```
+
+### 4. Start Backend Server
+
+```bash
+cd backend
+npm run dev
+```
+
+### 5. Start Frontend App
+
+```bash
+# In the main directory
+npm run dev
+```
+
+### 6. Run on Device/Emulator
+
+- **Android**: Press `a` in the terminal
+- **iOS**: Press `i` in the terminal
+- **Web**: Press `w` in the terminal
+
+## 📡 API Documentation
+
+### Authentication Endpoints
+
+```javascript
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/logout
+GET  /api/auth/me
+PUT  /api/auth/profile
+```
+
+### Expense Endpoints
+
+```javascript
+GET  /api/expenses
+POST /api/expenses
+PUT  /api/expenses/:id
+DELETE /api/expenses/:id
+GET  /api/expenses/stats
+```
+
+### Group Endpoints
+
+```javascript
+GET  /api/groups
+POST /api/groups
+GET  /api/groups/:id
+POST /api/groups/:id/members
+POST /api/groups/join/:code
+POST /api/groups/:id/invite-code
+```
+
+### Chat Endpoints
+
+```javascript
+GET  /api/chat/:groupId/messages
+POST /api/chat/:groupId/messages
+PUT  /api/chat/:groupId/messages/read
+POST /api/chat/:groupId/messages/:id/reactions
+```
+
+### Budget Endpoints
+
+```javascript
+GET  /api/budgets
+POST /api/budgets
+DELETE /api/budgets/:id
+GET  /api/budgets/alerts
+```
+
+## 🔄 Component Architecture
+
+The app uses a modular component architecture:
+
+- **Pages**: Route-based components
+- **Components**: Reusable UI components
+- **Services**: API communication layer
+- **Store**: Centralized state management
+- **Utils**: Helper functions and utilities
+
+## 📱 Key Features Implementation
+
+### Real-time Chat
+- WebSocket connection using Socket.io
+- Message persistence in MongoDB
+- Typing indicators and read receipts
+- Group and direct messaging
+
+### Expense Management
+- CRUD operations for expenses
+- Category-based organization
+- Split bill functionality
+- Budget tracking with alerts
+
+### AI Integration
+- OpenAI API integration
+- Spending pattern analysis
+- Budget recommendations
+- Predictive insights
+
+## 🧪 Testing
+
+```bash
+# Run tests
+npm test
+
+# Run linting
+npm run lint
+
+# Type checking
+npx tsc --noEmit
+```
+
+## 📦 Build & Deployment
+
+### Development Build
+```bash
+npm run dev
+```
+
+### Production Build
+```bash
+# Android APK
+npx expo run:android --variant release
+
+# iOS
+npx expo run:ios --configuration Release
+```
+
+### Expo Build
+```bash
+# Build for app stores
+npx expo build:android
+npx expo build:ios
 ```
 
 ## 🤝 Contributing
@@ -267,23 +393,20 @@ FRONTEND_URL=http://localhost:8081
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
+4. Add tests if applicable
 5. Submit a pull request
 
 ## 📄 License
 
 This project is licensed under the MIT License.
 
-## SecureFinance App
+## 📞 Support
 
-## Setup Instructions
+For support and questions:
+- Create an issue in the repository
+- Check the documentation
+- Review the troubleshooting guide
 
-1. **MongoDB Connection**: Ensure the `.env` file contains the correct `MONGODB_URI`.
-2. **Logout Endpoint**: Use the `/logout` endpoint to terminate user sessions.
+---
 
-## Environment Variables
-
-- `MONGODB_URI`: MongoDB Atlas connection string.
-- `JWT_SECRET`: Secret key for JWT authentication.
-- `PORT`: Server port (default: 5000).
-- `FRONTEND_URL`: URL for CORS configuration.
+Built with ❤️ using React Native and Expo

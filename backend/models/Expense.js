@@ -34,8 +34,16 @@ const expenseSchema = new mongoose.Schema({
     trim: true
   }],
   location: {
-    type: String,
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Location',
+    default: null
+  },
+  locationDetails: {
+    address: String,
+    coordinates: {
+      latitude: Number,
+      longitude: Number
+    }
   },
   receipt: {
     url: String,
@@ -97,7 +105,7 @@ expenseSchema.statics.getUserStats = async function(userId, period = 'month') {
   const stats = await this.aggregate([
     {
       $match: {
-        userId: mongoose.Types.ObjectId(userId),
+        userId: new mongoose.Types.ObjectId(userId),
         createdAt: { $gte: startDate }
       }
     },
@@ -173,7 +181,7 @@ expenseSchema.statics.getGroupStats = async function(groupId, period = 'month') 
   const stats = await this.aggregate([
     {
       $match: {
-        groupId: mongoose.Types.ObjectId(groupId),
+        groupId: new mongoose.Types.ObjectId(groupId),
         createdAt: { $gte: startDate }
       }
     },

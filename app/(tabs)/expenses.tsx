@@ -305,7 +305,7 @@ export default function ExpensesScreen() {
   const handleDeleteExpense = (expense: Expense) => {
     Alert.alert(
       'Delete Expense',
-      `Are you sure you want to delete "${expense.description}"?\n\nAmount: $${expense.amount.toFixed(2)}\nCategory: ${expense.category}`,
+      `Are you sure you want to delete "${expense.description}"?\n\nAmount: ₹${(expense.amount || 0).toFixed(2)}\nCategory: ${expense.category}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -428,11 +428,11 @@ export default function ExpensesScreen() {
           <View style={styles.tagsContainer}>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>This Month</Text>
-              <Text style={styles.statValue}>${totalExpenses.toFixed(2)}</Text>
+              <Text style={styles.statValue}>₹{(totalExpenses || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>Shared Bills</Text>
-              <Text style={styles.statValue}>${totalSplitBills.toFixed(2)}</Text>
+              <Text style={styles.statValue}>₹{(totalSplitBills || 0).toFixed(2)}</Text>
             </View>
           </View>
         ) : (
@@ -440,12 +440,12 @@ export default function ExpensesScreen() {
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>I Owe</Text>
               <Text style={styles.statValue}>{settlementStats.awaiting}</Text>
-              <Text style={styles.statSubValue}>${settlementStats.totalAwaiting.toFixed(2)}</Text>
+              <Text style={styles.statSubValue}>₹{(settlementStats.totalAwaiting || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>I Paid</Text>
               <Text style={styles.statValue}>{settlementStats.settled}</Text>
-              <Text style={styles.statSubValue}>${settlementStats.totalSettled.toFixed(2)}</Text>
+              <Text style={styles.statSubValue}>₹{(settlementStats.totalSettled || 0).toFixed(2)}</Text>
             </View>
           </View>
         )}
@@ -500,7 +500,7 @@ export default function ExpensesScreen() {
                       <Text style={styles.categoryTitle}>{section.title}</Text>
                       <Text style={styles.categoryCount}>({section.data.length})</Text>
                     </View>
-                    <Text style={styles.categoryTotal}>${section.total.toFixed(2)}</Text>
+                    <Text style={styles.categoryTotal}>₹{(section.total || 0).toFixed(2)}</Text>
                   </View>
                   {section.data.map((expense) => (
                     <View key={expense._id} style={styles.expenseCard}>
@@ -524,7 +524,7 @@ export default function ExpensesScreen() {
                           )}
                         </View>
                         <View style={styles.expenseRight}>
-                          <Text style={styles.expenseAmount}>${expense.amount.toFixed(2)}</Text>
+                          <Text style={styles.expenseAmount}>₹{(expense.amount || 0).toFixed(2)}</Text>
                           <View style={styles.expenseActions}>
                             <TouchableOpacity
                               style={styles.actionButton}
@@ -574,7 +574,7 @@ export default function ExpensesScreen() {
                         )}
                       </View>
                       <View style={styles.expenseRight}>
-                        <Text style={styles.expenseAmount}>${expense.amount.toFixed(2)}</Text>
+                        <Text style={styles.expenseAmount}>₹{(expense.amount || 0).toFixed(2)}</Text>
                         <View style={styles.expenseActions}>
                           <TouchableOpacity
                             style={styles.actionButton}

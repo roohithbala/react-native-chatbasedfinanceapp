@@ -25,7 +25,7 @@ const EditProfileModal = ({ visible, onClose }: EditProfileModalProps) => {
   const [email, setEmail] = useState(currentUser?.email || '');
   const [loading, setLoading] = useState(false);
   const [avatar, setAvatar] = useState(currentUser?.avatar || '👤');
-  const [currency, setCurrency] = useState(currentUser?.preferences?.currency || 'USD');
+  const [currency, setCurrency] = useState(currentUser?.preferences?.currency || 'INR');
 
   const handleSave = async () => {
     if (!name.trim() || !email.trim() || !username.trim()) {
@@ -156,7 +156,7 @@ const EditProfileModal = ({ visible, onClose }: EditProfileModalProps) => {
               style={styles.input}
               value={currency}
               onChangeText={setCurrency}
-              placeholder="USD"
+              placeholder="INR"
               placeholderTextColor="#94A3B8"
               maxLength={3}
               autoCapitalize="characters"

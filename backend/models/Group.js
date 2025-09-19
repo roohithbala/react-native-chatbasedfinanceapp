@@ -74,7 +74,7 @@ const groupSchema = new mongoose.Schema({
     },
     currency: {
       type: String,
-      default: 'USD'
+      default: 'INR'
     },
     splitMethod: {
       type: String,

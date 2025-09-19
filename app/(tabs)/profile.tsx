@@ -39,7 +39,6 @@ export default function ProfileScreen() {
     createGroup, 
     generateInviteLink,
     logout,
-    clearStorage,
     isLoading 
   } = useFinanceStore();
 
@@ -203,7 +202,7 @@ export default function ProfileScreen() {
 
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>${totalExpenses.toFixed(2)}</Text>
+            <Text style={styles.statValue}>₹{totalExpenses.toFixed(2)}</Text>
             <Text style={styles.statLabel}>Total Spent</Text>
           </View>
           <View style={styles.statDivider} />
@@ -323,28 +322,6 @@ export default function ProfileScreen() {
         >
           <Text style={styles.logoutText}>
             {isLoading ? 'Signing Out...' : 'Sign Out'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.logoutButton, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}
-          onPress={() => {
-            Alert.alert(
-              'Clear Storage',
-              'This will clear all cached data and log you out. Are you sure?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { 
-                  text: 'Clear', 
-                  style: 'destructive',
-                  onPress: clearStorage
-                }
-              ]
-            );
-          }}
-        >
-          <Text style={[styles.logoutText, { color: '#D97706' }]}>
-            Clear Storage (Debug)
           </Text>
         </TouchableOpacity>
 

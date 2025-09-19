@@ -5,6 +5,7 @@ const Group = require('../models/Group');
 const User = require('../models/User');
 const SplitBill = require('../models/SplitBill');
 const Expense = require('../models/Expense');
+const LocationMentionParser = require('../utils/locationMentionParser');
 const auth = require('../middleware/auth');
 
 // Response formatter for messages
@@ -40,6 +41,11 @@ const formatMessage = (message) => {
     mediaType: msg.mediaType || null,
     mediaSize: msg.mediaSize || 0,
     mentions: (msg.mentions || []).map(m => m.toString()),
+    locationMentions: (msg.locationMentions || []).map(lm => ({
+      locationId: lm.locationId.toString(),
+      locationName: lm.locationName,
+      coordinates: lm.coordinates
+    })),
     reactions: (msg.reactions || []).map(r => ({
       userId: r.userId.toString(),
       emoji: r.emoji,
@@ -181,7 +187,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
           
           switch (commandResult.type) {
             case 'split':
-              resultText = `💰 Split bill created:\n${commandResult.data.description}\nAmount: $${commandResult.data.amount}\nSplit: $${commandResult.data.splitAmount.toFixed(2)} each\nParticipants: ${commandResult.data.participants.join(', ')}`;
+              resultText = `💰 Split bill created:\n${commandResult.data.description}\nAmount: ₹${commandResult.data.amount}\nSplit: ₹${commandResult.data.splitAmount.toFixed(2)} each\nParticipants: ${commandResult.data.participants.join(', ')}`;
               break;
             
             case 'expense':
@@ -194,7 +200,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
             
             case 'summary':
               const expenses = commandResult.data.expenses;
-              resultText = `📊 Recent Group Expenses (Total: $${commandResult.data.total.toFixed(2)}):\n${
+              resultText = `📊 Recent Group Expenses (Total: ₹${commandResult.data.total.toFixed(2)}):\n${
                 expenses.map(exp => 
                   `• ${exp.description}: $${exp.amount} by ${exp.by}`
                 ).join('\n')
@@ -240,6 +246,9 @@ router.post('/:groupId/messages', auth, async (req, res) => {
     // Extract mentions from the message
     const mentions = await extractMentions(text);
 
+    // Extract location mentions from the message
+    const locationMentions = await LocationMentionParser.parseLocationMentions(text, req.userId);
+
     // Save the original user message
     const message = new Message({
       text: text.trim(),
@@ -254,6 +263,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
       status: 'sent',
       commandType: commandResult?.type,
       mentions,
+      locationMentions,
       readBy: [{
         userId: req.userId,
         readAt: new Date()
@@ -310,6 +320,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
         groupId: groupId,
         readBy: message.readBy,
         mentions: message.mentions,
+        locationMentions: message.locationMentions,
         reactions: message.reactions
       };
 
@@ -334,6 +345,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
           commandType: commandResult?.type,
           commandData: commandResult?.data || {},
           mentions: [],
+          locationMentions: [],
           reactions: []
         };
 
@@ -443,8 +455,8 @@ async function parseAndExecuteCommand(text, userId, groupId, user) {
   
   if (lowerText.startsWith('@split')) {
     const parts = text.split(' ');
-    const description = parts.slice(1).join(' ').split('$')[0].trim() || 'Split Bill';
-    const amountMatch = text.match(/\$(\d+(?:\.\d{2})?)/);
+    const description = parts.slice(1).join(' ').split('₹')[0].trim() || 'Split Bill';
+    const amountMatch = text.match(/₹(\d+(?:\.\d{2})?)/);
     const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
     const mentions = text.match(/@\w+/g) || [];
     
@@ -594,7 +606,7 @@ async function parseAndExecuteCommand(text, userId, groupId, user) {
   else if (lowerText.startsWith('@addexpense')) {
     const parts = text.split(' ');
     const description = parts[1] || 'Expense';
-    const amountMatch = text.match(/\$(\d+(?:\.\d{2})?)/);
+    const amountMatch = text.match(/₹(\d+(?:\.\d{2})?)/);
     const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
     const categoryMatch = text.match(/#(\w+)/);
     const category = categoryMatch ? categoryMatch[1] : 'Other';
@@ -633,7 +645,7 @@ async function parseAndExecuteCommand(text, userId, groupId, user) {
     return {
       type: 'predict',
       data: {
-        prediction: `Based on your last ${expenses.length} expenses, you spend an average of $${average.toFixed(2)} per transaction.`
+        prediction: `Based on your last ${expenses.length} expenses, you spend an average of ₹${average.toFixed(2)} per transaction.`
       },
       success: true
     };

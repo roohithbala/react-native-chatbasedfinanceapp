@@ -83,7 +83,7 @@ class GroupExpenseService {
           amount: p.amount
         })),
         category: expenseData.category,
-        currency: expenseData.currency || 'USD'
+        currency: expenseData.currency || 'INR'
       };
 
       const splitBill = await fetch('/api/split-bills', {

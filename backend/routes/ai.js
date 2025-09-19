@@ -182,7 +182,7 @@ async function generateFinancialInsights(expenses, budgets) {
     insights.push({
       type: 'spending-pattern',
       title: 'Top Spending Category',
-      message: `${topCategory[0]} accounts for $${topCategory[1].toFixed(2)} of your spending`,
+      message: `${topCategory[0]} accounts for ₹${topCategory[1].toFixed(2)} of your spending`,
       icon: '📊'
     });
   }
@@ -192,7 +192,7 @@ async function generateFinancialInsights(expenses, budgets) {
   insights.push({
     type: 'savings',
     title: 'Daily Average',
-    message: `You spend an average of $${avgDailySpending.toFixed(2)} per day`,
+    message: `You spend an average of ₹${avgDailySpending.toFixed(2)} per day`,
     icon: '💡'
   });
 

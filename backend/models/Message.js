@@ -102,6 +102,17 @@ const messageSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  locationMentions: [{
+    locationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Location'
+    },
+    locationName: String,
+    coordinates: {
+      latitude: Number,
+      longitude: Number
+    }
+  }],
   reactions: [{
     userId: {
       type: mongoose.Schema.Types.ObjectId,

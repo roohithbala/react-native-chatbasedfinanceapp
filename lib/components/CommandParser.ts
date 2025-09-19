@@ -21,12 +21,12 @@ export class CommandParser {
   }
 
   private static parseSplitCommand(message: string): ParsedCommand {
-    // Parse: @split Dinner $120 @alice @bob
+    // Parse: @split Dinner $120 @alice @bob or @split Dinner ₹120 @alice @bob
     const parts = message.split(' ');
     const description = parts[1] || 'Expense';
     
-    // Extract amount
-    const amountMatch = message.match(/\$(\d+(?:\.\d{2})?)/);
+    // Extract amount - support both $ and ₹ symbols
+    const amountMatch = message.match(/[$₹](\d+(?:\.\d{2})?)/);
     const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
     
     // Extract mentions
@@ -56,12 +56,12 @@ export class CommandParser {
   }
 
   private static parseExpenseCommand(message: string): ParsedCommand {
-    // Parse: @addexpense Coffee $5 category:Food
+    // Parse: @addexpense Coffee $5 category:Food or @addexpense Coffee ₹5 category:Food
     const parts = message.split(' ');
     const description = parts[1] || 'Expense';
     
-    // Extract amount
-    const amountMatch = message.match(/\$(\d+(?:\.\d{2})?)/);
+    // Extract amount - support both $ and ₹ symbols
+    const amountMatch = message.match(/[$₹](\d+(?:\.\d{2})?)/);
     const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
     
     // Extract category

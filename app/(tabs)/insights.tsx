@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import 'react-native-svg'; // Ensure SVG is bundled
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { useFinanceStore } from '../../lib/store/financeStore';
 
@@ -28,7 +29,8 @@ export default function InsightsScreen() {
     loadPredictions,
     loadInsights,
     predictions,
-    insights
+    insights,
+    groups
   } = useFinanceStore();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -138,6 +140,126 @@ export default function InsightsScreen() {
       }))
       .filter(cat => cat.population > 0); // Only show categories with spending
   }, [expenses]);
+
+  // Calculate category totals for budget utilization
+  const categoryTotals = React.useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const thisMonthExpenses = expenses.filter((expense: any) => {
+      const expenseDate = new Date(expense.createdAt);
+      return expenseDate.getMonth() === currentMonth && 
+             expenseDate.getFullYear() === currentYear;
+    });
+    
+    return thisMonthExpenses.reduce((acc, expense: any) => {
+      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [expenses]);
+
+  // Calculate real stats for quick overview
+  const realStats = React.useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Calculate this month's spending
+    const thisMonthExpenses = expenses.filter((expense: any) => {
+      const expenseDate = new Date(expense.createdAt);
+      return expenseDate.getMonth() === currentMonth &&
+             expenseDate.getFullYear() === currentYear;
+    });
+
+    const thisMonthTotal = thisMonthExpenses.reduce((sum, expense: any) => sum + expense.amount, 0);
+
+    // Calculate last month's spending
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+    const lastMonthExpenses = expenses.filter((expense: any) => {
+      const expenseDate = new Date(expense.createdAt);
+      return expenseDate.getMonth() === lastMonth &&
+             expenseDate.getFullYear() === lastMonthYear;
+    });
+
+    const lastMonthTotal = lastMonthExpenses.reduce((sum, expense: any) => sum + expense.amount, 0);
+
+    // Calculate percentage change
+    const percentageChange = lastMonthTotal > 0
+      ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100
+      : 0;
+
+    // Calculate total budget and remaining
+    const totalBudget = Object.values(budgets).reduce((sum: number, amount: number) => sum + amount, 0);
+    const remainingBudget = Math.max(0, totalBudget - thisMonthTotal);
+
+    // Count active groups (groups with recent activity)
+    const activeGroups = groups.filter((group: any) => {
+      // Consider a group active if it has expenses in the last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      return expenses.some((expense: any) =>
+        expense.groupId === group._id &&
+        new Date(expense.createdAt) > thirtyDaysAgo
+      );
+    }).length;
+
+    return {
+      thisMonthTotal,
+      percentageChange,
+      activeGroups,
+      remainingBudget,
+      totalBudget
+    };
+  }, [expenses, budgets, groups]);
+
+  // Generate real insights based on actual data
+  const realInsights = React.useMemo(() => {
+    const insights = [];
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Check budget utilization
+    Object.entries(budgets).forEach(([category, budgetAmount]: [string, number]) => {
+      const spent = categoryTotals[category] || 0;
+      const utilization = (spent / budgetAmount) * 100;
+
+      if (utilization > 90) {
+        insights.push({
+          id: `budget-${category}`,
+          title: 'Budget Alert',
+          description: `You've used ${utilization.toFixed(1)}% of your ${category} budget`,
+          type: 'warning',
+          icon: '⚠️',
+        });
+      } else if (utilization < 50 && spent > 0) {
+        insights.push({
+          id: `budget-${category}`,
+          title: 'Budget Achievement',
+          description: `Great job staying under budget for ${category}!`,
+          type: 'success',
+          icon: '🎉',
+        });
+      }
+    });
+
+    // Add some general tips if no specific insights
+    if (insights.length === 0) {
+      insights.push({
+        id: 'general-tip',
+        title: 'Financial Tip',
+        description: 'Track your expenses regularly to maintain better financial control',
+        type: 'tip',
+        icon: '💡',
+      });
+    }
+
+    return insights;
+  }, [expenses, budgets, groups, categoryTotals]);
 
   const sampleInsights = [
     {
@@ -292,7 +414,7 @@ export default function InsightsScreen() {
               <Text style={styles.loadingText}>Analyzing your spending patterns...</Text>
             </View>
           ) : (
-            (aiInsights && aiInsights.length > 0 ? aiInsights : sampleInsights).map((insight: any) => (
+            (realInsights.length > 0 ? realInsights : sampleInsights).map((insight: any) => (
               <TouchableOpacity key={insight.id || insight.title} style={styles.insightCard}>
                 <LinearGradient
                   colors={getInsightColor(insight.type)}
@@ -310,20 +432,83 @@ export default function InsightsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Budget Utilization</Text>
+          <View style={styles.budgetContainer}>
+            {Object.entries(budgets).map(([category, budgetAmount]) => {
+              const spent = categoryTotals[category] || 0;
+              const utilization = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
+              const remaining = Math.max(0, budgetAmount - spent);
+              
+              return (
+                <View key={category} style={styles.budgetItem}>
+                  <View style={styles.budgetHeader}>
+                    <Text style={styles.budgetCategory}>{category}</Text>
+                    <Text style={styles.budgetAmount}>
+                      ₹{spent.toFixed(2)} / ₹{budgetAmount.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.budgetProgressContainer}>
+                    <View style={styles.budgetProgressTrack}>
+                      <View
+                        style={[
+                          styles.budgetProgressFill,
+                          { 
+                            width: `${Math.min(utilization, 100)}%`,
+                            backgroundColor: utilization > 90 ? '#EF4444' : 
+                                           utilization > 75 ? '#F59E0B' : '#10B981'
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.budgetPercentage}>
+                      {utilization.toFixed(1)}%
+                    </Text>
+                  </View>
+                  {remaining > 0 && (
+                    <Text style={styles.budgetRemaining}>
+                      ₹{remaining.toFixed(2)} remaining
+                    </Text>
+                  )}
+                  {remaining <= 0 && (
+                    <Text style={styles.budgetOver}>
+                      Over budget by ₹{Math.abs(remaining).toFixed(2)}
+                    </Text>
+                  )}
+                </View>
+              );
+            })}
+            {Object.keys(budgets).length === 0 && (
+              <View style={styles.emptyBudget}>
+                <Ionicons name="wallet-outline" size={48} color="#D1D5DB" />
+                <Text style={styles.emptyBudgetText}>No budgets set yet</Text>
+                <Text style={styles.emptyBudgetSubtext}>
+                  Set budgets to track your spending limits
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Stats</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <LinearGradient colors={['#EF4444', '#F87171']} style={styles.statGradient}>
                 <Ionicons name="trending-up" size={24} color="white" />
-                <Text style={styles.statValue}>$1,245</Text>
+                <Text style={styles.statValue}>₹{realStats.thisMonthTotal.toFixed(2)}</Text>
                 <Text style={styles.statLabel}>This Month</Text>
               </LinearGradient>
             </View>
             
             <View style={styles.statCard}>
               <LinearGradient colors={['#10B981', '#34D399']} style={styles.statGradient}>
-                <Ionicons name="trending-down" size={24} color="white" />
-                <Text style={styles.statValue}>-8%</Text>
+                <Ionicons 
+                  name={realStats.percentageChange >= 0 ? "trending-up" : "trending-down"} 
+                  size={24} 
+                  color="white" 
+                />
+                <Text style={styles.statValue}>
+                  {realStats.percentageChange >= 0 ? '+' : ''}{realStats.percentageChange.toFixed(1)}%
+                </Text>
                 <Text style={styles.statLabel}>vs Last Month</Text>
               </LinearGradient>
             </View>
@@ -331,7 +516,7 @@ export default function InsightsScreen() {
             <View style={styles.statCard}>
               <LinearGradient colors={['#8B5CF6', '#A78BFA']} style={styles.statGradient}>
                 <Ionicons name="people" size={24} color="white" />
-                <Text style={styles.statValue}>5</Text>
+                <Text style={styles.statValue}>{realStats.activeGroups}</Text>
                 <Text style={styles.statLabel}>Active Groups</Text>
               </LinearGradient>
             </View>
@@ -339,8 +524,8 @@ export default function InsightsScreen() {
             <View style={styles.statCard}>
               <LinearGradient colors={['#F59E0B', '#FBBF24']} style={styles.statGradient}>
                 <Ionicons name="wallet" size={24} color="white" />
-                <Text style={styles.statValue}>$255</Text>
-                <Text style={styles.statLabel}>Remaining</Text>
+                <Text style={styles.statValue}>₹{realStats.remainingBudget.toFixed(2)}</Text>
+                <Text style={styles.statLabel}>Remaining Budget</Text>
               </LinearGradient>
             </View>
           </View>
@@ -529,5 +714,85 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748B',
     textAlign: 'center',
+  },
+  budgetContainer: {
+    gap: 16,
+  },
+  budgetItem: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  budgetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  budgetCategory: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  budgetAmount: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  budgetProgressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  budgetProgressTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  budgetProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  budgetPercentage: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    minWidth: 35,
+    textAlign: 'right',
+  },
+  budgetRemaining: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '500',
+  },
+  budgetOver: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '500',
+  },
+  emptyBudget: {
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: 'white',
+    borderRadius: 12,
+  },
+  emptyBudgetText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginTop: 16,
+  },
+  emptyBudgetSubtext: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

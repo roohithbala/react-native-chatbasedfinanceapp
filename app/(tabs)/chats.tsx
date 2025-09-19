@@ -48,6 +48,7 @@ export default function ChatsScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'groups' | 'direct'>('groups');
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Group management states
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -80,6 +81,15 @@ export default function ChatsScreen() {
       loadGroups();
     }
   }, [activeTab]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, []);
 
   const loadRecentChats = async () => {
     try {
@@ -142,23 +152,39 @@ export default function ChatsScreen() {
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
+
+    // Clear previous timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // If query is empty, clear results and show recent chats
     if (!query.trim()) {
       setSearchResults([]);
       setIsSearching(false);
+      if (activeTab === 'direct') {
+        await loadRecentChats();
+      }
       return;
     }
 
-    setIsSearching(true);
-    try {
-      const results = await usersAPI.searchUsers(query);
-      // Ensure results is always an array
-      setSearchResults(Array.isArray(results) ? results : []);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      setSearchResults([]); // Set empty array on error
-    } finally {
-      setIsSearching(false);
-    }
+    // Debounce search - wait 300ms before searching
+    const timeout = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const results = await usersAPI.searchUsers(query);
+        // Ensure results is always an array
+        setSearchResults(Array.isArray(results) ? results : []);
+      } catch (error) {
+        console.error('Error searching users:', error);
+        setSearchResults([]); // Set empty array on error
+        Alert.alert('Search Error', 'Unable to search users. Please try again.');
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    setSearchTimeout(timeout);
   };
 
   const handleUserSelect = (userId: string) => {
@@ -442,7 +468,8 @@ export default function ChatsScreen() {
   };
 
   const renderTabContent = () => {
-    if (isSearching && searchQuery.trim()) {
+    // Show search results if we have a search query (either searching or have results)
+    if (searchQuery.trim() && activeTab === 'direct') {
       return (
         <FlatList
           data={searchResults}
@@ -452,14 +479,24 @@ export default function ChatsScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
+          ListHeaderComponent={
+            isSearching ? (
+              <View style={styles.searchingContainer}>
+                <ActivityIndicator size="small" color="#2563EB" />
+                <Text style={styles.searchingText}>Searching...</Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="search" size={48} color="#CBD5E1" />
-              <Text style={styles.emptyText}>No users found</Text>
-              <Text style={styles.emptySubtext}>
-                Try searching with a different name or username
-              </Text>
-            </View>
+            !isSearching ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="search" size={48} color="#CBD5E1" />
+                <Text style={styles.emptyText}>No users found</Text>
+                <Text style={styles.emptySubtext}>
+                  Try searching with a different name or username
+                </Text>
+              </View>
+            ) : null
           }
         />
       );
@@ -1180,5 +1217,17 @@ const styles = StyleSheet.create({
   },
   warningText: {
     color: '#F59E0B',
+  },
+  searchingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#F8FAFC',
+  },
+  searchingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#64748B',
   },
 });

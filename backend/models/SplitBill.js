@@ -41,7 +41,7 @@ const splitBillSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    default: 'USD'
+    default: 'INR'
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -75,6 +75,64 @@ const splitBillSchema = new mongoose.Schema({
     },
     paidAt: Date
   }],
+  payments: [{
+    fromUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    toUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['cash', 'card', 'bank_transfer', 'digital_wallet', 'other'],
+      default: 'cash'
+    },
+    notes: String,
+    paidAt: {
+      type: Date,
+      default: Date.now
+    },
+    confirmedBy: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      confirmedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }]
+  }],
+  reminders: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    type: {
+      type: String,
+      enum: ['payment_due', 'settlement_reminder'],
+      required: true
+    },
+    message: String,
+    sentAt: {
+      type: Date,
+      default: Date.now
+    },
+    isRead: {
+      type: Boolean,
+      default: false
+    }
+  }],
   splitType: {
     type: String,
     enum: ['equal', 'percentage', 'custom'],
@@ -84,6 +142,18 @@ const splitBillSchema = new mongoose.Schema({
     type: String,
     enum: ['Food', 'Transport', 'Entertainment', 'Shopping', 'Bills', 'Health', 'Other'],
     default: 'Other'
+  },
+  location: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Location',
+    default: null
+  },
+  locationDetails: {
+    address: String,
+    coordinates: {
+      latitude: Number,
+      longitude: Number
+    }
   },
   receipt: {
     url: String,
@@ -238,6 +308,176 @@ splitBillSchema.statics.getGroupStats = async function(groupId) {
   ]);
 
   return stats[0];
+};
+
+// Instance methods
+splitBillSchema.methods.markParticipantAsPaid = async function(participantUserId, paymentMethod = 'cash', notes = '') {
+  const participant = this.participants.find(p => p.userId.toString() === participantUserId.toString());
+  
+  if (!participant) {
+    throw new Error('Participant not found in this split bill');
+  }
+
+  if (participant.isPaid) {
+    throw new Error('Participant has already paid');
+  }
+
+  participant.isPaid = true;
+  participant.paidAt = new Date();
+
+  // Record the payment
+  this.payments.push({
+    fromUserId: participant.userId,
+    toUserId: this.createdBy,
+    amount: participant.amount,
+    paymentMethod,
+    notes,
+    paidAt: new Date(),
+    confirmedBy: [{
+      userId: this.createdBy,
+      confirmedAt: new Date()
+    }]
+  });
+
+  // Check if all participants have paid
+  const allPaid = this.participants.every(p => p.isPaid);
+  if (allPaid && !this.isSettled) {
+    this.isSettled = true;
+    this.settledAt = new Date();
+  }
+
+  return this.save();
+};
+
+splitBillSchema.methods.confirmPayment = async function(paymentId, confirmerUserId) {
+  const payment = this.payments.id(paymentId);
+  
+  if (!payment) {
+    throw new Error('Payment not found');
+  }
+
+  // Check if user has already confirmed
+  const alreadyConfirmed = payment.confirmedBy.some(c => c.userId.toString() === confirmerUserId.toString());
+  
+  if (alreadyConfirmed) {
+    throw new Error('Payment already confirmed by this user');
+  }
+
+  payment.confirmedBy.push({
+    userId: confirmerUserId,
+    confirmedAt: new Date()
+  });
+
+  return this.save();
+};
+
+splitBillSchema.methods.addReminder = async function(userId, type, message) {
+  this.reminders.push({
+    userId,
+    type,
+    message,
+    sentAt: new Date(),
+    isRead: false
+  });
+
+  return this.save();
+};
+
+splitBillSchema.methods.getPaymentSummary = function() {
+  const totalPaid = this.payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const totalOwed = this.participants.reduce((sum, participant) => sum + participant.amount, 0);
+  
+  return {
+    totalAmount: this.totalAmount,
+    totalPaid,
+    totalOwed,
+    remainingAmount: this.totalAmount - totalPaid,
+    isFullyPaid: totalPaid >= this.totalAmount,
+    participantsPaid: this.participants.filter(p => p.isPaid).length,
+    totalParticipants: this.participants.length,
+    payments: this.payments
+  };
+};
+
+splitBillSchema.methods.getDebts = function() {
+  const debts = [];
+  
+  this.participants.forEach(participant => {
+    if (!participant.isPaid) {
+      debts.push({
+        from: participant.userId,
+        to: this.createdBy,
+        amount: participant.amount,
+        description: this.description
+      });
+    }
+  });
+
+  return debts;
+};
+
+// Static methods for settlement calculations
+splitBillSchema.statics.calculateGroupSettlement = async function(groupId) {
+  const splitBills = await this.find({ 
+    groupId,
+    isSettled: false 
+  }).populate('participants.userId', 'name');
+
+  const memberBalances = new Map();
+  
+  // Calculate net balance for each member
+  for (const bill of splitBills) {
+    // Creator paid the full amount initially
+    const creatorBalance = memberBalances.get(bill.createdBy.toString()) || 0;
+    memberBalances.set(bill.createdBy.toString(), creatorBalance + bill.totalAmount);
+
+    // Subtract each participant's share
+    for (const participant of bill.participants) {
+      const participantBalance = memberBalances.get(participant.userId.toString()) || 0;
+      memberBalances.set(participant.userId.toString(), participantBalance - participant.amount);
+    }
+  }
+
+  // Calculate settlements (who owes whom)
+  const settlements = [];
+  const members = Array.from(memberBalances.entries());
+  
+  // Sort by balance (most positive first)
+  members.sort((a, b) => b[1] - a[1]);
+  
+  let i = 0;
+  let j = members.length - 1;
+  
+  while (i < j) {
+    const [creditorId, creditorBalance] = members[i];
+    const [debtorId, debtorBalance] = members[j];
+    
+    if (creditorBalance === 0) {
+      i++;
+      continue;
+    }
+    
+    if (debtorBalance === 0) {
+      j--;
+      continue;
+    }
+    
+    const settlementAmount = Math.min(creditorBalance, Math.abs(debtorBalance));
+    
+    settlements.push({
+      from: debtorId,
+      to: creditorId,
+      amount: settlementAmount
+    });
+    
+    members[i][1] -= settlementAmount;
+    members[j][1] += settlementAmount;
+  }
+
+  return {
+    settlements,
+    memberBalances: Object.fromEntries(memberBalances)
+  };
 };
 
 module.exports = mongoose.model('SplitBill', splitBillSchema);

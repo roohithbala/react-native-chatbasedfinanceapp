@@ -78,14 +78,14 @@ You are a financial advisor analyzing a user's spending patterns. Based on the f
 
 Expense Summary:
 ${Object.entries(expenseSummary).map(([category, data]: [string, any]) =>
-  `- ${category}: $${data.total.toFixed(2)} (${data.count} transactions)`
+  `- ${category}: ₹${data.total.toFixed(2)} (${data.count} transactions)`
 ).join('\n')}
 
-Total Spending: $${totalSpending.toFixed(2)}
+Total Spending: ₹${totalSpending.toFixed(2)}
 Categories: ${categories.join(', ')}
 
 ${budgets && Object.keys(budgets).length > 0 ?
-  `Budgets: ${Object.entries(budgets).map(([cat, amount]) => `${cat}: $${amount}`).join(', ')}` :
+  `Budgets: ${Object.entries(budgets).map(([cat, amount]) => `${cat}: ₹${amount}`).join(', ')}` :
   'No budgets set'
 }
 
@@ -167,7 +167,7 @@ Focus on:
       {
         id: 'fallback_1',
         title: 'Spending Overview',
-        description: `You've spent $${totalSpending.toFixed(2)} across ${categoryCount} categories this period.`,
+        description: `You've spent ₹${totalSpending.toFixed(2)} across ${categoryCount} categories this period.`,
         type: 'tip',
         icon: '💰',
       },
@@ -219,10 +219,10 @@ Focus on:
       const prompt = `
 Analyze the emotional spending patterns based on these recent transactions:
 ${recentExpenses.map(expense =>
-  `- ${expense.description}: $${expense.amount} (${expense.category})`
+  `- ${expense.description}: ₹${expense.amount} (${expense.category})`
 ).join('\n')}
 
-Average transaction: $${avgAmount.toFixed(2)}
+Average transaction: ₹${avgAmount.toFixed(2)}
 
 Provide emotional analysis in JSON format:
 {
@@ -278,10 +278,10 @@ Provide emotional analysis in JSON format:
       const prompt = `
 Create a financial summary for the ${period} period:
 
-Total Spending: $${totalSpending.toFixed(2)}
+Total Spending: ₹${totalSpending.toFixed(2)}
 Category Breakdown:
 ${Object.entries(categoryBreakdown).map(([cat, amount]) =>
-  `- ${cat}: $${(amount as number).toFixed(2)}`
+  `- ${cat}: ₹${(amount as number).toFixed(2)}`
 ).join('\n')}
 
 Number of transactions: ${periodExpenses.length}
@@ -312,7 +312,7 @@ Provide a concise summary in JSON format:
       } catch (parseError) {
         console.error('Failed to parse financial summary:', parseError);
         return {
-          summary: `Total spending: $${totalSpending.toFixed(2)} across ${periodExpenses.length} transactions.`,
+          summary: `Total spending: ₹${totalSpending.toFixed(2)} across ${periodExpenses.length} transactions.`,
           keyInsights: [
             'Continue monitoring your expenses regularly.',
             'Consider categorizing expenses for better insights.',

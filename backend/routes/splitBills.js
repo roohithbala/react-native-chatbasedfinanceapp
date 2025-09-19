@@ -53,7 +53,7 @@ router.post('/', auth, async (req, res) => {
       participants,
       splitType,
       category,
-      currency = 'USD',
+      currency = 'INR',
       notes
     } = req.body;
 

@@ -330,7 +330,7 @@ router.post('/:id/split', auth, async (req, res) => {
     const splitBill = new SplitBill({
       description: description.trim(),
       totalAmount: parseFloat(amount.toFixed(2)),
-      currency: 'USD', // Default currency
+      currency: 'INR', // Default currency
       createdBy: req.userId,
       groupId: group._id,
       participants: splitParticipants,

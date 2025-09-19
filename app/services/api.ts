@@ -2,8 +2,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Configuration
-const API_BASE_URL = __DEV__ 
-  ? 'http://10.1.60.70:3001/api' 
+export const API_BASE_URL = __DEV__
+  ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api')
   : 'https://your-production-api.com/api';
 
 // Create axios instance
@@ -213,25 +213,60 @@ export const expensesAPI = {
         timeout: 10000, // 10 second timeout
       });
       
-      // Validate response data - be more flexible with empty responses
+      // More flexible validation - handle various response formats
       if (!response.data) {
-        throw new Error('No response data from server');
+        console.warn('No response data from expenses API');
+        return {
+          expenses: [],
+          totalPages: 0,
+          currentPage: 1,
+          total: 0
+        };
       }
       
-      // Ensure expenses is always an array
-      const expenses = Array.isArray(response.data.expenses) 
-        ? response.data.expenses 
-        : [];
+      // Handle different response formats
+      let expenses = [];
+      let totalPages = 0;
+      let currentPage = 1;
+      let total = 0;
+      
+      if (Array.isArray(response.data)) {
+        // Direct array response
+        expenses = response.data;
+      } else if (response.data.expenses && Array.isArray(response.data.expenses)) {
+        // Standard response format
+        expenses = response.data.expenses;
+        totalPages = response.data.totalPages || 0;
+        currentPage = response.data.currentPage || 1;
+        total = response.data.total || 0;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        // Alternative response format
+        expenses = response.data.data;
+        totalPages = response.data.totalPages || 0;
+        currentPage = response.data.currentPage || 1;
+        total = response.data.total || 0;
+      } else {
+        console.warn('Unexpected expenses response format:', response.data);
+        expenses = [];
+      }
       
       return {
-        ...response.data,
-        expenses: expenses
+        expenses: expenses,
+        totalPages: totalPages,
+        currentPage: currentPage,
+        total: total
       };
     } catch (error: any) {
       console.error('Error fetching expenses:', error);
-      // Rethrow with better error message for network errors
+      // Return empty data instead of throwing to prevent app crashes
       if (error.name === 'NetworkError' || !error.response) {
-        throw new Error('Unable to fetch expenses. Please check your connection and try again.');
+        console.warn('Network error fetching expenses, returning empty data');
+        return {
+          expenses: [],
+          totalPages: 0,
+          currentPage: 1,
+          total: 0
+        };
       }
       throw error;
     }
@@ -316,11 +351,24 @@ export const groupsAPI = {
 
       const response = await api.post(`/groups/${groupId}/members`, requestBody);
       
-      if (!response.data || response.data.status !== 'success' || !response.data.data?.group) {
-        throw new Error('Invalid response from server');
+      // More flexible validation - handle various response formats
+      if (!response.data) {
+        throw new Error('No response data from server');
       }
       
-      return response.data.data;
+      // Check for success status and data
+      if (response.data.status === 'success' && response.data.data) {
+        return response.data.data;
+      }
+      
+      // Handle alternative response formats
+      if (response.data.group) {
+        return { group: response.data.group };
+      }
+      
+      // If we get here, the response format is unexpected
+      console.warn('Unexpected add member response format:', response.data);
+      throw new Error('Invalid response format from server');
     } catch (error) {
       console.error('Add member error:', error);
       throw error;
@@ -375,10 +423,63 @@ export const chatAPI = {
   getMessages: async (groupId: string, params?: any): Promise<MessagesResponse> => {
     try {
       const response = await api.get(`/chat/${groupId}/messages`, { params });
-      if (!isMessagesResponse(response.data)) {
-        throw new Error('Invalid response format from server');
+      
+      // More flexible validation for messages response
+      if (!response.data) {
+        throw new Error('No response data from server');
       }
-      return response.data;
+      
+      // Check if response has the expected structure
+      if (response.data.status === 'success' && response.data.data) {
+        const { messages, group } = response.data.data;
+        
+        // Validate messages array
+        if (!Array.isArray(messages)) {
+          console.warn('Messages is not an array:', messages);
+          return {
+            status: 'success',
+            data: {
+              messages: [],
+              group: group || undefined
+            }
+          };
+        }
+        
+        // Validate each message has required fields
+        const validMessages = messages.filter(msg => 
+          msg && 
+          typeof msg === 'object' && 
+          msg.text && 
+          msg.user && 
+          msg._id
+        );
+        
+        if (validMessages.length !== messages.length) {
+          console.warn(`Filtered ${messages.length - validMessages.length} invalid messages`);
+        }
+        
+        return {
+          status: 'success',
+          data: {
+            messages: validMessages,
+            group: group || undefined
+          }
+        };
+      }
+      
+      // Handle alternative response formats
+      if (response.data.messages && Array.isArray(response.data.messages)) {
+        return {
+          status: 'success',
+          data: {
+            messages: response.data.messages,
+            group: response.data.group || undefined
+          }
+        };
+      }
+      
+      console.warn('Unexpected messages response format:', response.data);
+      throw new Error('Invalid response format from server');
     } catch (error) {
       console.error('Error fetching messages:', error);
       throw error;
@@ -612,6 +713,233 @@ export const directMessagesAPI = {
     } catch (error) {
       console.error('Error marking messages as read:', error);
       throw error;
+    }
+  },
+};
+
+// Todo API
+export const todosAPI = {
+  getTodos: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    priority?: string;
+    category?: string;
+    tags?: string[];
+    dueBefore?: string;
+    dueAfter?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) => {
+    try {
+      const response = await api.get('/todos', { 
+        params,
+        timeout: 10000
+      });
+      
+      // Handle various response formats
+      if (!response.data) {
+        return {
+          todos: [],
+          totalPages: 0,
+          currentPage: 1,
+          total: 0
+        };
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching todos:', error);
+      if (error.name === 'NetworkError' || !error.response) {
+        return {
+          todos: [],
+          totalPages: 0,
+          currentPage: 1,
+          total: 0
+        };
+      }
+      throw error;
+    }
+  },
+
+  getOverdueTodos: async () => {
+    try {
+      const response = await api.get('/todos/overdue');
+      return response.data.todos || [];
+    } catch (error) {
+      console.error('Error fetching overdue todos:', error);
+      return [];
+    }
+  },
+
+  getTodosDueSoon: async (days: number = 7) => {
+    try {
+      const response = await api.get('/todos/due-soon', { params: { days } });
+      return response.data.todos || [];
+    } catch (error) {
+      console.error('Error fetching todos due soon:', error);
+      return [];
+    }
+  },
+
+  getTodo: async (id: string) => {
+    try {
+      const response = await api.get(`/todos/${id}`);
+      if (!response.data || !response.data.todo) {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data.todo;
+    } catch (error) {
+      console.error('Error fetching todo:', error);
+      throw error;
+    }
+  },
+
+  createTodo: async (todoData: {
+    title: string;
+    description?: string;
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    dueDate?: string;
+    tags?: string[];
+    category?: string;
+    isRecurring?: boolean;
+    recurringPattern?: {
+      frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+      interval: number;
+      endDate?: string;
+    };
+    location?: {
+      address: string;
+      coordinates: {
+        latitude: number;
+        longitude: number;
+      };
+    };
+  }) => {
+    try {
+      const response = await api.post('/todos', todoData);
+      if (!response.data || !response.data.todo) {
+        throw new Error('Invalid response from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error creating todo:', error);
+      throw error;
+    }
+  },
+
+  updateTodo: async (id: string, todoData: Partial<{
+    title: string;
+    description: string;
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    status: 'not-started' | 'in-progress' | 'completed' | 'cancelled';
+    dueDate: string;
+    tags: string[];
+    category: string;
+    isRecurring: boolean;
+    recurringPattern: {
+      frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+      interval: number;
+      endDate?: string;
+    };
+    location: {
+      address: string;
+      coordinates: {
+        latitude: number;
+        longitude: number;
+      };
+    };
+  }>) => {
+    try {
+      const response = await api.put(`/todos/${id}`, todoData);
+      if (!response.data || !response.data.todo) {
+        throw new Error('Invalid response from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error updating todo:', error);
+      throw error;
+    }
+  },
+
+  deleteTodo: async (id: string) => {
+    try {
+      const response = await api.delete(`/todos/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+      throw error;
+    }
+  },
+
+  markCompleted: async (id: string) => {
+    try {
+      const response = await api.patch(`/todos/${id}/complete`);
+      if (!response.data || !response.data.todo) {
+        throw new Error('Invalid response from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error marking todo as completed:', error);
+      throw error;
+    }
+  },
+
+  markInProgress: async (id: string) => {
+    try {
+      const response = await api.patch(`/todos/${id}/start`);
+      if (!response.data || !response.data.todo) {
+        throw new Error('Invalid response from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error marking todo as in progress:', error);
+      throw error;
+    }
+  },
+
+  shareTodo: async (id: string, userId: string, permission: 'view' | 'edit' = 'view') => {
+    try {
+      const response = await api.post(`/todos/${id}/share`, { userId, permission });
+      if (!response.data || !response.data.todo) {
+        throw new Error('Invalid response from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error sharing todo:', error);
+      throw error;
+    }
+  },
+
+  removeShare: async (id: string, userId: string) => {
+    try {
+      const response = await api.delete(`/todos/${id}/share/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error removing share:', error);
+      throw error;
+    }
+  },
+
+  getStats: async () => {
+    try {
+      const response = await api.get('/todos/stats/overview');
+      return response.data.stats || {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        pending: 0,
+        overdue: 0
+      };
+    } catch (error) {
+      console.error('Error fetching todo stats:', error);
+      return {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        pending: 0,
+        overdue: 0
+      };
     }
   },
 };

@@ -63,7 +63,7 @@ export default function CreateSplitBillModal({
     setSplitType(type);
     if (type === 'equal' && totalAmount) {
       const amount = parseFloat(totalAmount);
-      const equalShare = (amount / (participants.length + 1)).toFixed(2);
+      const equalShare = ((amount || 0) / (participants.length + 1)).toFixed(2);
       setParticipants(
         participants.map(p => ({
           ...p,
@@ -77,7 +77,7 @@ export default function CreateSplitBillModal({
     setTotalAmount(value);
     if (splitType === 'equal' && value) {
       const amount = parseFloat(value);
-      const equalShare = (amount / (participants.length + 1)).toFixed(2);
+      const equalShare = ((amount || 0) / (participants.length + 1)).toFixed(2);
       setParticipants(
         participants.map(p => ({
           ...p,

@@ -1,6 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { format } from 'date-fns';
+
+interface LocationMention {
+  locationId: string;
+  locationName: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+}
 
 interface ChatBubbleProps {
   text: string;
@@ -9,17 +18,110 @@ interface ChatBubbleProps {
   status: 'sent' | 'delivered' | 'read';
   type?: 'text' | 'image' | 'file' | 'system' | 'command';
   senderName?: string;
+  locationMentions?: LocationMention[];
+  onLocationMentionPress?: (location: LocationMention) => void;
 }
 
-export default function ChatBubble({ 
-  text, 
-  createdAt, 
-  isOwnMessage, 
-  status, 
+export default function ChatBubble({
+  text,
+  createdAt,
+  isOwnMessage,
+  status,
   type = 'text',
-  senderName 
+  senderName,
+  locationMentions = [],
+  onLocationMentionPress
 }: ChatBubbleProps) {
   const isSystem = type === 'system' || type === 'command';
+
+  const renderMessageText = () => {
+    if (locationMentions.length === 0 || isSystem) {
+      return (
+        <Text style={[
+          styles.messageText,
+          isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+          isSystem && styles.systemText
+        ]}>
+          {text}
+        </Text>
+      );
+    }
+
+    // Create a map of location mentions for quick lookup
+    const mentionMap = new Map();
+    locationMentions.forEach(mention => {
+      mentionMap.set(`@${mention.locationName}`, mention);
+    });
+
+    // Split text by location mentions and render accordingly
+    const parts = [];
+    let remainingText = text;
+    let key = 0;
+
+    // Find all @mentions in the text
+    const mentionRegex = /(@\w+)/g;
+    let match;
+
+    while ((match = mentionRegex.exec(text)) !== null) {
+      const mentionText = match[0];
+      const mention = mentionMap.get(mentionText);
+
+      if (mention) {
+        // Add text before the mention
+        const beforeText = text.substring(0, match.index);
+        if (beforeText) {
+          parts.push(
+            <Text key={key++} style={[
+              styles.messageText,
+              isOwnMessage ? styles.ownMessageText : styles.otherMessageText
+            ]}>
+              {beforeText}
+            </Text>
+          );
+        }
+
+        // Add the location mention
+        parts.push(
+          <TouchableOpacity
+            key={key++}
+            onPress={() => onLocationMentionPress?.(mention)}
+            style={styles.locationMention}
+          >
+            <Text style={[
+              styles.locationMentionText,
+              isOwnMessage ? styles.ownLocationMentionText : styles.otherLocationMentionText
+            ]}>
+              📍 {mention.locationName}
+            </Text>
+          </TouchableOpacity>
+        );
+
+        // Update remaining text
+        remainingText = text.substring(match.index + match[0].length);
+      }
+    }
+
+    // Add remaining text
+    if (remainingText) {
+      parts.push(
+        <Text key={key++} style={[
+          styles.messageText,
+          isOwnMessage ? styles.ownMessageText : styles.otherMessageText
+        ]}>
+          {remainingText}
+        </Text>
+      );
+    }
+
+    return parts.length > 0 ? parts : (
+      <Text style={[
+        styles.messageText,
+        isOwnMessage ? styles.ownMessageText : styles.otherMessageText
+      ]}>
+        {text}
+      </Text>
+    );
+  };
 
   return (
     <View style={[
@@ -34,13 +136,7 @@ export default function ChatBubble({
         isOwnMessage ? styles.ownBubble : styles.otherBubble,
         isSystem && styles.systemBubble
       ]}>
-        <Text style={[
-          styles.messageText,
-          isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-          isSystem && styles.systemText
-        ]}>
-          {text}
-        </Text>
+        {renderMessageText()}
         <View style={styles.footer}>
           <Text style={[
             styles.timestamp,
@@ -147,5 +243,23 @@ const styles = StyleSheet.create({
   },
   statusRead: {
     color: '#2563EB', // App's primary blue
+  },
+  locationMention: {
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    marginHorizontal: 2,
+  },
+  locationMentionText: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  ownLocationMentionText: {
+    color: '#2563EB',
+  },
+  otherLocationMentionText: {
+    color: '#059669',
   },
 });

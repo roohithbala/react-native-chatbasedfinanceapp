@@ -75,12 +75,12 @@ export default function SettlementTracker() {
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Awaiting</Text>
             <Text style={styles.statValue}>{settlementStats.awaiting}</Text>
-            <Text style={styles.statAmount}>${settlementStats.totalAwaiting.toFixed(2)}</Text>
+            <Text style={styles.statAmount}>₹{settlementStats.totalAwaiting.toFixed(2)}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Settled</Text>
             <Text style={styles.statValue}>{settlementStats.settled}</Text>
-            <Text style={styles.statAmount}>${settlementStats.totalSettled.toFixed(2)}</Text>
+            <Text style={styles.statAmount}>₹{settlementStats.totalSettled.toFixed(2)}</Text>
           </View>
         </View>
       </LinearGradient>

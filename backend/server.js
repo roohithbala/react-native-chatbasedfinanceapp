@@ -21,6 +21,9 @@ const chatRoutes = require('./routes/chat');
 const aiRoutes = require('./routes/ai');
 const splitBillRoutes = require('./routes/splitBills');
 const directMessageRoutes = require('./routes/direct-messages');
+const todoRoutes = require('./routes/todos');
+const locationRoutes = require('./routes/locations');
+const paymentRoutes = require('./routes/payments');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,11 +32,12 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: [
-      'exp://10.1.60.70:8081',
-      'http://10.1.60.70:8081',
+      'exp://localhost:8081',
       'http://localhost:8081',
       'http://localhost:3001',
       'http://10.1.60.70:3001',
+      'exp://10.247.4.172:8081',
+      'http://10.247.4.172:8081',
       process.env.FRONTEND_URL
     ].filter(Boolean),
     methods: ["GET", "POST"],
@@ -55,6 +59,8 @@ app.use(cors({
     'http://localhost:8081',
     'http://localhost:3001',
     'http://10.1.60.70:3001',
+    'exp://10.247.4.172:8081',
+    'http://10.247.4.172:8081',
     process.env.FRONTEND_URL
   ].filter(Boolean),
   credentials: true,
@@ -428,6 +434,9 @@ app.use('/api/chat', (req, res, next) => {
 app.use('/api/ai', aiRoutes);
 app.use('/api/split-bills', splitBillRoutes);
 app.use('/api/direct-messages', directMessageRoutes);
+app.use('/api/todos', todoRoutes);
+app.use('/api/locations', locationRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

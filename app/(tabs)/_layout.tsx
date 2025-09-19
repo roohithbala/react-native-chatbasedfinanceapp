@@ -68,6 +68,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="todos"
+        options={{
+          title: 'Todos',
+          tabBarIcon: ({ size, color }) => (
+            <Ionicons name="checkmark-circle" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',

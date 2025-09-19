@@ -21,7 +21,7 @@ class SocketService {
 
       console.log('🔌 Initializing socket connection...');
       const SOCKET_URL = __DEV__ 
-        ? 'http://10.1.60.70:3002' 
+        ? 'http://10.247.4.172:3001' 
         : 'https://your-production-api.com';
 
       console.log('🔌 Connecting to socket server:', SOCKET_URL);

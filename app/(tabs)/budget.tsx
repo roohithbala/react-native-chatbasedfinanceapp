@@ -211,12 +211,12 @@ export default function BudgetScreen() {
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Total Budget</Text>
-            <Text style={styles.summaryValue}>${totalBudget.toFixed(2)}</Text>
+            <Text style={styles.summaryValue}>₹{totalBudget.toFixed(2)}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Total Spent</Text>
             <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
-              ${totalSpent.toFixed(2)}
+              ₹{totalSpent.toFixed(2)}
             </Text>
           </View>
           <View style={styles.summaryDivider} />
@@ -228,7 +228,7 @@ export default function BudgetScreen() {
                 { color: totalBudget - totalSpent >= 0 ? '#10B981' : '#EF4444' },
               ]}
             >
-              ${(totalBudget - totalSpent).toFixed(2)}
+              ₹{(totalBudget - totalSpent).toFixed(2)}
             </Text>
           </View>
         </View>
@@ -266,7 +266,7 @@ export default function BudgetScreen() {
                   <View style={styles.categoryDetails}>
                     <Text style={styles.categoryName}>{cat}</Text>
                     <Text style={styles.budgetRange}>
-                      ${spentAmount.toFixed(2)} / ${budgetLimit.toFixed(2)}
+                      ₹{spentAmount.toFixed(2)} / ₹{budgetLimit.toFixed(2)}
                     </Text>
                   </View>
                 </View>

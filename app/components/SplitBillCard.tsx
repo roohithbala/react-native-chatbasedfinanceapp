@@ -1,59 +1,109 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SplitBill, SplitBillParticipant } from '@/lib/store/financeStore';
+import { PaymentStatusCard } from './PaymentStatusCard';
+import { SettlementModal } from './SettlementModal';
 
 interface SplitBillCardProps {
   bill: SplitBill;
   currentUserId?: string;
   onMarkAsPaid?: (billId: string) => void;
+  groupId?: string;
 }
 
-export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid }: SplitBillCardProps) {
+export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, groupId }: SplitBillCardProps) {
+  const [showPaymentStatus, setShowPaymentStatus] = useState(false);
+  const [showSettlement, setShowSettlement] = useState(false);
   const userShare = bill.participants.find(p => p.userId === currentUserId);
-  
+
+  const handlePaymentUpdate = () => {
+    // Refresh the bill data if needed
+    if (onMarkAsPaid) {
+      // This could trigger a refresh of the parent component
+    }
+  };
+
   return (
-    <View style={styles.billCard}>
-      <View style={styles.billHeader}>
-        <View style={styles.billIcon}>
-          <Ionicons name="people" size={20} color="#8B5CF6" />
+    <>
+      <View style={styles.billCard}>
+        <View style={styles.billHeader}>
+          <View style={styles.billIcon}>
+            <Ionicons name="people" size={20} color="#8B5CF6" />
+          </View>
+          <View style={styles.billDetails}>
+            <Text style={styles.billDescription}>{bill.description}</Text>
+            <Text style={styles.billParticipants}>
+              {bill.participants.length} participants • {bill.category}
+            </Text>
+            <Text style={[
+              styles.billStatus,
+              userShare?.isPaid ? styles.statusPaid : styles.statusPending
+            ]}>
+              {userShare?.isPaid ? '✓ Paid' : '• Pending'}
+            </Text>
+            <Text style={styles.billDate}>
+              {new Date(bill.createdAt).toLocaleDateString()}
+            </Text>
+          </View>
+          <View style={styles.billAmounts}>
+            <Text style={styles.billTotal}>
+              ₹{(bill.totalAmount || 0).toFixed(2)}
+            </Text>
+            <Text style={[
+              styles.billShare,
+              userShare?.isPaid && styles.sharePaid
+            ]}>
+              Your share: ₹{(userShare?.amount || 0).toFixed(2)}
+            </Text>
+            {!userShare?.isPaid && onMarkAsPaid && (
+              <TouchableOpacity
+                style={styles.markAsPaidButton}
+                onPress={() => onMarkAsPaid(bill._id)}
+              >
+                <Text style={styles.markAsPaidText}>Mark as Paid</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-        <View style={styles.billDetails}>
-          <Text style={styles.billDescription}>{bill.description}</Text>
-          <Text style={styles.billParticipants}>
-            {bill.participants.length} participants • {bill.category}
-          </Text>
-          <Text style={[
-            styles.billStatus,
-            userShare?.isPaid ? styles.statusPaid : styles.statusPending
-          ]}>
-            {userShare?.isPaid ? '✓ Paid' : '• Pending'}
-          </Text>
-          <Text style={styles.billDate}>
-            {new Date(bill.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={styles.billAmounts}>
-          <Text style={styles.billTotal}>
-            ${bill.totalAmount.toFixed(2)}
-          </Text>
-          <Text style={[
-            styles.billShare,
-            userShare?.isPaid && styles.sharePaid
-          ]}>
-            Your share: ${(userShare?.amount || 0).toFixed(2)}
-          </Text>
-          {!userShare?.isPaid && onMarkAsPaid && (
+
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => setShowPaymentStatus(true)}
+          >
+            <Ionicons name="stats-chart" size={16} color="#007AFF" />
+            <Text style={styles.actionButtonText}>Payment Status</Text>
+          </TouchableOpacity>
+
+          {groupId && (
             <TouchableOpacity
-              style={styles.markAsPaidButton}
-              onPress={() => onMarkAsPaid(bill._id)}
+              style={styles.actionButton}
+              onPress={() => setShowSettlement(true)}
             >
-              <Text style={styles.markAsPaidText}>Mark as Paid</Text>
+              <Ionicons name="swap-horizontal" size={16} color="#10B981" />
+              <Text style={styles.actionButtonText}>Settlement</Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
-    </View>
+
+      {showPaymentStatus && (
+        <PaymentStatusCard
+          splitBillId={bill._id}
+          onPaymentUpdate={handlePaymentUpdate}
+        />
+      )}
+
+      {groupId && (
+        <SettlementModal
+          visible={showSettlement}
+          groupId={groupId}
+          onClose={() => setShowSettlement(false)}
+          onSettlementComplete={handlePaymentUpdate}
+        />
+      )}
+    </>
   );
 }
 
@@ -140,5 +190,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+    marginHorizontal: 4,
+    justifyContent: 'center',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });

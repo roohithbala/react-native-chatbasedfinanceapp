@@ -46,7 +46,7 @@ router.post('/register', async (req, res) => {
         notifications: true,
         biometric: false,
         darkMode: false,
-        currency: 'USD'
+        currency: 'INR'
       }
     });
     
