@@ -58,25 +58,56 @@ router.post('/', auth, async (req, res) => {
     } = req.body;
 
     // Validation
-    if (!description || !totalAmount || !groupId || !participants || !participants.length) {
+    if (!description || !totalAmount || !participants || !participants.length) {
       return res.status(400).json({ 
-        message: 'Description, total amount, group ID, and participants are required' 
+        message: 'Description, total amount, and participants are required' 
       });
+    }
+
+    // If groupId is provided, validate group exists and user is a member
+    if (groupId) {
+      const Group = require('../models/Group');
+      const group = await Group.findById(groupId);
+      if (!group) {
+        return res.status(404).json({ message: 'Group not found' });
+      }
+
+      if (!group.members.some(m => m.userId.toString() === req.userId)) {
+        return res.status(403).json({ message: 'You must be a group member to create a split bill' });
+      }
+    } else {
+      // For direct chat split bills, validate that all participants exist
+      const User = require('../models/User');
+      const participantIds = participants.map(p => p.userId);
+      const users = await User.find({ _id: { $in: participantIds } });
+      
+      if (users.length !== participantIds.length) {
+        return res.status(400).json({ message: 'One or more participants not found' });
+      }
+
+      // Ensure the creator is included in participants for direct chat
+      if (!participantIds.includes(req.userId)) {
+        return res.status(400).json({ message: 'Creator must be a participant in direct chat split bills' });
+      }
     }
 
     // Validate total amount matches sum of participant amounts
     const totalParticipantAmount = participants.reduce((sum, p) => sum + p.amount, 0);
-    if (Math.abs(totalAmount - totalParticipantAmount) > 0.01) { // Allow for small floating point differences
+    if (Math.abs(totalAmount - totalParticipantAmount) > 0.01) {
       return res.status(400).json({ 
         message: 'Sum of participant amounts must equal total amount' 
       });
     }
 
+    // Create the split bill
     const splitBill = new SplitBill({
       description,
       totalAmount,
       groupId,
-      participants,
+      participants: participants.map(p => ({
+        ...p,
+        isPaid: p.userId === req.userId // Mark as paid if creator is participant
+      })),
       splitType: splitType || 'equal',
       category: category || 'Other',
       currency,
@@ -85,6 +116,8 @@ router.post('/', auth, async (req, res) => {
     });
 
     await splitBill.save();
+    
+    // Populate the response
     await splitBill
       .populate('createdBy', 'name avatar')
       .populate('participants.userId', 'name avatar')

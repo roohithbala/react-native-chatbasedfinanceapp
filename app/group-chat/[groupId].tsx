@@ -21,13 +21,16 @@ import AddMemberModal from '@/app/components/AddMemberModal';
 import ChatBubble from '@/app/components/ChatBubble';
 import LocationMentionInput from '@/app/components/LocationMentionInput';
 import { Message as BaseMessage } from '@/app/types/chat';
+import { CommandParser } from '@/lib/components/CommandParser';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL } from '@/app/services/api';
 
 interface Message extends Omit<BaseMessage, 'readBy' | 'status'> {
   readBy: Array<{
     userId: string;
-    readAt: string;
+    readAt: string | Date;
   }>;
-  status: 'sent' | 'delivered' | 'read';
+  status: 'sent' | 'delivered' | 'read' | 'error';
   locationMentions?: Array<{
     locationId: string;
     locationName: string;
@@ -36,6 +39,7 @@ interface Message extends Omit<BaseMessage, 'readBy' | 'status'> {
       longitude: number;
     };
   }>;
+  isTemp?: boolean; // For temporary messages before server confirmation
 }
 
 interface ChatUser {
@@ -195,6 +199,128 @@ export default function GroupChatScreen() {
     });
   };
 
+  const handleSplitBillCommand = async (data: any) => {
+    try {
+      if (!data || !data.amount || data.amount <= 0) {
+        Alert.alert('Error', 'Please specify a valid amount for the split bill');
+        return;
+      }
+
+      if (!currentUser?._id) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      if (!groupId) {
+        Alert.alert('Error', 'Group not found');
+        return;
+      }
+
+      // Get group members for split bill
+      const groupMembers = currentGroup?.members || [];
+      const participants = [];
+
+      // If specific participants are mentioned, use them
+      if (data.participants && data.participants.length > 0) {
+        for (const participantUsername of data.participants) {
+          const member = groupMembers.find(m => m.user.username === participantUsername);
+          if (member) {
+            participants.push({
+              userId: member.user._id,
+              amount: data.amount / (data.participants.length + 1) // Include creator
+            });
+          }
+        }
+      } else {
+        // Split equally among all group members
+        const totalParticipants = groupMembers.length;
+        for (const member of groupMembers) {
+          participants.push({
+            userId: member.user._id,
+            amount: data.amount / totalParticipants
+          });
+        }
+      }
+
+      // Add the creator as a participant if not already included
+      const creatorIncluded = participants.some(p => p.userId === currentUser._id);
+      if (!creatorIncluded) {
+        participants.push({
+          userId: currentUser._id,
+          amount: data.amount / participants.length
+        });
+      }
+
+      // Create the split bill
+      const splitBillData = {
+        description: data.description || 'Split Bill',
+        totalAmount: data.amount,
+        groupId: groupId,
+        participants: participants,
+        splitType: 'equal' as const,
+        category: data.category || 'Split',
+        currency: 'INR'
+      };
+
+      console.log('Creating split bill with data:', splitBillData);
+      const result = await useFinanceStore.getState().createSplitBill(splitBillData);
+
+      // Send confirmation message
+      const participantNames = participants
+        .filter(p => p.userId !== currentUser._id)
+        .map(p => {
+          const member = groupMembers.find(m => m.user._id === p.userId);
+          return member?.user.name || 'Unknown';
+        })
+        .join(', ');
+
+      const confirmationMessage = `✅ Split bill created!\n📝 ${data.description || 'Split Bill'}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / participants.length).toFixed(2)}\n👥 Participants: ${participantNames || 'All group members'}`;
+      
+      await sendMessage(confirmationMessage);
+
+      Alert.alert('Success', 'Split bill created successfully!');
+    } catch (error: any) {
+      console.error('Error creating split bill:', error);
+      Alert.alert('Error', error.message || 'Failed to create split bill');
+    }
+  };
+
+  const handleExpenseCommand = async (data: any) => {
+    try {
+      if (!data || !data.amount || data.amount <= 0) {
+        Alert.alert('Error', 'Please specify a valid amount for the expense');
+        return;
+      }
+
+      if (!currentUser?._id) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      // Create expense data
+      const expenseData = {
+        description: data.description,
+        amount: data.amount,
+        category: data.category,
+        userId: currentUser._id,
+        groupId: groupId
+      };
+
+      // Add the expense
+      const { addExpense } = useFinanceStore.getState();
+      await addExpense(expenseData);
+
+      // Send confirmation message
+      const confirmationMessage = `✅ Expense added!\n📝 ${data.description}\n💰 Amount: ₹${(data.amount || 0).toFixed(2)}\n📂 Category: ${data.category}`;
+      await sendMessage(confirmationMessage);
+
+      Alert.alert('Success', 'Expense added successfully!');
+    } catch (error: any) {
+      console.error('Error adding expense:', error);
+      Alert.alert('Error', error.message || 'Failed to add expense');
+    }
+  };
+
   const handleSplitBillSubmit = async () => {
     if (!splitBillData.description.trim() || !splitBillData.amount.trim()) {
       Alert.alert('Error', 'Please enter description and amount');
@@ -214,7 +340,7 @@ export default function GroupChatScreen() {
 
     // Create the split bill command
     const participantMentions = splitBillData.participants.map(p => `@${p.username}`).join(' ');
-    const command = `@split ${splitBillData.description} $${amount} ${participantMentions}`;
+    const command = `@split ${splitBillData.description} ₹${amount} ${participantMentions}`;
     
     setMessage(command);
     setShowSplitBillModal(false);
@@ -222,6 +348,96 @@ export default function GroupChatScreen() {
     
     // Send the message
     await sendMessage();
+  };
+
+  const handlePredictCommand = async () => {
+    try {
+      console.log('Handling @predict command');
+      const response = await fetch(`${API_BASE_URL}/ai/predict`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await AsyncStorage.getItem('authToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('AI prediction response:', data);
+
+      // Create AI response message
+      const aiMessage: Message = {
+        _id: `ai-${Date.now()}`,
+        text: `🤖 AI Predictions:\n\n${data.predictions?.map((p: any) =>
+          `• ${p.message}${p.suggestion ? `\n  💡 ${p.suggestion}` : ''}`
+        ).join('\n\n') || 'No predictions available'}`,
+        createdAt: new Date().toISOString(),
+        user: {
+          _id: 'ai-assistant',
+          name: 'AI Assistant',
+          username: 'ai',
+          avatar: '🤖'
+        },
+        type: 'text' as const,
+        status: 'sent' as const,
+        readBy: [],
+        groupId: groupId,
+        isTemp: false
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error handling predict command:', error);
+      Alert.alert('Error', 'Failed to get AI predictions. Please try again.');
+    }
+  };
+
+  const handleSummaryCommand = async () => {
+    try {
+      console.log('Handling @summary command');
+      const response = await fetch(`${API_BASE_URL}/ai/summary`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await AsyncStorage.getItem('authToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('AI summary response:', data);
+
+      // Create AI response message
+      const aiMessage: Message = {
+        _id: `ai-${Date.now()}`,
+        text: `📊 Financial Summary:\n\n💰 Total Expenses: ₹${data.totalExpenses?.toFixed(2) || '0.00'}\n💵 Personal: ₹${data.totalPersonalExpenses?.toFixed(2) || '0.00'}\n🤝 Split Bills: ₹${data.totalSplitExpenses?.toFixed(2) || '0.00'}\n\n📈 Expense Count: ${data.expenseCount || 0}\n🔄 Split Bills: ${data.splitBillCount || 0}\n\n📂 Top Categories:\n${Object.entries(data.categoryBreakdown || {}).map(([cat, amount]: [string, any]) => 
+          `• ${cat}: ₹${Number(amount).toFixed(2)}`
+        ).join('\n') || 'No category data'}`,
+        createdAt: new Date().toISOString(),
+        user: {
+          _id: 'ai-assistant',
+          name: 'AI Assistant',
+          username: 'ai',
+          avatar: '🤖'
+        },
+        type: 'text' as const,
+        status: 'sent' as const,
+        readBy: [],
+        groupId: groupId,
+        isTemp: false
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error handling summary command:', error);
+      Alert.alert('Error', 'Failed to get financial summary. Please try again.');
+    }
   };
 
   const connectSocket = async () => {
@@ -243,11 +459,32 @@ export default function GroupChatScreen() {
         }
         
         console.log('Received message:', msg);
-        // Only add message if it's not already in the list
+        // Only add message if it's not already in the list and not a temp message
         setMessages(prev => {
           const messageExists = prev.some(m => m._id === msg._id);
+          const tempMessageExists = prev.some(m => 
+            m.isTemp && 
+            m.text === msg.text && 
+            m.user._id === msg.user._id &&
+            Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 5000 // Within 5 seconds
+          );
+          
           if (messageExists) return prev;
-          return [msg, ...prev];
+          
+          // If we have a temp message that matches, replace it with the server message
+          if (tempMessageExists) {
+            return prev.map(m => 
+              m.isTemp && 
+              m.text === msg.text && 
+              m.user._id === msg.user._id &&
+              Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 5000
+                ? { ...msg, isTemp: false }
+                : m
+            );
+          }
+          
+          // Otherwise, add the new message
+          return [...prev, msg];
         });
       });
 
@@ -323,7 +560,7 @@ export default function GroupChatScreen() {
         throw new Error('Failed to load messages');
       }
 
-      const loadedMessages = response.data.messages.reverse();
+      const loadedMessages = response.data.messages;
       
       setMessages([
         {
@@ -355,31 +592,108 @@ export default function GroupChatScreen() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!message.trim() || !currentUser || !groupId) return;
+  const sendMessage = async (messageText?: string) => {
+    const textToSend = messageText || message;
+    if (!textToSend.trim() || !currentUser || !groupId) return;
 
-    const messageText = message.trim();
-    setMessage(''); // Clear message immediately for better UX
+    const trimmedMessage = textToSend.trim();
+    
+    // Only clear the input if we're sending the current message
+    if (!messageText) {
+      setMessage('');
+    }
 
     try {
-      const response = await chatAPI.sendMessage(groupId, { 
-        text: messageText,
-        type: messageText.startsWith('@') ? 'command' : 'text',
-        status: 'sent'
-      });
+      // Create the message object immediately for local state
+      const tempMessageId = `temp-${Date.now()}-${Math.random()}`;
+      const messageToAdd = {
+        _id: tempMessageId,
+        text: trimmedMessage,
+        createdAt: new Date().toISOString(),
+        user: {
+          _id: currentUser._id,
+          name: currentUser.name || 'Unknown',
+          username: currentUser.username || 'unknown',
+          avatar: currentUser.avatar || currentUser.name?.charAt(0).toUpperCase()
+        },
+        type: 'text' as const,
+        status: 'sent' as const,
+        readBy: [] as Array<{ userId: string; readAt: string }>,
+        groupId: groupId,
+        isTemp: true // Mark as temporary until confirmed by server
+      };
 
-      if (response.status !== 'success' || !response.data?.message) {
-        throw new Error('Failed to send message');
+      // Immediately add message to local state (WhatsApp-like behavior)
+      setMessages(prev => [...prev, messageToAdd]);
+
+      // Scroll to bottom to show the new message
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+
+      // Check if the message is a command
+      const commandData = CommandParser.parse(trimmedMessage);
+
+      if (commandData && commandData.type !== 'unknown') {
+        // Send the original command message first
+        const response = await chatAPI.sendMessage(groupId, { 
+          text: trimmedMessage,
+          type: 'command',
+          status: 'sent'
+        });
+
+        if (response.status !== 'success' || !response.data?.message) {
+          throw new Error('Failed to send message');
+        }
+
+        // Replace temp message with server message
+        const serverMessage = response.data.message;
+        setMessages(prev => prev.map(msg => 
+          msg._id === tempMessageId 
+            ? { ...serverMessage, isTemp: false }
+            : msg
+        ));
+
+        // Then handle the command
+        if (commandData.type === 'split') {
+          await handleSplitBillCommand(commandData.data);
+        } else if (commandData.type === 'expense') {
+          await handleExpenseCommand(commandData.data);
+        } else if (commandData.type === 'predict') {
+          await handlePredictCommand();
+        } else if (commandData.type === 'summary') {
+          await handleSummaryCommand();
+        }
+      } else {
+        // Send as regular message
+        const response = await chatAPI.sendMessage(groupId, { 
+          text: trimmedMessage,
+          type: 'text',
+          status: 'sent'
+        });
+
+        if (response.status !== 'success' || !response.data?.message) {
+          throw new Error('Failed to send message');
+        }
+
+        // Replace temp message with server message
+        const serverMessage = response.data.message;
+        setMessages(prev => prev.map(msg => 
+          msg._id === tempMessageId 
+            ? { ...serverMessage, isTemp: false }
+            : msg
+        ));
       }
-
-      // The message will be added via socket event, so we don't need to add it here
-      // This prevents duplicate messages
-
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     } catch (error: any) {
       console.error('Error sending message:', error);
-      // Restore the message if sending failed
-      setMessage(messageText);
+      
+      // Remove the temp message on error
+      setMessages(prev => prev.filter(msg => msg._id !== `temp-${Date.now()}-${Math.random()}`));
+      
+      // Restore the message if sending failed and it was the current message
+      if (!messageText) {
+        setMessage(trimmedMessage);
+      }
       Alert.alert('Error', error?.message || 'Failed to send message. Please try again.');
     }
   };
@@ -398,7 +712,7 @@ export default function GroupChatScreen() {
         text={msg.text}
         createdAt={msg.createdAt}
         isOwnMessage={isOwnMessage}
-        status={msg.status}
+        status={msg.status === 'error' ? 'sent' : msg.status}
         type={msg.type}
         senderName={!isOwnMessage ? msg.user.name : undefined}
         locationMentions={msg.locationMentions}
@@ -510,13 +824,21 @@ export default function GroupChatScreen() {
           <ScrollView
             ref={scrollViewRef}
             style={styles.messagesContainer}
-            contentContainerStyle={[
-              styles.messagesContent,
-              { flexDirection: 'column-reverse' }
-            ]}
+            contentContainerStyle={styles.messagesContent}
             showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
+            onLayout={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
           >
-            {messages.map(renderMessage)}
+            {messages.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No messages yet</Text>
+                <Text style={styles.emptySubtext}>
+                  Send a message to start the conversation
+                </Text>
+              </View>
+            ) : (
+              messages.map((msg) => renderMessage(msg))
+            )}
           </ScrollView>
         )}
 
@@ -609,7 +931,7 @@ export default function GroupChatScreen() {
             />
             <TouchableOpacity
               style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]}
-              onPress={sendMessage}
+              onPress={() => sendMessage()}
               disabled={!message.trim()}
             >
               <Ionicons
@@ -686,17 +1008,17 @@ export default function GroupChatScreen() {
                 </Text>
                 <View style={styles.participantsContainer}>
                   {currentGroup?.members
-                    ?.filter(member => member?.userId && member.userId !== currentUser?._id)
+                    ?.filter(member => member?.user && member.user._id !== currentUser?._id)
                     ?.map((member) => {
                       if (!member || !member.user) {
                         console.warn('Invalid member object:', member);
                         return null;
                       }
                       
-                      const isSelected = splitBillData.participants.some(p => p._id === member.userId);
+                      const isSelected = splitBillData.participants.some(p => p._id === member.user._id);
                       return (
                         <TouchableOpacity
-                          key={member.userId}
+                          key={member.user._id}
                           style={[
                             styles.participantChip,
                             isSelected && styles.participantChipSelected,
@@ -705,9 +1027,9 @@ export default function GroupChatScreen() {
                             setSplitBillData(prev => ({
                               ...prev,
                               participants: isSelected
-                                ? prev.participants.filter(p => p._id !== member.userId)
+                                ? prev.participants.filter(p => p._id !== member.user._id)
                                 : [...prev.participants, {
-                                    _id: member.userId,
+                                    _id: member.user._id,
                                     name: member.user.name || 'Unknown',
                                     username: member.user.username || 'unknown'
                                   }]
@@ -1185,6 +1507,32 @@ const styles = StyleSheet.create({
   connectionText: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  invertedScrollView: {
+    // Removed inverted transforms to fix flipped text
+  },
+  invertedMessagesContainer: {
+    // Removed inverted transforms to fix flipped text
+  },
+  invertedMessage: {
+    // Removed inverted transforms to fix flipped text
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
   },
   typingContainer: {
     backgroundColor: '#FFFFFF',

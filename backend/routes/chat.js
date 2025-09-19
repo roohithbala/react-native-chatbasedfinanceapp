@@ -187,23 +187,42 @@ router.post('/:groupId/messages', auth, async (req, res) => {
           
           switch (commandResult.type) {
             case 'split':
-              resultText = `💰 Split bill created:\n${commandResult.data.description}\nAmount: ₹${commandResult.data.amount}\nSplit: ₹${commandResult.data.splitAmount.toFixed(2)} each\nParticipants: ${commandResult.data.participants.join(', ')}`;
+              const splitAmount = commandResult.data.splitAmount !== undefined && commandResult.data.splitAmount !== null ?
+                Number(commandResult.data.splitAmount) : 0;
+              const splitAmountFormatted = isNaN(splitAmount) ? '0.00' : splitAmount.toFixed(2);
+              const participants = commandResult.data.participants || [];
+              resultText = `💰 Split bill created:\n${commandResult.data.description || 'Unknown'}\nAmount: ₹${(commandResult.data.amount || 0).toFixed(2)}\nSplit: ₹${splitAmountFormatted} each\nParticipants: ${participants.map(p => p.name || 'Unknown').join(', ') || 'None'}`;
               break;
             
             case 'expense':
-              resultText = `📝 Expense added:\n${commandResult.data.description}\nAmount: $${commandResult.data.amount}\nCategory: #${commandResult.data.category}`;
+              const expenseAmount = commandResult.data.amount !== undefined && commandResult.data.amount !== null ?
+                Number(commandResult.data.amount) : 0;
+              const expenseAmountFormatted = isNaN(expenseAmount) ? '0.00' : expenseAmount.toFixed(2);
+              resultText = `📝 Expense added:\n${commandResult.data.description || 'Unknown'}\nAmount: ₹${expenseAmountFormatted}\nCategory: #${commandResult.data.category || 'Other'}`;
               break;
             
             case 'predict':
-              resultText = `🔮 ${commandResult.data.prediction}`;
+              resultText = `🔮 ${commandResult.data.prediction || 'Unable to generate prediction'}`;
               break;
             
             case 'summary':
-              const expenses = commandResult.data.expenses;
-              resultText = `📊 Recent Group Expenses (Total: ₹${commandResult.data.total.toFixed(2)}):\n${
-                expenses.map(exp => 
-                  `• ${exp.description}: $${exp.amount} by ${exp.by}`
-                ).join('\n')
+              const expenses = commandResult.data.transactions || [];
+              const totals = commandResult.data.totals || { total: 0, expenses: 0, splitBills: 0 };
+
+              // Safely format the total amount
+              const totalAmount = totals.total !== undefined && totals.total !== null ?
+                Number(totals.total) : 0;
+              const formattedTotal = isNaN(totalAmount) ? '0.00' : totalAmount.toFixed(2);
+
+              resultText = `📊 Recent Group Expenses (Total: ₹${formattedTotal}):\n${
+                expenses.length > 0
+                  ? expenses.map(exp => {
+                      const amount = exp.amount !== undefined && exp.amount !== null ?
+                        Number(exp.amount) : 0;
+                      const formattedAmount = isNaN(amount) ? '0.00' : amount.toFixed(2);
+                      return `• ${exp.description || 'Unknown'}: ₹${formattedAmount} by ${exp.by || 'Unknown'}`;
+                    }).join('\n')
+                  : 'No recent transactions found'
               }`;
               break;
           }
@@ -588,11 +607,11 @@ async function parseAndExecuteCommand(text, userId, groupId, user) {
         amount,
         splitAmount: splitAmount,
         participants: participantDetails.map(p => ({
-          username: p.username,
-          name: p.name,
-          amount: p._id.toString() === userId.toString() ? 
-            splitAmount + roundingAdjustment : 
-            splitAmount
+          username: p.username || 'unknown',
+          name: p.name || 'Unknown',
+          amount: p._id.toString() === userId.toString() ?
+            (isNaN(splitAmount + roundingAdjustment) ? '0.00' : (splitAmount + roundingAdjustment).toFixed(2)) :
+            (isNaN(splitAmount) ? '0.00' : splitAmount.toFixed(2))
         })),
         groupId: splitGroup._id,
         groupName: splitGroup.name,
@@ -638,14 +657,15 @@ async function parseAndExecuteCommand(text, userId, groupId, user) {
     const expenses = await Expense.find({ userId })
       .sort({ createdAt: -1 })
       .limit(30);
-    
-    const total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const average = total / (expenses.length || 1);
+
+    const total = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    const average = expenses.length > 0 ? total / expenses.length : 0;
+    const averageFormatted = isNaN(average) ? '0.00' : average.toFixed(2);
 
     return {
       type: 'predict',
       data: {
-        prediction: `Based on your last ${expenses.length} expenses, you spend an average of ₹${average.toFixed(2)} per transaction.`
+        prediction: `Based on your last ${expenses.length} expenses, you spend an average of ₹${averageFormatted} per transaction.`
       },
       success: true
     };
@@ -667,23 +687,23 @@ async function parseAndExecuteCommand(text, userId, groupId, user) {
 
     const summary = {
       expenses: groupExpenses.map(exp => ({
-        description: exp.description,
-        amount: exp.amount,
-        by: exp.userId.name,
+        description: exp.description || 'Unknown expense',
+        amount: Number(exp.amount) || 0,
+        by: exp.userId?.name || 'Unknown user',
         date: exp.createdAt,
         type: 'expense',
-        category: exp.category
+        category: exp.category || 'Other'
       })),
       splitBills: splitBills.map(split => ({
-        description: split.description,
-        amount: split.totalAmount,
-        by: split.createdBy.name,
+        description: split.description || 'Unknown split bill',
+        amount: Number(split.totalAmount) || 0,
+        by: split.createdBy?.name || 'Unknown user',
         date: split.createdAt,
         type: 'split',
-        participants: split.participants.map(p => ({
-          name: p.userId.name,
-          amount: p.amount,
-          isPaid: p.isPaid
+        participants: (split.participants || []).map(p => ({
+          name: p.userId?.name || 'Unknown user',
+          amount: Number(p.amount) || 0,
+          isPaid: Boolean(p.isPaid)
         }))
       }))
     };
@@ -693,15 +713,27 @@ async function parseAndExecuteCommand(text, userId, groupId, user) {
       .sort((a, b) => b.date - a.date)
       .slice(0, 10);
 
+    // Calculate totals safely
+    const expenseTotal = summary.expenses.reduce((sum, exp) => {
+      const amount = Number(exp.amount) || 0;
+      return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
+
+    const splitBillTotal = summary.splitBills.reduce((sum, split) => {
+      const amount = Number(split.amount) || 0;
+      return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
+
+    const total = expenseTotal + splitBillTotal;
+
     return {
       type: 'summary',
       data: { 
         transactions: allTransactions,
         totals: {
-          expenses: summary.expenses.reduce((sum, exp) => sum + exp.amount, 0),
-          splitBills: summary.splitBills.reduce((sum, split) => sum + split.amount, 0),
-          total: summary.expenses.reduce((sum, exp) => sum + exp.amount, 0) + 
-                summary.splitBills.reduce((sum, split) => sum + split.amount, 0)
+          expenses: expenseTotal,
+          splitBills: splitBillTotal,
+          total: total
         }
       },
       success: true

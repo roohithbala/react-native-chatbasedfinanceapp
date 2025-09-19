@@ -20,9 +20,8 @@ class SocketService {
       }
 
       console.log('🔌 Initializing socket connection...');
-      const SOCKET_URL = __DEV__ 
-        ? 'http://10.247.4.172:3001' 
-        : 'https://your-production-api.com';
+      const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.63.153.172:3001/api';
+      const SOCKET_URL = EXPO_PUBLIC_API_URL.replace('/api', '');
 
       console.log('🔌 Connecting to socket server:', SOCKET_URL);
 
@@ -30,14 +29,15 @@ class SocketService {
         auth: {
           token
         },
-        transports: ['websocket', 'polling'], // Allow fallback to polling
-        timeout: 10000,
+        transports: ['websocket', 'polling'],
+        timeout: 20000,
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        forceNew: true, // Force new connection
-        upgrade: true, // Allow upgrade to websocket
+        forceNew: true,
+        upgrade: true,
+        rememberUpgrade: true
       });
 
       this.socket.on('connect', () => {

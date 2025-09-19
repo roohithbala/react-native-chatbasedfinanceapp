@@ -96,7 +96,9 @@ class SplitBillService {
   }
 
   static async createSplitBill(data: CreateSplitBillParams): Promise<{ splitBill: SplitBill }> {
+    console.log('SplitBillService createSplitBill called with data:', data);
     const response = await axios.post('/split-bills', data);
+    console.log('SplitBillService API response:', response.data);
     return response.data;
   }
 

@@ -29,7 +29,13 @@ interface Message {
     _id: string;
     name: string;
     username: string;
-    avatar: string;
+    avatar?: string;
+  };
+  receiver?: {
+    _id: string;
+    name: string;
+    username: string;
+    avatar?: string;
   };
   createdAt: string;
   read: boolean;
@@ -54,7 +60,7 @@ export default function ChatDetailScreen() {
     category: 'Food'
   });
   const [isSplitMode, setIsSplitMode] = useState(false);
-  
+
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -70,9 +76,20 @@ export default function ChatDetailScreen() {
       if (history.length > 0) {
         // Find the other user from the first message
         const firstMessage = history[0];
-        const otherUserInfo = firstMessage.sender._id === currentUser?._id
-          ? firstMessage.receiver
-          : firstMessage.sender;
+        
+        // Determine which user is the other user (not current user)
+        let otherUserInfo = null;
+        
+        if (firstMessage.sender && firstMessage.sender._id === currentUser?._id) {
+          // Current user is the sender, so receiver is the other user
+          otherUserInfo = firstMessage.receiver;
+        } else if (firstMessage.receiver && firstMessage.receiver._id === currentUser?._id) {
+          // Current user is the receiver, so sender is the other user
+          otherUserInfo = firstMessage.sender;
+        } else {
+          // Fallback: try to find any user that's not the current user
+          otherUserInfo = firstMessage.sender || firstMessage.receiver;
+        }
 
         // Ensure we have the required fields
         if (otherUserInfo && otherUserInfo.name && otherUserInfo.username) {
@@ -81,6 +98,8 @@ export default function ChatDetailScreen() {
             username: otherUserInfo.username,
             avatar: otherUserInfo.avatar || otherUserInfo.name.charAt(0).toUpperCase()
           });
+        } else {
+          console.warn('Could not determine other user from message:', firstMessage);
         }
       }
       setIsLoading(false);
@@ -96,7 +115,9 @@ export default function ChatDetailScreen() {
 
   const handleSplitBillCommand = async (data: any) => {
     try {
-      if (!data.amount || data.amount <= 0) {
+      console.log('Direct chat handleSplitBillCommand called with data:', data);
+
+      if (!data || !data.amount || data.amount <= 0) {
         Alert.alert('Error', 'Please specify a valid amount for the split bill');
         return;
       }
@@ -109,32 +130,41 @@ export default function ChatDetailScreen() {
       // For direct chats, create a personal split bill without a group
       // This will be tracked as a direct debt between users
       const splitBillData = {
-        description: data.description,
+        description: data.description || 'Split Bill',
         totalAmount: data.amount,
-        groupId: undefined, // Direct chat split bill
         participants: [
           {
             userId: currentUser._id,
             amount: data.amount / 2, // Split equally
-            isPaid: true // Current user has paid their share
           },
           {
             userId: userId,
             amount: data.amount / 2, // Split equally
-            isPaid: false // Other user owes this amount
           }
         ],
+        splitType: 'equal' as const,
         category: 'Other',
         currency: 'INR'
       };
 
-      // Create the split bill
+      console.log('Creating split bill with data:', splitBillData);
       const result = await useFinanceStore.getState().createSplitBill(splitBillData);
+      console.log('Split bill creation result:', result);
 
-      // Send confirmation message
-      const confirmationMessage = `✅ Split bill created!\n📝 ${data.description}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / 2).toFixed(2)}\n� You paid your share - ${otherUser?.name || 'Friend'} owes you ₹${((data.amount || 0) / 2).toFixed(2)}`;
-      const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage);
-      setMessages(prev => [...prev, sent]);
+      if (!result) {
+        throw new Error('Failed to create split bill');
+      }
+
+      // Send confirmation message with proper details
+      const confirmationMessage = `✅ Split bill created!\n📝 ${data.description || 'Split Bill'}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / 2).toFixed(2)}\n💸 You paid your share - ${otherUser?.name || 'Friend'} owes you ₹${((data.amount || 0) / 2).toFixed(2)}`;
+
+      try {
+        const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage);
+        setMessages(prev => [...prev, sent]);
+      } catch (sendError) {
+        console.error('Error sending confirmation message:', sendError);
+        // Still show success even if confirmation message fails
+      }
 
       Alert.alert('Success', 'Split bill created successfully!');
     } catch (error: any) {
@@ -145,7 +175,7 @@ export default function ChatDetailScreen() {
 
   const handleExpenseCommand = async (data: any) => {
     try {
-      if (!data.amount || data.amount <= 0) {
+      if (!data || !data.amount || data.amount <= 0) {
         Alert.alert('Error', 'Please specify a valid amount for the expense');
         return;
       }
@@ -160,8 +190,7 @@ export default function ChatDetailScreen() {
         description: data.description,
         amount: data.amount,
         category: data.category,
-        userId: currentUser._id,
-        groupId: undefined // Personal expense, no group
+        userId: currentUser._id
       };
 
       // Add the expense
@@ -195,11 +224,17 @@ export default function ChatDetailScreen() {
     if (!newMessage.trim()) return;
 
     try {
+      const messageToSend = newMessage.trim();
+
       // Check if the message is a command
-      const commandData = CommandParser.parse(newMessage.trim());
+      const commandData = CommandParser.parse(messageToSend);
 
       if (commandData && commandData.type !== 'unknown') {
-        // Handle the command
+        // Send the original command message first
+        const sentCommand = await directMessagesAPI.sendMessage(userId, messageToSend);
+        setMessages(prev => [...prev, sentCommand]);
+
+        // Then handle the command
         if (commandData.type === 'split') {
           await handleSplitBillCommand(commandData.data);
         } else if (commandData.type === 'expense') {
@@ -207,7 +242,7 @@ export default function ChatDetailScreen() {
         }
       } else {
         // Send as regular message
-        const sent = await directMessagesAPI.sendMessage(userId, newMessage.trim());
+        const sent = await directMessagesAPI.sendMessage(userId, messageToSend);
         setMessages(prev => [...prev, sent]);
       }
 
@@ -240,7 +275,9 @@ export default function ChatDetailScreen() {
 
     // Send the message
     await handleSend();
-  };  const renderMessage = ({ item }: { item: Message }) => {
+  };
+
+  const renderMessage = ({ item }: { item: Message }) => {
     const isOwnMessage = item.sender._id === currentUser?._id;
 
     return (
@@ -314,7 +351,7 @@ export default function ChatDetailScreen() {
           renderItem={renderMessage}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.messageList}
-          inverted={false}
+          showsVerticalScrollIndicator={false}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -421,7 +458,7 @@ export default function ChatDetailScreen() {
                 <View style={styles.splitPreview}>
                   <Text style={styles.previewTitle}>Split Preview:</Text>
                   <Text style={styles.previewText}>
-                    Total: ${parseFloat(splitBillData.amount) || 0}
+                    Total: ₹{parseFloat(splitBillData.amount) || 0}
                   </Text>
                   <Text style={styles.previewText}>
                     Each person pays: ₹{((parseFloat(splitBillData.amount) || 0) / 2).toFixed(2)}

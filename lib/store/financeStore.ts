@@ -505,25 +505,48 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   loadExpenses: async () => {
     try {
+      console.log('Loading expenses from store...');
       set({ isLoading: true, error: null });
       const response = await expensesAPI.getExpenses();
+      
+      console.log('Expenses API response in store:', {
+        hasExpenses: !!response?.expenses,
+        expensesCount: response?.expenses?.length || 0,
+        expensesType: Array.isArray(response?.expenses) ? 'array' : typeof response?.expenses
+      });
+      
+      // Ensure we always have an array
+      const expenses = Array.isArray(response?.expenses) ? response.expenses : [];
+      
+      console.log(`Setting ${expenses.length} expenses in store`);
       set({ 
-        expenses: Array.isArray(response.expenses) ? response.expenses : [],
+        expenses: expenses,
         error: null,
         isLoading: false 
       });
+      
+      console.log('Expenses loaded successfully');
     } catch (error: any) {
-      console.error('Load expenses error:', error);
+      console.error('Load expenses error in store:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response?.data
+      });
+      
       let errorMessage = 'Failed to load expenses';
       
-      if (error.message === 'Network Error') {
+      if (error.message === 'Network Error' || error.name === 'NetworkError') {
         errorMessage = 'Network error: Please check your internet connection and try again';
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
-      } else if (error.message) {
+      } else if (error.message && error.message !== 'Invalid response from server') {
         errorMessage = error.message;
+      } else {
+        errorMessage = 'Unable to load expenses. Please try again later.';
       }
       
+      console.log('Setting error state:', errorMessage);
       set({ 
         error: errorMessage,
         expenses: [], // Always ensure we have an array
@@ -531,7 +554,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       });
       
       // Optional: Show alert for better user experience
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Error Loading Expenses', errorMessage);
     }
   },
 
@@ -574,8 +597,10 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   // Split bill actions
   createSplitBill: async (data: CreateSplitBillParams): Promise<SplitBill> => {
     try {
+      console.log('Store createSplitBill called with data:', data);
       set({ isLoading: true, error: null });
       const response = await SplitBillService.createSplitBill(data);
+      console.log('SplitBillService response:', response);
       
       if (!response.splitBill) {
         throw new Error('Invalid response from server');
@@ -597,6 +622,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
       return response.splitBill;
     } catch (error: any) {
+      console.log('Store createSplitBill error:', error);
       set({ 
         error: error.response?.data?.message || error.message || 'Failed to create split bill',
         isLoading: false 

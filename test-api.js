@@ -6,11 +6,11 @@ async function testAPI() {
     console.log('Testing API connectivity...');
 
     // Test health endpoint
-    const healthResponse = await axios.get('http://localhost:3001/api/health');
+    const healthResponse = await axios.get('http://10.247.4.172:3001/api/health');
     console.log('✅ Health check passed:', healthResponse.data);
 
     // Test registration
-    const registerResponse = await axios.post('http://localhost:3001/api/auth/register', {
+    const registerResponse = await axios.post('http://10.247.4.172:3001/api/auth/register', {
       name: 'API Test User',
       email: 'api-test@example.com',
       password: 'test123',
@@ -19,7 +19,7 @@ async function testAPI() {
     console.log('✅ Registration successful:', registerResponse.data.message);
 
     // Test login
-    const loginResponse = await axios.post('http://localhost:3001/api/auth/login', {
+    const loginResponse = await axios.post('http://10.247.4.172:3001/api/auth/login', {
       email: 'api-test@example.com',
       password: 'test123'
     });
@@ -28,7 +28,7 @@ async function testAPI() {
     const token = loginResponse.data.token;
 
     // Test authenticated endpoint
-    const userResponse = await axios.get('http://localhost:3001/api/auth/me', {
+    const userResponse = await axios.get('http://10.247.4.172:3001/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` }
     });
     console.log('✅ User profile fetched successfully');

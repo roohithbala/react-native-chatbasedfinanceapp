@@ -61,14 +61,17 @@ export default function ExpensesScreen() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log('Loading expenses data in expenses component...');
         if (currentUser) {
           await loadExpenses();
           if (selectedGroup?._id) {
             await getGroupSplitBills(selectedGroup._id);
           }
         }
+        console.log('Expenses data loaded successfully');
       } catch (error) {
-        console.error('Error loading expenses data:', error);
+        console.error('Error loading expenses data in component:', error);
+        // Error is already handled in the store, just log here
       }
     };
 

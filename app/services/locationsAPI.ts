@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface LocationCoordinates {
   latitude: number;
@@ -83,7 +84,7 @@ class LocationsAPI {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const token = localStorage.getItem('token');
+    const token = await AsyncStorage.getItem('authToken');
     if (!token) {
       throw new Error('No authentication token found');
     }

@@ -95,17 +95,19 @@ router.get('/summary/:period?', auth, async (req, res) => {
     });
 
     // Calculate totals
-    const totalPersonalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalPersonalExpenses = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
     const totalSplitExpenses = splitBills.reduce((sum, bill) => {
       const userParticipant = bill.participants.find(p => 
         p.userId.toString() === req.userId
       );
-      return sum + (userParticipant ? userParticipant.amount : 0);
+      return sum + (Number(userParticipant?.amount) || 0);
     }, 0);
 
     // Category breakdown
     const categoryBreakdown = expenses.reduce((acc, expense) => {
-      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+      const category = expense.category || 'Other';
+      const amount = Number(expense.amount) || 0;
+      acc[category] = (acc[category] || 0) + amount;
       return acc;
     }, {});
 
@@ -130,7 +132,9 @@ async function generateSpendingPredictions(expenses, budgets) {
   
   // Group expenses by category
   const categorySpending = expenses.reduce((acc, expense) => {
-    acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+    const category = expense.category || 'Other';
+    const amount = Number(expense.amount) || 0;
+    acc[category] = (acc[category] || 0) + amount;
     return acc;
   }, {});
 
@@ -147,7 +151,7 @@ async function generateSpendingPredictions(expenses, budgets) {
         message: `You've spent ${spentPercentage.toFixed(0)}% of your ${budget.category} budget`,
         severity: spentPercentage > 100 ? 'high' : 'medium',
         suggestion: getSuggestionForCategory(budget.category),
-        remaining
+        remaining: Number(budget.amount) - spent
       });
     }
   });
@@ -157,7 +161,7 @@ async function generateSpendingPredictions(expenses, budgets) {
   if (weeklyTrend.isIncreasing) {
     predictions.push({
       type: 'trend',
-      message: `Your spending has increased by ${weeklyTrend.percentage}% this week`,
+      message: `Your spending has increased by ${weeklyTrend.percentage.toFixed(1)}% this week`,
       severity: 'medium',
       suggestion: 'Consider reviewing your recent purchases and identifying areas to cut back'
     });
@@ -171,7 +175,9 @@ async function generateFinancialInsights(expenses, budgets) {
   
   // Most expensive category
   const categoryTotals = expenses.reduce((acc, expense) => {
-    acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+    const category = expense.category || 'Other';
+    const amount = Number(expense.amount) || 0;
+    acc[category] = (acc[category] || 0) + amount;
     return acc;
   }, {});
 
@@ -182,13 +188,14 @@ async function generateFinancialInsights(expenses, budgets) {
     insights.push({
       type: 'spending-pattern',
       title: 'Top Spending Category',
-      message: `${topCategory[0]} accounts for ₹${topCategory[1].toFixed(2)} of your spending`,
+      message: `${topCategory[0]} accounts for ₹${Number(topCategory[1]).toFixed(2)} of your spending`,
       icon: '📊'
     });
   }
 
   // Savings opportunity
-  const avgDailySpending = expenses.reduce((sum, exp) => sum + exp.amount, 0) / 30;
+  const totalSpent = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  const avgDailySpending = totalSpent / 30;
   insights.push({
     type: 'savings',
     title: 'Daily Average',
@@ -209,8 +216,8 @@ function analyzeWeeklyTrend(expenses) {
     new Date(exp.createdAt) >= twoWeeksAgo && new Date(exp.createdAt) < weekAgo
   );
 
-  const thisWeekTotal = thisWeek.reduce((sum, exp) => sum + exp.amount, 0);
-  const lastWeekTotal = lastWeek.reduce((sum, exp) => sum + exp.amount, 0);
+  const thisWeekTotal = thisWeek.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  const lastWeekTotal = lastWeek.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
 
   const percentage = lastWeekTotal > 0 ? 
     ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : 0;

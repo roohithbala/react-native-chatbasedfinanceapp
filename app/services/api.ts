@@ -3,8 +3,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Configuration
 export const API_BASE_URL = __DEV__
-  ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api')
+  ? 'http://10.63.153.172:3001/api'
   : 'https://your-production-api.com/api';
+
+console.log('API Base URL:', API_BASE_URL);
 
 // Create axios instance
 const api = axios.create({
@@ -30,45 +32,14 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    // Network errors or server unreachable
-    if (error.code === 'ECONNABORTED' || !error.response) {
-      console.error('Network error:', error.message);
-      const customError = new Error('Network error: Please check your internet connection and try again');
-      customError.name = 'NetworkError';
-      return Promise.reject(customError);
-    }
-
-    // Handle specific status codes
-    switch (error.response?.status) {
-      case 401:
-        // Token expired or invalid
-        await AsyncStorage.removeItem('authToken');
-        await AsyncStorage.removeItem('userData');
-        error.message = 'Your session has expired. Please login again.';
-        break;
-      case 403:
-        error.message = 'You do not have permission to perform this action.';
-        break;
-      case 404:
-        error.message = 'The requested resource was not found.';
-        break;
-      case 500:
-        error.message = 'An internal server error occurred. Please try again later.';
-        break;
-      default:
-        if (!error.message) {
-          error.message = 'An unexpected error occurred. Please try again.';
-        }
-    }
+  (error) => {
+    console.error('API Error:', error.message);
     return Promise.reject(error);
   }
 );
@@ -208,10 +179,9 @@ export const splitBillsAPI = {
 export const expensesAPI = {
   getExpenses: async (params?: any) => {
     try {
-      const response = await api.get('/expenses', { 
-        params,
-        timeout: 10000, // 10 second timeout
-      });
+      console.log('Calling expenses API with params:', params);
+      const response = await api.get('/expenses', { params });
+      console.log('Expenses API raw response:', response);
       
       // More flexible validation - handle various response formats
       if (!response.data) {
@@ -232,32 +202,83 @@ export const expensesAPI = {
       
       if (Array.isArray(response.data)) {
         // Direct array response
+        console.log('Handling direct array response format');
         expenses = response.data;
       } else if (response.data.expenses && Array.isArray(response.data.expenses)) {
         // Standard response format
+        console.log('Handling standard response format with expenses property');
         expenses = response.data.expenses;
         totalPages = response.data.totalPages || 0;
         currentPage = response.data.currentPage || 1;
         total = response.data.total || 0;
       } else if (response.data.data && Array.isArray(response.data.data)) {
         // Alternative response format
+        console.log('Handling alternative response format with data property');
         expenses = response.data.data;
         totalPages = response.data.totalPages || 0;
         currentPage = response.data.currentPage || 1;
         total = response.data.total || 0;
+      } else if (response.data.data && response.data.data.expenses && Array.isArray(response.data.data.expenses)) {
+        // Nested response format
+        console.log('Handling nested response format');
+        expenses = response.data.data.expenses;
+        totalPages = response.data.data.totalPages || response.data.totalPages || 0;
+        currentPage = response.data.data.currentPage || response.data.currentPage || 1;
+        total = response.data.data.total || response.data.total || 0;
       } else {
         console.warn('Unexpected expenses response format:', response.data);
+        // Try to extract expenses from any nested structure
+        const findExpenses = (obj: any): any[] => {
+          if (Array.isArray(obj)) return obj;
+          if (obj && typeof obj === 'object') {
+            if (obj.expenses && Array.isArray(obj.expenses)) return obj.expenses;
+            if (obj.data && Array.isArray(obj.data)) return obj.data;
+            if (obj.data && obj.data.expenses && Array.isArray(obj.data.expenses)) return obj.data.expenses;
+            // Recursively search
+            for (const key in obj) {
+              const result = findExpenses(obj[key]);
+              if (result.length > 0) return result;
+            }
+          }
+          return [];
+        };
+        
+        expenses = findExpenses(response.data);
+        console.log('Extracted expenses using fallback method:', expenses.length, 'items');
+      }
+      
+      // Ensure expenses is always an array
+      if (!Array.isArray(expenses)) {
+        console.warn('Expenses is not an array, converting to empty array');
         expenses = [];
       }
       
+      // Validate expense objects
+      const validExpenses = expenses.filter(expense => {
+        const isValid = expense && typeof expense === 'object' && expense._id;
+        if (!isValid) {
+          console.warn('Invalid expense object:', expense);
+        }
+        return isValid;
+      });
+      
+      console.log(`Returning ${validExpenses.length} valid expenses out of ${expenses.length} total`);
+      
       return {
-        expenses: expenses,
+        expenses: validExpenses,
         totalPages: totalPages,
         currentPage: currentPage,
         total: total
       };
     } catch (error: any) {
       console.error('Error fetching expenses:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
       // Return empty data instead of throwing to prevent app crashes
       if (error.name === 'NetworkError' || !error.response) {
         console.warn('Network error fetching expenses, returning empty data');
@@ -268,7 +289,15 @@ export const expensesAPI = {
           total: 0
         };
       }
-      throw error;
+      
+      // For other errors, still return empty data but log the error
+      console.error('Non-network error in expenses API, returning empty data:', error.message);
+      return {
+        expenses: [],
+        totalPages: 0,
+        currentPage: 1,
+        total: 0
+      };
     }
   },
 
@@ -679,7 +708,19 @@ export const directMessagesAPI = {
   getRecentChats: async () => {
     try {
       const response = await api.get('/direct-messages/recent');
-      return response.data;
+      if (!response.data) {
+        console.warn('No response data from recent chats API');
+        return [];
+      }
+      
+      // Backend returns chats array directly
+      const chats = response.data;
+      if (!Array.isArray(chats)) {
+        console.warn('Recent chats response is not an array:', chats);
+        return [];
+      }
+      
+      return chats;
     } catch (error) {
       console.error('Error fetching recent chats:', error);
       return [];
@@ -689,7 +730,19 @@ export const directMessagesAPI = {
   getChatHistory: async (userId: string) => {
     try {
       const response = await api.get(`/direct-messages/${userId}`);
-      return response.data;
+      if (!response.data) {
+        console.warn('No response data from chat history API');
+        return [];
+      }
+      
+      // Backend returns messages array directly
+      const messages = response.data;
+      if (!Array.isArray(messages)) {
+        console.warn('Chat history response is not an array:', messages);
+        return [];
+      }
+      
+      return messages;
     } catch (error) {
       console.error('Error fetching chat history:', error);
       return [];
@@ -699,7 +752,17 @@ export const directMessagesAPI = {
   sendMessage: async (userId: string, text: string) => {
     try {
       const response = await api.post(`/direct-messages/${userId}`, { text });
-      return response.data;
+      if (!response.data) {
+        throw new Error('Invalid response format from server');
+      }
+      
+      // Backend returns the message directly, not nested
+      const message = response.data;
+      if (!message || !message._id || !message.text) {
+        throw new Error('Invalid response format from server');
+      }
+      
+      return message;
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
@@ -709,6 +772,10 @@ export const directMessagesAPI = {
   markAsRead: async (userId: string) => {
     try {
       const response = await api.put(`/direct-messages/${userId}/read`);
+      if (!response.data) {
+        console.warn('No response data from mark as read API');
+        return { success: true };
+      }
       return response.data;
     } catch (error) {
       console.error('Error marking messages as read:', error);
@@ -942,6 +1009,45 @@ export const todosAPI = {
       };
     }
   },
+};
+
+// Test API
+export const testAPI = {
+  testConnection: async () => {
+    try {
+      console.log('Testing backend connection...');
+      const response = await api.get('/test');
+      console.log('Test response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Test connection failed:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      throw error;
+    }
+  },
+
+  testHealth: async () => {
+    try {
+      console.log('Testing backend health...');
+      const response = await api.get('/health');
+      console.log('Health response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Health check failed:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      throw error;
+    }
+  }
 };
 
 export default api;

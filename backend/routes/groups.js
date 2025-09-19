@@ -18,7 +18,9 @@ router.get('/', auth, async (req, res) => {
     let groups = await Group.find({
       'members.userId': req.userId,
       isActive: true
-    }).sort('-createdAt');
+    })
+    .populate('members.userId', 'name username email avatar')
+    .sort('-createdAt');
     
     // If user has no groups, create default Personal group only
     if (groups.length === 0) {
@@ -34,6 +36,9 @@ router.get('/', auth, async (req, res) => {
       
       // Create default Personal group
       const createdGroup = await Group.create(defaultGroup);
+      
+      // Populate the newly created group
+      await createdGroup.populate('members.userId', 'name username email avatar');
       groups = [createdGroup];
     }
     

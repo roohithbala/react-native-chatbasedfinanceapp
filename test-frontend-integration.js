@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 // Simulate the frontend API configuration
-const API_BASE_URL = 'http://10.1.60.70:3001/api';
+const API_BASE_URL = 'http://10.247.4.172:3001/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

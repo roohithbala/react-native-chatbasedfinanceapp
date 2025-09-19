@@ -45,15 +45,18 @@ export default function InsightsScreen() {
 
   const loadInitialData = async () => {
     try {
+      console.log('Loading insights data...');
       setIsLoading(true);
       await Promise.all([
         loadExpenses(),
         loadBudgets(),
         loadAIInsights()
       ]);
+      console.log('Insights data loaded successfully');
     } catch (error) {
-      console.error('Error loading data:', error);
-      Alert.alert('Error', 'Failed to load insights data');
+      console.error('Error loading insights data:', error);
+      // Error is already handled in the store, just log here
+      // Alert is handled in the store's loadExpenses function
     } finally {
       setIsLoading(false);
     }

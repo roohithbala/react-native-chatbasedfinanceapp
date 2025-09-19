@@ -6,7 +6,7 @@ const rateLimit = require('express-rate-limit');
 const http = require('http');
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+require('dotenv').config({ path: './.env' });
 
 const User = require('./models/User');
 const Group = require('./models/Group');
@@ -32,12 +32,10 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: [
-      'exp://localhost:8081',
+      'http://10.63.153.172:8081',
+      'http://10.63.153.172:3001',
       'http://localhost:8081',
       'http://localhost:3001',
-      'http://10.1.60.70:3001',
-      'exp://10.247.4.172:8081',
-      'http://10.247.4.172:8081',
       process.env.FRONTEND_URL
     ].filter(Boolean),
     methods: ["GET", "POST"],
@@ -46,21 +44,20 @@ const io = socketIo(server, {
   },
   pingTimeout: 60000,
   pingInterval: 25000,
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   allowEIO3: true,
+  connectTimeout: 20000,
+  maxHttpBufferSize: 1e8
 });
 
 // Security middleware
 app.use(helmet());
 app.use(cors({
   origin: [
-    'exp://10.1.60.70:8081',
-    'http://10.1.60.70:8081',
+    'http://10.63.153.172:8081',
+    'http://10.63.153.172:3001',
     'http://localhost:8081',
     'http://localhost:3001',
-    'http://10.1.60.70:3001',
-    'exp://10.247.4.172:8081',
-    'http://10.247.4.172:8081',
     process.env.FRONTEND_URL
   ].filter(Boolean),
   credentials: true,
@@ -87,12 +84,22 @@ console.log('📍 Connection URI:', mongoUri);
 
 mongoose.connect(mongoUri, {
   serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  maxPoolSize: 10,
-  retryWrites: true
 })
 .then(async () => {
   console.log('✅ Connected to MongoDB');
+
+  // Monitor connection events
+  mongoose.connection.on('error', (err) => {
+    console.error('❌ MongoDB connection error:', err);
+  });
+
+  mongoose.connection.on('disconnected', () => {
+    console.log('⚠️  MongoDB disconnected');
+  });
+
+  mongoose.connection.on('reconnected', () => {
+    console.log('✅ MongoDB reconnected');
+  });
 
   // Create initial data
   try {
@@ -152,6 +159,7 @@ mongoose.connect(mongoUri, {
   console.log('⚠️  MongoDB connection failed, running in offline mode');
   console.log('📝 Using in-memory data store for development');
   console.error('Connection error:', err.message);
+  // Don't exit the process, continue with offline mode
 });
 
 // Socket.io middleware for authentication
@@ -447,6 +455,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'Backend is working!',
+    timestamp: new Date().toISOString(),
+    ip: req.ip
+  });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -461,10 +478,24 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
+// Global error handlers
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.1.60.70:3001'}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.63.153.172:8081'}`);
+}).on('error', (err) => {
+  console.error('❌ Failed to start server:', err.message);
+  process.exit(1);
 });
 
 module.exports = { app, io };

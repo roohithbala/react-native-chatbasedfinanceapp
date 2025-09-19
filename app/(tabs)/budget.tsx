@@ -44,10 +44,8 @@ export default function BudgetScreen() {
         console.log('Budget data loaded successfully');
       } catch (err) {
         console.error('Error loading budget data:', err);
-        Alert.alert(
-          'Error',
-          'Failed to load budget data. Please try again later.'
-        );
+        // Error is already handled in the store, just log here
+        // Alert.alert is handled in the store's loadExpenses function
       }
     };
     loadData();

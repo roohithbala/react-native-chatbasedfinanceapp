@@ -7,6 +7,7 @@ const router = express.Router();
 // Get user expenses
 router.get('/', auth, async (req, res) => {
   try {
+    console.log('Expenses API called by user:', req.userId);
     if (!req.userId) {
       return res.status(401).json({ message: 'User ID not found in request' });
     }
@@ -34,7 +35,8 @@ router.get('/', auth, async (req, res) => {
       expenses: expenses || [],
       totalPages: Math.ceil(total / limit),
       currentPage: parseInt(page),
-      total
+      total,
+      status: 'success'
     });
   } catch (error) {
     console.error('Get expenses error:', error);

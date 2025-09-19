@@ -34,20 +34,28 @@ export default function HomeScreen() {
 
   const loadData = async () => {
     try {
+      console.log('Loading dashboard data...');
       await Promise.all([
         loadExpenses(),
         loadGroups(),
         getSplitBills()
       ]);
+      console.log('Dashboard data loaded successfully');
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading dashboard data:', error);
+      // Error is already handled in the store, just log here
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try {
+      await loadData();
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const getRecentExpenses = () => {

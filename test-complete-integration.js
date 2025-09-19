@@ -12,7 +12,7 @@ AsyncStorage.clear = async () => { Object.keys(mockStorage).forEach(key => delet
 // Import the API service (we'll simulate the import)
 const axios = require('axios');
 
-const API_BASE_URL = 'http://10.1.60.70:3001/api';
+const API_BASE_URL = 'http://10.247.4.172:3001/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
