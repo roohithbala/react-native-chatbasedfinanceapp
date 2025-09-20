@@ -68,7 +68,8 @@ export default function AddMembersScreen() {
       // Filter out users who are already members of the group
       const filteredResults = results.filter(user =>
         !currentGroup?.members?.some(member =>
-          member.userId === user._id || member.user?.email === user.email
+          (typeof member.userId === 'string' ? member.userId : member.userId._id) === user._id ||
+          (typeof member.userId === 'string' ? false : member.userId.email === user.email)
         )
       );
 

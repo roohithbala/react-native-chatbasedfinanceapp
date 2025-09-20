@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { router } from 'expo-router';
 import EditProfileModal from '@/app/components/EditProfileModal';
 import GroupJoinScreen from '@/app/components/GroupJoinScreen';
 import { Ionicons } from '@expo/vector-icons';
@@ -254,7 +255,7 @@ export default function ProfileScreen() {
           ))}
           <TouchableOpacity
             style={styles.createGroupButton}
-            onPress={() => setShowGroupModal(true)}
+            onPress={() => router.push('/create-group')}
           >
             <Ionicons name="add" size={20} color="#2563EB" />
             <Text style={styles.createGroupText}>Create New Group</Text>

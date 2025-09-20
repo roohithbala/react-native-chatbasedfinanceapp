@@ -91,20 +91,20 @@ export default function GroupChatScreen() {
   const currentGroup = groups.find(g => g._id === groupId) || selectedGroup;
 
   useEffect(() => {
-    if (groupId && currentGroup) {
-      selectGroup(currentGroup);
+    console.log('Messages state changed:', messages.length, 'messages');
+    if (messages.length > 0) {
+      console.log('Sample message:', messages[0]);
+    }
+  }, [messages]);
+
+  // Load messages and connect socket when component mounts or groupId changes
+  useEffect(() => {
+    if (groupId && currentUser) {
+      console.log('Loading messages for group:', groupId);
       loadMessages();
       connectSocket();
     }
-
-    return () => {
-      // Clean up typing indicators
-      if (isTyping && groupId) {
-        socketService.stopTyping(groupId);
-      }
-      socketService.disconnect();
-    };
-  }, [groupId, currentGroup]);
+  }, [groupId, currentUser]);
 
   const handleMessageChange = (text: string) => {
     setMessage(text);
@@ -171,7 +171,7 @@ export default function GroupChatScreen() {
       try {
         // Only search within group members
         const groupMembers = currentGroup?.members || [];
-        const memberUsernames = groupMembers.map(m => m.user.username);
+        const memberUsernames = groupMembers.map(m => m.userId.username);
         
         const users = await usersAPI.searchByUsername(query);
         // Filter to only show group members
@@ -223,10 +223,10 @@ export default function GroupChatScreen() {
       // If specific participants are mentioned, use them
       if (data.participants && data.participants.length > 0) {
         for (const participantUsername of data.participants) {
-          const member = groupMembers.find(m => m.user.username === participantUsername);
+          const member = groupMembers.find(m => m.userId.username === participantUsername);
           if (member) {
             participants.push({
-              userId: member.user._id,
+              userId: member.userId._id,
               amount: data.amount / (data.participants.length + 1) // Include creator
             });
           }
@@ -236,7 +236,7 @@ export default function GroupChatScreen() {
         const totalParticipants = groupMembers.length;
         for (const member of groupMembers) {
           participants.push({
-            userId: member.user._id,
+            userId: member.userId._id,
             amount: data.amount / totalParticipants
           });
         }
@@ -265,20 +265,39 @@ export default function GroupChatScreen() {
       console.log('Creating split bill with data:', splitBillData);
       const result = await useFinanceStore.getState().createSplitBill(splitBillData);
 
+      // Create individual expenses for each participant
+      for (const participant of participants) {
+        const expenseData = {
+          description: `${data.description || 'Split Bill'} (Split with group)`,
+          amount: participant.amount,
+          category: data.category || 'Split',
+          userId: participant.userId,
+          groupId: groupId
+        };
+
+        try {
+          await useFinanceStore.getState().addExpense(expenseData);
+          console.log(`Created expense for participant ${participant.userId}:`, expenseData);
+        } catch (expenseError) {
+          console.error(`Failed to create expense for participant ${participant.userId}:`, expenseError);
+          // Continue with other participants even if one fails
+        }
+      }
+
       // Send confirmation message
       const participantNames = participants
         .filter(p => p.userId !== currentUser._id)
         .map(p => {
-          const member = groupMembers.find(m => m.user._id === p.userId);
-          return member?.user.name || 'Unknown';
+          const member = groupMembers.find(m => m.userId._id === p.userId);
+          return member?.userId.name || 'Unknown';
         })
         .join(', ');
 
-      const confirmationMessage = `✅ Split bill created!\n📝 ${data.description || 'Split Bill'}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / participants.length).toFixed(2)}\n👥 Participants: ${participantNames || 'All group members'}`;
-      
+      const confirmationMessage = `✅ Split bill created!\n📝 ${data.description || 'Split Bill'}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / participants.length).toFixed(2)}\n👥 Participants: ${participantNames || 'All group members'}\n💾 Data saved to database`;
+
       await sendMessage(confirmationMessage);
 
-      Alert.alert('Success', 'Split bill created successfully!');
+      Alert.alert('Success', 'Split bill created successfully and expenses added to database!');
     } catch (error: any) {
       console.error('Error creating split bill:', error);
       Alert.alert('Error', error.message || 'Failed to create split bill');
@@ -338,16 +357,85 @@ export default function GroupChatScreen() {
       return;
     }
 
-    // Create the split bill command
-    const participantMentions = splitBillData.participants.map(p => `@${p.username}`).join(' ');
-    const command = `@split ${splitBillData.description} ₹${amount} ${participantMentions}`;
-    
-    setMessage(command);
-    setShowSplitBillModal(false);
-    setIsSplitMode(false);
-    
-    // Send the message
-    await sendMessage();
+    try {
+      setIsLoading(true);
+
+      // Calculate amount per participant (including creator)
+      const totalParticipants = splitBillData.participants.length + 1; // +1 for creator
+      const amountPerPerson = amount / totalParticipants;
+
+      // Create participants array with calculated amounts
+      const participants = [
+        // Add creator
+        {
+          userId: currentUser!._id,
+          amount: amountPerPerson
+        },
+        // Add selected participants
+        ...splitBillData.participants.map(p => ({
+          userId: p._id,
+          amount: amountPerPerson
+        }))
+      ];
+
+      // Create the split bill
+      const splitBillPayload = {
+        description: splitBillData.description.trim(),
+        totalAmount: amount,
+        groupId: groupId,
+        participants: participants,
+        splitType: 'equal' as const,
+        category: splitBillData.category || 'Split',
+        currency: 'INR'
+      };
+
+      console.log('Creating split bill with payload:', splitBillPayload);
+      const result = await useFinanceStore.getState().createSplitBill(splitBillPayload);
+
+      // Create individual expenses for each participant
+      for (const participant of participants) {
+        const expenseData = {
+          description: `${splitBillData.description.trim()} (Split with group)`,
+          amount: participant.amount,
+          category: splitBillData.category || 'Split',
+          userId: participant.userId,
+          groupId: groupId
+        };
+
+        try {
+          await useFinanceStore.getState().addExpense(expenseData);
+          console.log(`Created expense for participant ${participant.userId}:`, expenseData);
+        } catch (expenseError) {
+          console.error(`Failed to create expense for participant ${participant.userId}:`, expenseError);
+          // Continue with other participants even if one fails
+        }
+      }
+
+      // Send confirmation message
+      const participantNames = splitBillData.participants
+        .map(p => p.name)
+        .join(', ');
+
+      const confirmationMessage = `✅ Split bill created!\n📝 ${splitBillData.description.trim()}\n💰 Total: ₹${amount.toFixed(2)}\n🤝 Each pays: ₹${amountPerPerson.toFixed(2)}\n👥 Participants: ${participantNames}\n💾 Data saved to database`;
+
+      await sendMessage(confirmationMessage);
+
+      // Reset modal state
+      setShowSplitBillModal(false);
+      setSplitBillData({
+        description: '',
+        amount: '',
+        participants: [],
+        category: 'Food'
+      });
+
+      Alert.alert('Success', 'Split bill created successfully and expenses added to database!');
+    } catch (error: any) {
+      console.error('Error creating split bill:', error);
+      Alert.alert('Error', error.message || 'Failed to create split bill');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePredictCommand = async () => {
@@ -552,28 +640,50 @@ export default function GroupChatScreen() {
   const loadMessages = async () => {
     try {
       setIsLoading(true);
-      if (!groupId) return;
+      console.log('Starting to load messages for groupId:', groupId);
+      console.log('Current user:', currentUser);
 
+      if (!groupId) {
+        console.error('No groupId provided');
+        return;
+      }
+
+      if (!currentUser) {
+        console.error('No current user available');
+        return;
+      }
+
+      console.log('Calling chatAPI.getMessages...');
       const response = await chatAPI.getMessages(groupId);
-      
-      if (response.status !== 'success' || !response.data?.messages) {
-        throw new Error('Failed to load messages');
+      console.log('Raw API response:', response);
+
+      if (!response) {
+        throw new Error('No response from API');
+      }
+
+      console.log('Response status:', response.status);
+      console.log('Response data keys:', response.data ? Object.keys(response.data) : 'No data');
+
+      if (response.status !== 'success') {
+        console.error('API returned non-success status:', response.status);
+        throw new Error(`API returned status: ${response.status}`);
+      }
+
+      if (!response.data) {
+        console.error('No data in response');
+        throw new Error('No data in API response');
+      }
+
+      if (!response.data.messages) {
+        console.error('No messages in response data:', response.data);
+        throw new Error('No messages in API response');
       }
 
       const loadedMessages = response.data.messages;
-      
+      console.log('Loaded messages from API:', loadedMessages.length);
+      console.log('First few messages:', loadedMessages.slice(0, 3));
+
       setMessages([
-        {
-          _id: 'welcome',
-          text: `Welcome to ${groupName || currentGroup?.name || 'Group Chat'}! 🎉\n\nUse commands:\n@split [description] $[amount] @user1 @user2\n@addexpense [description] $[amount]\n@predict - Get spending predictions\n@summary - View group expenses` +
-          `\n\n💡 Tip: Use the "Split Bill" button for easy bill splitting!`,
-          createdAt: new Date().toISOString(),
-          user: { _id: 'system', name: 'AI Assistant' },
-          type: 'system',
-          status: 'sent',
-          groupId: groupId,
-          readBy: []
-        },
         ...loadedMessages.map(msg => ({
           ...msg,
           status: msg.status === 'error' ? 'sent' : msg.status,
@@ -581,10 +691,35 @@ export default function GroupChatScreen() {
             userId: receipt.userId,
             readAt: typeof receipt.readAt === 'string' ? receipt.readAt : receipt.readAt.toISOString()
           }))
-        }))
+        })).reverse(), // Reverse to show oldest first
+        {
+          _id: 'welcome',
+          text: `Welcome to ${groupName || currentGroup?.name || 'Group Chat'}! 🎉\n\nUse commands:\n@split [description] $[amount] @user1 @user2\n@addexpense [description] $[amount]\n@predict - Get spending predictions\n@summary - View group expenses` +
+          `\n\n💡 Tip: Use the "Split Bill" button for easy bill splitting!`,
+          createdAt: new Date().toISOString(),
+          user: { _id: 'system', name: 'AI Assistant', username: 'ai', avatar: '🤖' },
+          type: 'system',
+          status: 'sent',
+          groupId: groupId,
+          readBy: []
+        }
       ]);
+
+      // Scroll to bottom after loading messages
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: false });
+      }, 100);
+
+      console.log('Final messages loaded from API:', loadedMessages.length + 1, 'messages (including welcome message)');
     } catch (error: any) {
       console.error('Error loading messages:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        stack: error.stack
+      });
       const errorMsg = error.response?.data?.message || error.message || 'Failed to load messages. Please try again.';
       Alert.alert('Error', errorMsg);
     } finally {
@@ -704,7 +839,13 @@ export default function GroupChatScreen() {
       return null;
     }
     
-    const isOwnMessage = msg.user._id === currentUser?._id;
+    if (!currentUser) {
+      console.warn('Current user not available for message rendering');
+      return null;
+    }
+    
+    const isOwnMessage = msg.user._id === currentUser._id;
+    console.log('Rendering message:', msg._id, 'isOwn:', isOwnMessage, 'text:', msg.text.substring(0, 50));
 
     return (
       <ChatBubble
@@ -919,6 +1060,12 @@ export default function GroupChatScreen() {
         {/* Input */}
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
+            <TouchableOpacity
+              style={styles.moneyIcon}
+              onPress={() => setShowSplitBillModal(true)}
+            >
+              <Ionicons name="cash" size={20} color="#2563EB" />
+            </TouchableOpacity>
             <LocationMentionInput
               style={styles.textInput}
               value={message}
@@ -1008,17 +1155,17 @@ export default function GroupChatScreen() {
                 </Text>
                 <View style={styles.participantsContainer}>
                   {currentGroup?.members
-                    ?.filter(member => member?.user && member.user._id !== currentUser?._id)
+                    ?.filter(member => member?.userId && member.userId._id !== currentUser?._id)
                     ?.map((member) => {
-                      if (!member || !member.user) {
+                      if (!member || !member.userId) {
                         console.warn('Invalid member object:', member);
                         return null;
                       }
-                      
-                      const isSelected = splitBillData.participants.some(p => p._id === member.user._id);
+
+                      const isSelected = splitBillData.participants.some(p => p._id === member.userId._id);
                       return (
                         <TouchableOpacity
-                          key={member.user._id}
+                          key={member.userId._id}
                           style={[
                             styles.participantChip,
                             isSelected && styles.participantChipSelected,
@@ -1027,17 +1174,17 @@ export default function GroupChatScreen() {
                             setSplitBillData(prev => ({
                               ...prev,
                               participants: isSelected
-                                ? prev.participants.filter(p => p._id !== member.user._id)
+                                ? prev.participants.filter(p => p._id !== member.userId._id)
                                 : [...prev.participants, {
-                                    _id: member.user._id,
-                                    name: member.user.name || 'Unknown',
-                                    username: member.user.username || 'unknown'
+                                    _id: member.userId._id,
+                                    name: member.userId.name || 'Unknown',
+                                    username: member.userId.username || 'unknown'
                                   }]
                             }));
                           }}
                         >
                           <Text style={styles.participantAvatar}>
-                            {(member.user.name || 'U').charAt(0).toUpperCase()}
+                            {(member.userId.name || 'U').charAt(0).toUpperCase()}
                           </Text>
                           <Text
                             style={[
@@ -1045,7 +1192,7 @@ export default function GroupChatScreen() {
                               isSelected && styles.participantNameSelected,
                             ]}
                           >
-                            {member.user.name || 'Unknown'}
+                            {member.userId.name || 'Unknown'}
                           </Text>
                           {isSelected && (
                             <Ionicons name="checkmark" size={16} color="#10B981" />
@@ -1072,7 +1219,7 @@ export default function GroupChatScreen() {
                     'Food & Dining', 'Groceries', 'Restaurant', 'Coffee & Drinks', 'Delivery',
                     'Transportation', 'Taxi/Ride', 'Gas/Fuel', 'Parking', 'Public Transit',
                     'Entertainment', 'Movies', 'Games', 'Events', 'Concert', 'Sports',
-                    'Shopping', 'Clothing', 'Electronics', 'Home Goods', 'Books',
+                    'Shopping', 'Clothing', 'Electronics', 'Home Goods',
                     'Travel', 'Flights', 'Hotel', 'Vacation', 'Accommodation',
                     'Bills & Utilities', 'Electricity', 'Water', 'Internet', 'Phone', 'Rent',
                     'Health & Fitness', 'Doctor', 'Pharmacy', 'Gym', 'Sports Equipment',
@@ -1324,6 +1471,14 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#E5E7EB',
+  },
+  moneyIcon: {
+    padding: 8,
+    marginRight: 8,
+    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   modalContainer: {
     flex: 1,

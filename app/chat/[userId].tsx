@@ -266,15 +266,83 @@ export default function ChatDetailScreen() {
       return;
     }
 
-    // Create the split bill command
-    const command = `@split ${splitBillData.description} ₹${amount}`;
+    if (!currentUser?._id || !userId) {
+      Alert.alert('Error', 'User information not available');
+      return;
+    }
 
-    setNewMessage(command);
-    setShowSplitBillModal(false);
-    setIsSplitMode(false);
+    try {
+      setIsLoading(true);
 
-    // Send the message
-    await handleSend();
+      // Calculate amount per person (split between current user and other user)
+      const amountPerPerson = amount / 2;
+
+      // Create participants array
+      const participants = [
+        {
+          userId: currentUser._id,
+          amount: amountPerPerson
+        },
+        {
+          userId: userId,
+          amount: amountPerPerson
+        }
+      ];
+
+      // Create the split bill (without groupId for direct chat)
+      const splitBillPayload = {
+        description: splitBillData.description.trim(),
+        totalAmount: amount,
+        participants: participants,
+        splitType: 'equal' as const,
+        category: splitBillData.category || 'Split',
+        currency: 'INR'
+      };
+
+      console.log('Creating direct split bill with payload:', splitBillPayload);
+      const result = await useFinanceStore.getState().createSplitBill(splitBillPayload);
+
+      // Create individual expenses for each participant
+      for (const participant of participants) {
+        const expenseData = {
+          description: `${splitBillData.description.trim()} (Split with ${otherUser?.name || 'Friend'})`,
+          amount: participant.amount,
+          category: splitBillData.category || 'Split',
+          userId: participant.userId
+          // No groupId for direct chat
+        };
+
+        try {
+          await useFinanceStore.getState().addExpense(expenseData);
+          console.log(`Created expense for participant ${participant.userId}:`, expenseData);
+        } catch (expenseError) {
+          console.error(`Failed to create expense for participant ${participant.userId}:`, expenseError);
+          // Continue with other participants even if one fails
+        }
+      }
+
+      // Send confirmation message
+      const confirmationMessage = `✅ Split bill created!\n📝 ${splitBillData.description.trim()}\n💰 Total: ₹${amount.toFixed(2)}\n🤝 Each pays: ₹${amountPerPerson.toFixed(2)}\n👥 Split with: ${otherUser?.name || 'Friend'}\n💾 Data saved to database`;
+
+      const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage);
+      setMessages(prev => [...prev, sent]);
+
+      // Reset modal state
+      setShowSplitBillModal(false);
+      setSplitBillData({
+        description: '',
+        amount: '',
+        category: 'Food'
+      });
+      setIsSplitMode(false);
+
+      Alert.alert('Success', 'Split bill created successfully and expenses added to database!');
+    } catch (error: any) {
+      console.error('Error creating split bill:', error);
+      Alert.alert('Error', error.message || 'Failed to create split bill');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderMessage = ({ item }: { item: Message }) => {

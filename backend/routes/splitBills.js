@@ -193,4 +193,83 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
+// Get split bills for a specific group
+router.get('/group/:groupId', auth, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    // Validate group exists and user is a member
+    const Group = require('../models/Group');
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    if (!group.members.some(m => m.userId.toString() === req.userId)) {
+      return res.status(403).json({ message: 'You must be a group member to view split bills' });
+    }
+
+    const query = { groupId };
+
+    const splitBills = await SplitBill.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate('createdBy', 'name avatar')
+      .populate('participants.userId', 'name avatar');
+
+    const total = await SplitBill.countDocuments(query);
+
+    res.json({
+      splitBills,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
+    });
+  } catch (error) {
+    console.error('Get group split bills error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get split bills for a specific user
+router.get('/user/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    // Users can only view their own split bills
+    if (userId !== req.userId) {
+      return res.status(403).json({ message: 'You can only view your own split bills' });
+    }
+
+    const query = {
+      $or: [
+        { createdBy: req.userId },
+        { 'participants.userId': req.userId }
+      ]
+    };
+
+    const splitBills = await SplitBill.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate('createdBy', 'name avatar')
+      .populate('participants.userId', 'name avatar');
+
+    const total = await SplitBill.countDocuments(query);
+
+    res.json({
+      splitBills,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
+    });
+  } catch (error) {
+    console.error('Get user split bills error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

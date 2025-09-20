@@ -109,7 +109,8 @@ router.post('/', auth, async (req, res) => {
       }
 
       // Ensure the creator is included in participants for direct chat
-      if (!participantIds.includes(req.userId)) {
+      const creatorIdString = req.userId.toString();
+      if (!participantIds.includes(creatorIdString)) {
         return res.status(400).json({ message: 'Creator must be a participant in direct chat split bills' });
       }
     }

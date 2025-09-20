@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Dimensions,
   RefreshControl,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,12 +27,19 @@ export default function HomeScreen() {
     splitBills,
     loadExpenses,
     loadGroups,
-    getSplitBills 
+    getSplitBills,
+    isAuthenticated,
+    isLoading,
+    error,
+    testConnectivity
   } = useFinanceStore();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    // Only load data if user is authenticated and we don't have data yet
+    if (isAuthenticated && currentUser && expenses.length === 0 && groups.length === 0) {
+      loadData();
+    }
+  }, [isAuthenticated, currentUser, expenses.length, groups.length]);
 
   const loadData = async () => {
     try {
@@ -44,6 +53,18 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       // Error is already handled in the store, just log here
+    }
+  };
+
+  const handleTestConnectivity = async () => {
+    try {
+      const result = await testConnectivity();
+      Alert.alert(
+        result.success ? 'Connection Test Passed' : 'Connection Test Failed',
+        result.message
+      );
+    } catch (error: any) {
+      Alert.alert('Test Failed', error.message || 'Unknown error occurred');
     }
   };
 
@@ -100,6 +121,36 @@ export default function HomeScreen() {
     );
   }
 
+  // Show loading state while data is being loaded
+  if (isLoading && expenses.length === 0 && groups.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Loading your data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error state if there's an error and no data
+  if (error && expenses.length === 0 && groups.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContent}>
+          <Ionicons name="alert-circle" size={48} color="#EF4444" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={handleRefresh}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -116,12 +167,20 @@ export default function HomeScreen() {
               <Text style={styles.greeting}>Good {getTimeOfDay()},</Text>
               <Text style={styles.userName}>{currentUser.name}</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.profileButton}
-              onPress={() => router.push('/(tabs)/profile')}
-            >
-              <Ionicons name="person-circle" size={40} color="white" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity 
+                style={styles.debugButton}
+                onPress={handleTestConnectivity}
+              >
+                <Ionicons name="wifi" size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.profileButton}
+                onPress={() => router.push('/(tabs)/profile')}
+              >
+                <Ionicons name="person-circle" size={40} color="white" />
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
@@ -357,6 +416,24 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     textAlign: 'center',
   },
+  loadingText: {
+    fontSize: 16,
+    color: '#64748B',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   scrollView: {
     flex: 1,
   },
@@ -386,6 +463,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 20,
     padding: 4,
+  },
+  debugButton: {
+    backgroundColor: '#007AFF',
+    padding: 8,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statsContainer: {
     flexDirection: 'row',

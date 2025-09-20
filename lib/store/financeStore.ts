@@ -7,7 +7,8 @@ import {
   expensesAPI, 
   groupsAPI, 
   chatAPI,
-  budgetsAPI 
+  budgetsAPI,
+  checkServerConnectivity
 } from '@/app/services/api';
 import type { Message } from '@/app/types/chat';
 import type { 
@@ -77,9 +78,10 @@ export interface Group {
   avatar: string;
   inviteCode: string;
   members: {
-    userId: string;
+    userId: User; // Populated user object
     role: 'admin' | 'member';
-    user: User;
+    joinedAt?: string;
+    isActive?: boolean;
   }[];
   budgets: {
     category: string;
@@ -149,6 +151,7 @@ interface FinanceState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
+  testConnectivity: () => Promise<{ success: boolean; message: string }>;
 }
 
 // Generate random invite code
@@ -441,6 +444,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           insights: [],
         });
         
+        console.log('Authentication restored, loading user data...');
+        
         // Load real groups from backend after authentication is set
         try {
           await get().loadGroups();
@@ -450,10 +455,33 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           if (Array.isArray(groups) && groups.length > 0) {
             set({ selectedGroup: groups[0] });
           }
+          
+          // Load other data after groups are loaded
+          await Promise.all([
+            get().loadExpenses(),
+            get().loadBudgets(),
+            get().getSplitBills()
+          ]);
+          
+          console.log('All user data loaded successfully');
         } catch (error) {
-          console.error('Error loading groups after auth restore:', error);
+          console.error('Error loading data after auth restore:', error);
           // Don't throw error, just log it - user can still use the app
         }
+      } else {
+        // No stored auth data, ensure clean state
+        set({
+          currentUser: null,
+          isAuthenticated: false,
+          authToken: null,
+          groups: [],
+          expenses: [],
+          splitBills: [],
+          budgets: {},
+          messages: {},
+          predictions: [],
+          insights: [],
+        });
       }
     } catch (error) {
       console.error('Load stored auth error:', error);
@@ -495,6 +523,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         isLoading: false
       }));
     } catch (error: any) {
+      console.error('Add expense error:', error);
       set({ 
         error: error.response?.data?.message || error.message || 'Failed to add expense',
         isLoading: false 
@@ -512,8 +541,31 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       console.log('Expenses API response in store:', {
         hasExpenses: !!response?.expenses,
         expensesCount: response?.expenses?.length || 0,
-        expensesType: Array.isArray(response?.expenses) ? 'array' : typeof response?.expenses
+        expensesType: Array.isArray(response?.expenses) ? 'array' : typeof response?.expenses,
+        responseKeys: response ? Object.keys(response) : [],
+        fullResponse: response
       });
+      
+      // Check for error flags
+      if (response?.rateLimited) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
+      if (response?.authError) {
+        throw new Error('Authentication failed. Please log in again.');
+      }
+      
+      if (response?.networkError) {
+        throw new Error('Network error. Please check your internet connection.');
+      }
+      
+      if (response?.serverError) {
+        throw new Error(`Server error (${response.errorStatus}). Please try again later.`);
+      }
+      
+      if (response?.unknownError) {
+        throw new Error('An unexpected error occurred. Please try again.');
+      }
       
       // Ensure we always have an array
       const expenses = Array.isArray(response?.expenses) ? response.expenses : [];
@@ -531,13 +583,34 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       console.error('Error details:', {
         message: error.message,
         stack: error.stack,
-        response: error.response?.data
+        response: error.response?.data,
+        status: error.response?.status,
+        fullError: error
       });
       
       let errorMessage = 'Failed to load expenses';
       
-      if (error.message === 'Network Error' || error.name === 'NetworkError') {
-        errorMessage = 'Network error: Please check your internet connection and try again';
+      if (error.message === 'Network Error' || error.name === 'NetworkError' || !error.response) {
+        errorMessage = 'Unable to connect to server. Please check your internet connection and ensure the server is running.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+        // Clear auth state on 401
+        set({
+          isAuthenticated: false,
+          authToken: null,
+          currentUser: null,
+          groups: [],
+          expenses: [],
+          splitBills: [],
+          budgets: {},
+          messages: {},
+          predictions: [],
+          insights: [],
+        });
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Expenses service not found. Please check server configuration.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message && error.message !== 'Invalid response from server') {
@@ -841,8 +914,22 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       });
     } catch (error: any) {
       console.error('Load groups error:', error);
+      let errorMessage = 'Failed to load groups';
+      
+      if (error.message === 'Network Error' || error.name === 'NetworkError' || !error.response) {
+        errorMessage = 'Unable to connect to server. Please check your internet connection and ensure the server is running.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Groups service not found. Please check server configuration.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       set({ 
-        error: error.response?.data?.message || error.message || 'Failed to load groups',
+        error: errorMessage,
         groups: [], // Ensure groups is always an array even on error
         isLoading: false 
       });
@@ -1062,4 +1149,57 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   setLoading: (loading: boolean) => set({ isLoading: loading }),
   setError: (error: string | null) => set({ error }),
   clearError: () => set({ error: null }),
+  
+  // Debug utility to test connectivity and data loading
+  testConnectivity: async () => {
+    try {
+      console.log('🔍 Testing connectivity and data loading...');
+      set({ isLoading: true, error: null });
+      
+      // Test server connectivity
+      const isConnected = await checkServerConnectivity();
+      console.log('Server connectivity:', isConnected);
+      
+      if (!isConnected) {
+        throw new Error('Cannot connect to server. Please check if the backend is running and the IP address is correct.');
+      }
+      
+      // Test authentication
+      if (!get().authToken) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+      
+      // Test data loading
+      console.log('Testing data loading...');
+      const results = await Promise.allSettled([
+        get().loadGroups(),
+        get().loadExpenses(),
+        get().loadBudgets(),
+        get().getSplitBills()
+      ]);
+      
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const failureCount = results.filter(r => r.status === 'rejected').length;
+      
+      console.log(`Data loading results: ${successCount} success, ${failureCount} failures`);
+      
+      if (failureCount > 0) {
+        const errors = results
+          .filter(r => r.status === 'rejected')
+          .map(r => (r as PromiseRejectedResult).reason?.message || 'Unknown error')
+          .join('; ');
+        throw new Error(`Some data failed to load: ${errors}`);
+      }
+      
+      set({ isLoading: false });
+      console.log('✅ Connectivity and data loading test passed!');
+      return { success: true, message: 'All tests passed successfully!' };
+      
+    } catch (error: any) {
+      console.error('❌ Connectivity test failed:', error);
+      const errorMessage = error.message || 'Connectivity test failed';
+      set({ error: errorMessage, isLoading: false });
+      return { success: false, message: errorMessage };
+    }
+  },
 }));

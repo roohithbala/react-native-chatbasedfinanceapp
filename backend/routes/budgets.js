@@ -89,7 +89,8 @@ router.get('/', auth, async (req, res) => {
         totalAmount: budgetsWithSpent.reduce((sum, b) => sum + b.amount, 0),
         totalSpent: budgetsWithSpent.reduce((sum, b) => sum + b.spent, 0),
         totalRemaining: budgetsWithSpent.reduce((sum, b) => sum + b.remaining, 0)
-      }
+      },
+      message: 'Budgets retrieved successfully'
     });
   } catch (error) {
     console.error('Get budgets error:', error);

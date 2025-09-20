@@ -1,6 +1,19 @@
 const express = require('express');
 const Expense = require('../models/Expense');
 const auth = require('../middleware/auth');
+const mongoose = require('mongoose');
+
+console.log('Expense model loaded:', !!Expense);
+console.log('Expense model name:', Expense?.modelName);
+console.log('Expense model collection name:', Expense?.collection?.name);
+console.log('Mongoose connection ready state:', mongoose.connection.readyState);
+
+// Test if we can access the Expense model
+try {
+  console.log('Expense model schema paths:', Expense?.schema?.paths ? Object.keys(Expense.schema.paths) : 'No schema paths');
+} catch (error) {
+  console.error('Error accessing Expense schema:', error);
+}
 
 const router = express.Router();
 
@@ -8,13 +21,28 @@ const router = express.Router();
 router.get('/', auth, async (req, res) => {
   try {
     console.log('Expenses API called by user:', req.userId);
+    console.log('Request headers:', req.headers);
+    console.log('Request query:', req.query);
+    console.log('Auth middleware result - req.user:', req.user);
+    console.log('Auth middleware result - req.userId:', req.userId);
+    
     if (!req.userId) {
+      console.log('No userId found in request');
       return res.status(401).json({ message: 'User ID not found in request' });
     }
 
     const { page = 1, limit = 20, category, startDate, endDate } = req.query;
     
     const query = { userId: req.userId };
+    console.log('Base query:', query);
+    console.log('req.userId type:', typeof req.userId);
+    console.log('req.userId value:', req.userId);
+    
+    // Try to convert userId to ObjectId if it's a string
+    if (typeof req.userId === 'string' && req.userId.match(/^[0-9a-fA-F]{24}$/)) {
+      query.userId = new mongoose.Types.ObjectId(req.userId);
+      console.log('Converted userId to ObjectId:', query.userId);
+    }
     
     if (category) query.category = category;
     if (startDate || endDate) {
@@ -23,24 +51,76 @@ router.get('/', auth, async (req, res) => {
       if (endDate) query.createdAt.$lte = new Date(endDate);
     }
 
-    const expenses = await Expense.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate('userId', 'name avatar');
+    console.log('Final MongoDB query:', query);
 
-    const total = await Expense.countDocuments(query);
+    // Check if Expense model is properly loaded
+    console.log('Expense model exists:', !!Expense);
+    console.log('Expense model name:', Expense?.modelName);
+    console.log('Expense collection name:', Expense?.collection?.name);
 
-    res.json({
-      expenses: expenses || [],
-      totalPages: Math.ceil(total / limit),
-      currentPage: parseInt(page),
-      total,
-      status: 'success'
+    // First, let's count documents to see if the query works
+    let total = 0;
+    try {
+      total = await Expense.countDocuments(query);
+      console.log('Total documents found:', total);
+    } catch (countError) {
+      console.error('Error in countDocuments:', countError);
+      total = 0;
+    }
+
+    let expenses = [];
+    try {
+      const expensesResult = await Expense.find(query)
+        .sort({ createdAt: -1 })
+        .limit(limit * 1)
+        .skip((page - 1) * limit)
+        .populate('userId', 'name avatar');
+      
+      console.log('Raw expenses result:', expensesResult);
+      console.log('Expenses result type:', typeof expensesResult);
+      console.log('Expenses result is array:', Array.isArray(expensesResult));
+      
+      // Ensure we have an array
+      expenses = Array.isArray(expensesResult) ? expensesResult : [];
+    } catch (findError) {
+      console.error('Error in Expense.find():', findError);
+      expenses = []; // Ensure expenses is always an array
+    }
+
+    console.log(`Found ${expenses.length} expenses out of ${total} total`);
+    console.log('Sample expense:', expenses[0] ? {
+      _id: expenses[0]._id,
+      description: expenses[0].description,
+      amount: expenses[0].amount,
+      userId: expenses[0].userId
+    } : 'No expenses found');
+
+    const response = {
+      status: 'success',
+      data: {
+        expenses: expenses,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        total
+      },
+      message: 'Expenses retrieved successfully'
+    };
+
+    console.log('Sending response:', {
+      expensesCount: response.data.expenses.length,
+      totalPages: response.data.totalPages,
+      currentPage: response.data.currentPage,
+      total: response.data.total,
+      status: response.status
     });
+
+    res.json(response);
   } catch (error) {
     console.error('Get expenses error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

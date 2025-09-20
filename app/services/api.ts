@@ -2,11 +2,85 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Configuration
-export const API_BASE_URL = __DEV__
-  ? 'http://10.63.153.172:3001/api'
-  : 'https://your-production-api.com/api';
+const getApiBaseUrl = () => {
+  // Try to get the server IP from environment or use localhost as fallback
+  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.63.153.172';
+  const serverPort = process.env.EXPO_PUBLIC_SERVER_PORT || '3001';
+  
+  if (__DEV__) {
+    return `http://${serverIP}:${serverPort}/api`;
+  } else {
+    return 'https://your-production-api.com/api';
+  }
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 console.log('API Base URL:', API_BASE_URL);
+console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.63.153.172');
+console.log('Server Port:', process.env.EXPO_PUBLIC_SERVER_PORT || '3001');
+
+// Network connectivity check
+export const checkServerConnectivity = async (): Promise<boolean> => {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(`${API_BASE_URL.replace('/api', '')}/api/health`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    console.error('Server connectivity check failed:', error);
+    return false;
+  }
+};
+
+// Auto-detect server IP (useful for development)
+export const detectServerIP = async (): Promise<string | null> => {
+  const commonIPs = [
+    '10.63.153.172', // Current configured IP
+    '192.168.1.100',
+    '192.168.1.101',
+    '192.168.1.102',
+    '192.168.0.100',
+    '192.168.0.101',
+    '192.168.0.102',
+    'localhost',
+    '127.0.0.1'
+  ];
+
+  for (const ip of commonIPs) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+      const testUrl = `http://${ip}:3001/api/health`;
+      const response = await fetch(testUrl, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        console.log('Server found at IP:', ip);
+        return ip;
+      }
+    } catch (error) {
+      // Continue to next IP
+    }
+  }
+
+  console.log('No server found on common IPs');
+  return null;
+};
 
 // Create axios instance
 const api = axios.create({
@@ -37,9 +111,39 @@ api.interceptors.request.use(
 
 // Response interceptor for error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Log response for debugging
+    console.log('API Response:', {
+      status: response.status,
+      url: response.config.url,
+      dataType: typeof response.data,
+      dataKeys: response.data ? Object.keys(response.data) : [],
+      contentType: response.headers['content-type']
+    });
+
+    // Check if response is HTML instead of JSON
+    if (response.headers['content-type']?.includes('text/html')) {
+      console.error('Received HTML response instead of JSON:', response.data);
+      throw new Error('Server returned HTML instead of JSON. Check server configuration.');
+    }
+
+    return response;
+  },
   (error) => {
     console.error('API Error:', error.message);
+    console.error('Error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      headers: error.response?.headers
+    });
+
+    // Handle rate limiting
+    if (error.response?.status === 429) {
+      console.warn('Rate limit exceeded. Retrying after delay...');
+      // Could implement retry logic here
+    }
+
     return Promise.reject(error);
   }
 );
@@ -118,8 +222,15 @@ export const splitBillsAPI = {
     try {
       const response = await api.get('/split-bills', { params });
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching split bills:', error);
+      
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn('Rate limit exceeded for split bills API');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
       throw error;
     }
   },
@@ -128,8 +239,15 @@ export const splitBillsAPI = {
     try {
       const response = await api.post('/split-bills', billData);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating split bill:', error);
+      
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn('Rate limit exceeded for split bills API');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
       throw error;
     }
   },
@@ -138,8 +256,15 @@ export const splitBillsAPI = {
     try {
       const response = await api.get(`/split-bills/${id}`);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching split bill:', error);
+      
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn('Rate limit exceeded for split bills API');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
       throw error;
     }
   },
@@ -148,8 +273,15 @@ export const splitBillsAPI = {
     try {
       const response = await api.patch(`/split-bills/${id}/mark-paid`);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error marking split bill as paid:', error);
+      
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn('Rate limit exceeded for split bills API');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
       throw error;
     }
   },
@@ -158,8 +290,15 @@ export const splitBillsAPI = {
     try {
       const response = await api.get(`/split-bills/group/${groupId}`);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching group split bills:', error);
+      
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn('Rate limit exceeded for split bills API');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
       throw error;
     }
   },
@@ -168,8 +307,15 @@ export const splitBillsAPI = {
     try {
       const response = await api.get(`/split-bills/user/${userId}`);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching user split bills:', error);
+      
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn('Rate limit exceeded for split bills API');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
       throw error;
     }
   }
@@ -182,8 +328,18 @@ export const expensesAPI = {
       console.log('Calling expenses API with params:', params);
       const response = await api.get('/expenses', { params });
       console.log('Expenses API raw response:', response);
-      
-      // More flexible validation - handle various response formats
+      console.log('Response status:', response.status);
+      console.log('Response data type:', typeof response.data);
+      console.log('Response data keys:', response.data ? Object.keys(response.data) : []);
+      console.log('Response headers:', response.headers);
+
+      // Check if response.data is a string (HTML error page)
+      if (typeof response.data === 'string') {
+        console.error('Received string response instead of JSON object:', response.data.substring(0, 200));
+        throw new Error('Server returned invalid response format');
+      }
+
+      // Simple validation - handle the standard backend response format
       if (!response.data) {
         console.warn('No response data from expenses API');
         return {
@@ -193,95 +349,23 @@ export const expensesAPI = {
           total: 0
         };
       }
-      
-      // Handle different response formats
-      let expenses = [];
-      let totalPages = 0;
-      let currentPage = 1;
-      let total = 0;
-      
-      if (Array.isArray(response.data)) {
-        // Direct array response
-        console.log('Handling direct array response format');
-        expenses = response.data;
-      } else if (response.data.expenses && Array.isArray(response.data.expenses)) {
-        // Standard response format
-        console.log('Handling standard response format with expenses property');
-        expenses = response.data.expenses;
-        totalPages = response.data.totalPages || 0;
-        currentPage = response.data.currentPage || 1;
-        total = response.data.total || 0;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        // Alternative response format
-        console.log('Handling alternative response format with data property');
-        expenses = response.data.data;
-        totalPages = response.data.totalPages || 0;
-        currentPage = response.data.currentPage || 1;
-        total = response.data.total || 0;
-      } else if (response.data.data && response.data.data.expenses && Array.isArray(response.data.data.expenses)) {
-        // Nested response format
-        console.log('Handling nested response format');
-        expenses = response.data.data.expenses;
-        totalPages = response.data.data.totalPages || response.data.totalPages || 0;
-        currentPage = response.data.data.currentPage || response.data.currentPage || 1;
-        total = response.data.data.total || response.data.total || 0;
+
+      // The backend returns: { status: 'success', data: { expenses: [...], totalPages: X, currentPage: X, total: X }, message: '...' }
+      let expensesData;
+      if (response.data && response.data.data && response.data.data.expenses) {
+        // Backend response format: { status: 'success', data: { expenses: [...], ... }, message: '...' }
+        expensesData = response.data.data;
+      } else if (response.data && response.data.expenses) {
+        // Alternative format: { expenses: [...], totalPages: X, ... }
+        expensesData = response.data;
       } else {
-        console.warn('Unexpected expenses response format:', response.data);
-        // Try to extract expenses from any nested structure
-        const findExpenses = (obj: any): any[] => {
-          if (Array.isArray(obj)) return obj;
-          if (obj && typeof obj === 'object') {
-            if (obj.expenses && Array.isArray(obj.expenses)) return obj.expenses;
-            if (obj.data && Array.isArray(obj.data)) return obj.data;
-            if (obj.data && obj.data.expenses && Array.isArray(obj.data.expenses)) return obj.data.expenses;
-            // Recursively search
-            for (const key in obj) {
-              const result = findExpenses(obj[key]);
-              if (result.length > 0) return result;
-            }
-          }
-          return [];
-        };
-        
-        expenses = findExpenses(response.data);
-        console.log('Extracted expenses using fallback method:', expenses.length, 'items');
-      }
-      
-      // Ensure expenses is always an array
-      if (!Array.isArray(expenses)) {
-        console.warn('Expenses is not an array, converting to empty array');
-        expenses = [];
-      }
-      
-      // Validate expense objects
-      const validExpenses = expenses.filter(expense => {
-        const isValid = expense && typeof expense === 'object' && expense._id;
-        if (!isValid) {
-          console.warn('Invalid expense object:', expense);
-        }
-        return isValid;
-      });
-      
-      console.log(`Returning ${validExpenses.length} valid expenses out of ${expenses.length} total`);
-      
-      return {
-        expenses: validExpenses,
-        totalPages: totalPages,
-        currentPage: currentPage,
-        total: total
-      };
-    } catch (error: any) {
-      console.error('Error fetching expenses:', error);
-      console.error('Error details:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data
-      });
-      
-      // Return empty data instead of throwing to prevent app crashes
-      if (error.name === 'NetworkError' || !error.response) {
-        console.warn('Network error fetching expenses, returning empty data');
+        console.warn('Unexpected response format from expenses API:', response.data);
+        console.warn('Response structure:', {
+          hasData: !!response.data,
+          dataKeys: response.data ? Object.keys(response.data) : [],
+          dataType: typeof response.data,
+          fullResponse: response
+        });
         return {
           expenses: [],
           totalPages: 0,
@@ -289,14 +373,133 @@ export const expensesAPI = {
           total: 0
         };
       }
+
+      const { expenses, totalPages, currentPage, total } = expensesData;
+
+      // Ensure expenses is always an array
+      const expensesArray = Array.isArray(expenses) ? expenses : [];
       
+      console.log(`Processing ${expensesArray.length} expenses from API response`);
+      console.log('Expenses data structure:', {
+        expensesCount: expensesArray.length,
+        totalPages: totalPages || 0,
+        currentPage: currentPage || 1,
+        total: total || 0,
+        firstExpense: expensesArray[0] ? {
+          id: expensesArray[0]._id,
+          description: expensesArray[0].description,
+          amount: expensesArray[0].amount
+        } : null
+      });
+
+      // Basic validation - only check for required fields if we have data
+      if (expensesArray.length > 0) {
+        const validExpenses = expensesArray.filter(expense => {
+          const hasId = expense && (expense._id || expense.id);
+          const hasDescription = expense && expense.description;
+          const hasAmount = expense && typeof expense.amount === 'number';
+
+          if (!hasId) {
+            console.warn('Expense missing ID:', expense);
+          }
+          if (!hasDescription) {
+            console.warn('Expense missing description:', expense);
+          }
+          if (!hasAmount) {
+            console.warn('Expense missing valid amount:', expense);
+          }
+
+          return hasId && hasDescription && hasAmount;
+        });
+
+        console.log(`Validated ${validExpenses.length} out of ${expensesArray.length} expenses`);
+
+        return {
+          expenses: validExpenses,
+          totalPages: totalPages || 0,
+          currentPage: currentPage || 1,
+          total: total || 0
+        };
+      }
+
+      console.log(`Returning ${expensesArray.length} expenses (no validation needed)`);
+
+      return {
+        expenses: expensesArray,
+        totalPages: totalPages || 0,
+        currentPage: currentPage || 1,
+        total: total || 0
+      };
+    } catch (error: any) {
+      console.error('Error fetching expenses:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        dataType: typeof error.response?.data,
+        fullError: error
+      });
+
+      // Handle rate limiting specifically
+      if (error.response?.status === 429) {
+        console.warn('Rate limit exceeded for expenses API');
+        return {
+          expenses: [],
+          totalPages: 0,
+          currentPage: 1,
+          total: 0,
+          rateLimited: true
+        };
+      }
+
+      // Handle authentication errors specifically
+      if (error.response?.status === 401) {
+        console.warn('Authentication error - user may need to log in again');
+        // Don't throw, return empty data to prevent app crash
+        return {
+          expenses: [],
+          totalPages: 0,
+          currentPage: 1,
+          total: 0,
+          authError: true
+        };
+      }
+
+      // Handle server errors (4xx, 5xx) by returning empty data instead of throwing
+      if (error.response && error.response.status >= 400) {
+        console.warn('Server error fetching expenses:', error.response.status, error.response.statusText);
+        console.warn('Server response data:', error.response.data);
+        return {
+          expenses: [],
+          totalPages: 0,
+          currentPage: 1,
+          total: 0,
+          serverError: true,
+          errorStatus: error.response.status
+        };
+      }
+
+      // Handle network errors
+      if (error.name === 'NetworkError' || !error.response) {
+        console.warn('Network error fetching expenses, returning empty data');
+        return {
+          expenses: [],
+          totalPages: 0,
+          currentPage: 1,
+          total: 0,
+          networkError: true
+        };
+      }
+
       // For other errors, still return empty data but log the error
       console.error('Non-network error in expenses API, returning empty data:', error.message);
       return {
         expenses: [],
         totalPages: 0,
         currentPage: 1,
-        total: 0
+        total: 0,
+        unknownError: true
       };
     }
   },
@@ -336,8 +539,15 @@ export const groupsAPI = {
       return {
         groups: Array.isArray(groups) ? groups : []
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching groups:', error);
+      
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn('Rate limit exceeded for groups API');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
       throw error;
     }
   },
@@ -592,21 +802,45 @@ export const budgetsAPI = {
         params,
         timeout: 10000 // 10 second timeout
       });
-      
+
+      console.log('Budgets API response:', {
+        status: response.status,
+        dataType: typeof response.data,
+        dataKeys: response.data ? Object.keys(response.data) : []
+      });
+
+      // Check if response.data is a string (HTML error page)
+      if (typeof response.data === 'string') {
+        console.error('Received string response for budgets API:', response.data.substring(0, 200));
+        throw new Error('Server returned invalid response format for budgets');
+      }
+
       // Validate response structure
       if (!response.data || !response.data.status || response.data.status !== 'success' || !response.data.data?.budgets) {
+        console.error('Invalid budget response structure:', response.data);
         throw new Error('Invalid budget data received from server');
       }
-      
+
       return response.data.data;
     } catch (error: any) {
       console.error('Error fetching budgets:', error);
-      
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        dataType: typeof error.response?.data
+      });
+
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        console.warn('Rate limit exceeded for budgets API');
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+
       // Enhance error messages for common issues
       if (error.name === 'NetworkError' || !error.response) {
         throw new Error('Unable to fetch budgets. Please check your connection and try again.');
       }
-      
+
       // Rethrow the error with its enhanced message from the interceptor
       throw error;
     }
@@ -780,233 +1014,6 @@ export const directMessagesAPI = {
     } catch (error) {
       console.error('Error marking messages as read:', error);
       throw error;
-    }
-  },
-};
-
-// Todo API
-export const todosAPI = {
-  getTodos: async (params?: {
-    page?: number;
-    limit?: number;
-    status?: string;
-    priority?: string;
-    category?: string;
-    tags?: string[];
-    dueBefore?: string;
-    dueAfter?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-  }) => {
-    try {
-      const response = await api.get('/todos', { 
-        params,
-        timeout: 10000
-      });
-      
-      // Handle various response formats
-      if (!response.data) {
-        return {
-          todos: [],
-          totalPages: 0,
-          currentPage: 1,
-          total: 0
-        };
-      }
-      
-      return response.data;
-    } catch (error: any) {
-      console.error('Error fetching todos:', error);
-      if (error.name === 'NetworkError' || !error.response) {
-        return {
-          todos: [],
-          totalPages: 0,
-          currentPage: 1,
-          total: 0
-        };
-      }
-      throw error;
-    }
-  },
-
-  getOverdueTodos: async () => {
-    try {
-      const response = await api.get('/todos/overdue');
-      return response.data.todos || [];
-    } catch (error) {
-      console.error('Error fetching overdue todos:', error);
-      return [];
-    }
-  },
-
-  getTodosDueSoon: async (days: number = 7) => {
-    try {
-      const response = await api.get('/todos/due-soon', { params: { days } });
-      return response.data.todos || [];
-    } catch (error) {
-      console.error('Error fetching todos due soon:', error);
-      return [];
-    }
-  },
-
-  getTodo: async (id: string) => {
-    try {
-      const response = await api.get(`/todos/${id}`);
-      if (!response.data || !response.data.todo) {
-        throw new Error('Invalid response format from server');
-      }
-      return response.data.todo;
-    } catch (error) {
-      console.error('Error fetching todo:', error);
-      throw error;
-    }
-  },
-
-  createTodo: async (todoData: {
-    title: string;
-    description?: string;
-    priority?: 'low' | 'medium' | 'high' | 'urgent';
-    dueDate?: string;
-    tags?: string[];
-    category?: string;
-    isRecurring?: boolean;
-    recurringPattern?: {
-      frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
-      interval: number;
-      endDate?: string;
-    };
-    location?: {
-      address: string;
-      coordinates: {
-        latitude: number;
-        longitude: number;
-      };
-    };
-  }) => {
-    try {
-      const response = await api.post('/todos', todoData);
-      if (!response.data || !response.data.todo) {
-        throw new Error('Invalid response from server');
-      }
-      return response.data;
-    } catch (error) {
-      console.error('Error creating todo:', error);
-      throw error;
-    }
-  },
-
-  updateTodo: async (id: string, todoData: Partial<{
-    title: string;
-    description: string;
-    priority: 'low' | 'medium' | 'high' | 'urgent';
-    status: 'not-started' | 'in-progress' | 'completed' | 'cancelled';
-    dueDate: string;
-    tags: string[];
-    category: string;
-    isRecurring: boolean;
-    recurringPattern: {
-      frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
-      interval: number;
-      endDate?: string;
-    };
-    location: {
-      address: string;
-      coordinates: {
-        latitude: number;
-        longitude: number;
-      };
-    };
-  }>) => {
-    try {
-      const response = await api.put(`/todos/${id}`, todoData);
-      if (!response.data || !response.data.todo) {
-        throw new Error('Invalid response from server');
-      }
-      return response.data;
-    } catch (error) {
-      console.error('Error updating todo:', error);
-      throw error;
-    }
-  },
-
-  deleteTodo: async (id: string) => {
-    try {
-      const response = await api.delete(`/todos/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error deleting todo:', error);
-      throw error;
-    }
-  },
-
-  markCompleted: async (id: string) => {
-    try {
-      const response = await api.patch(`/todos/${id}/complete`);
-      if (!response.data || !response.data.todo) {
-        throw new Error('Invalid response from server');
-      }
-      return response.data;
-    } catch (error) {
-      console.error('Error marking todo as completed:', error);
-      throw error;
-    }
-  },
-
-  markInProgress: async (id: string) => {
-    try {
-      const response = await api.patch(`/todos/${id}/start`);
-      if (!response.data || !response.data.todo) {
-        throw new Error('Invalid response from server');
-      }
-      return response.data;
-    } catch (error) {
-      console.error('Error marking todo as in progress:', error);
-      throw error;
-    }
-  },
-
-  shareTodo: async (id: string, userId: string, permission: 'view' | 'edit' = 'view') => {
-    try {
-      const response = await api.post(`/todos/${id}/share`, { userId, permission });
-      if (!response.data || !response.data.todo) {
-        throw new Error('Invalid response from server');
-      }
-      return response.data;
-    } catch (error) {
-      console.error('Error sharing todo:', error);
-      throw error;
-    }
-  },
-
-  removeShare: async (id: string, userId: string) => {
-    try {
-      const response = await api.delete(`/todos/${id}/share/${userId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error removing share:', error);
-      throw error;
-    }
-  },
-
-  getStats: async () => {
-    try {
-      const response = await api.get('/todos/stats/overview');
-      return response.data.stats || {
-        total: 0,
-        completed: 0,
-        inProgress: 0,
-        pending: 0,
-        overdue: 0
-      };
-    } catch (error) {
-      console.error('Error fetching todo stats:', error);
-      return {
-        total: 0,
-        completed: 0,
-        inProgress: 0,
-        pending: 0,
-        overdue: 0
-      };
     }
   },
 };

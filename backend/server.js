@@ -12,6 +12,10 @@ const User = require('./models/User');
 const Group = require('./models/Group');
 const Message = require('./models/Message');
 const DirectMessage = require('./models/DirectMessage');
+const Expense = require('./models/Expense');
+const Budget = require('./models/Budget');
+const SplitBill = require('./models/SplitBill');
+const Location = require('./models/Location');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const expenseRoutes = require('./routes/expenses');
@@ -21,7 +25,6 @@ const chatRoutes = require('./routes/chat');
 const aiRoutes = require('./routes/ai');
 const splitBillRoutes = require('./routes/splitBills');
 const directMessageRoutes = require('./routes/direct-messages');
-const todoRoutes = require('./routes/todos');
 const locationRoutes = require('./routes/locations');
 const paymentRoutes = require('./routes/payments');
 
@@ -65,10 +68,27 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Rate limiting
+// Rate limiting - increased for mobile app usage
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 2000, // Increased from 500 to 2000 requests per window for mobile app usage
+  message: {
+    status: 'error',
+    message: 'Too many requests from this IP, please try again later.',
+    retryAfter: '15 minutes',
+    code: 'RATE_LIMIT_EXCEEDED'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Ensure JSON response
+  handler: (req, res) => {
+    res.status(429).json({
+      status: 'error',
+      message: 'Too many requests from this IP, please try again later.',
+      retryAfter: '15 minutes',
+      code: 'RATE_LIMIT_EXCEEDED'
+    });
+  }
 });
 app.use(limiter);
 
@@ -442,7 +462,6 @@ app.use('/api/chat', (req, res, next) => {
 app.use('/api/ai', aiRoutes);
 app.use('/api/split-bills', splitBillRoutes);
 app.use('/api/direct-messages', directMessageRoutes);
-app.use('/api/todos', todoRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/payments', paymentRoutes);
 

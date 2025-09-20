@@ -20,6 +20,7 @@ const formatMessage = (message) => {
     user: msg.type === 'system' ? {
       _id: 'system',
       name: 'AI Assistant',
+      username: 'ai',
       avatar: '🤖'
     } : {
       _id: msg.user._id?.toString() || msg.user._id,
@@ -233,6 +234,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
             user: {
               _id: new mongoose.Types.ObjectId('000000000000000000000000'), // Use a fixed ObjectId for system
               name: 'AI Assistant',
+              username: 'ai',
               avatar: '🤖'
             },
             groupId,
@@ -250,6 +252,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
           user: {
             _id: new mongoose.Types.ObjectId('000000000000000000000000'), // Use a fixed ObjectId for system
             name: 'AI Assistant',
+            username: 'ai',
             avatar: '🤖'
           },
           groupId,
@@ -314,6 +317,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
         user: {
           _id: 'system',
           name: 'AI Assistant',
+          username: 'ai',
           avatar: '🤖'
         },
         type: 'system',
@@ -355,6 +359,7 @@ router.post('/:groupId/messages', auth, async (req, res) => {
           user: {
             _id: 'system',
             name: 'AI Assistant',
+            username: 'ai',
             avatar: '🤖'
           },
           type: 'system',

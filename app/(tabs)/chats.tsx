@@ -51,10 +51,7 @@ export default function ChatsScreen() {
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Group management states
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showJoinGroup, setShowJoinGroup] = useState(false);
-  const [groupName, setGroupName] = useState('');
-  const [groupDescription, setGroupDescription] = useState('');
   const [inviteCode, setInviteCode] = useState('');
 
   // Three-dot menu states
@@ -111,27 +108,6 @@ export default function ChatsScreen() {
       await loadGroups();
     }
     setRefreshing(false);
-  };
-
-  const handleCreateGroup = async () => {
-    if (!groupName.trim()) {
-      Alert.alert('Error', 'Please enter a group name');
-      return;
-    }
-
-    try {
-      await createGroup({
-        name: groupName.trim(),
-        description: groupDescription.trim()
-      });
-      setGroupName('');
-      setGroupDescription('');
-      setShowCreateGroup(false);
-      Alert.alert('Success', 'Group created successfully!');
-      await loadGroups(); // Refresh groups
-    } catch (error) {
-      // Error is handled in the store
-    }
   };
 
   const handleJoinGroup = async () => {
@@ -351,7 +327,7 @@ export default function ChatsScreen() {
 
   const renderGroupItem = ({ item }: { item: any }) => {
     const isAdmin = item.members?.some((member: any) => 
-      member.userId === currentUser?._id && member.role === 'admin'
+      (typeof member.userId === 'string' ? member.userId : member.userId._id) === currentUser?._id && member.role === 'admin'
     );
     const isMuted = mutedChats.has(item._id);
     const isArchived = archivedChats.has(item._id);
@@ -635,73 +611,6 @@ export default function ChatsScreen() {
       ) : (
         renderTabContent()
       )}
-
-      {/* Create Group Modal */}
-      <Modal
-        visible={showCreateGroup}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowCreateGroup(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create New Group</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowCreateGroup(false);
-                  setGroupName('');
-                  setGroupDescription('');
-                }}
-              >
-                <Ionicons name="close" size={24} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-            
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Group Name"
-              value={groupName}
-              onChangeText={setGroupName}
-              maxLength={50}
-            />
-            
-            <TextInput
-              style={[styles.modalInput, styles.modalTextArea]}
-              placeholder="Description (optional)"
-              value={groupDescription}
-              onChangeText={setGroupDescription}
-              multiline
-              numberOfLines={3}
-              maxLength={200}
-              textAlignVertical="top"
-            />
-            
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setShowCreateGroup(false);
-                  setGroupName('');
-                  setGroupDescription('');
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.primaryButton]}
-                onPress={handleCreateGroup}
-                disabled={storeLoading}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {storeLoading ? 'Creating...' : 'Create'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* Join Group Modal */}
       <Modal

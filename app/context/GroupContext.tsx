@@ -42,9 +42,9 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       const members = selectedGroup.members
         .filter(member => member && member.userId) // Filter out invalid members
         .map(member => ({
-          userId: member.userId,
-          name: member.user?.name || 'Unknown User',
-          avatar: member.user?.avatar || undefined,
+          userId: typeof member.userId === 'string' ? member.userId : member.userId._id,
+          name: typeof member.userId === 'string' ? 'Unknown User' : member.userId.name || 'Unknown User',
+          avatar: typeof member.userId === 'string' ? undefined : member.userId.avatar || undefined,
           role: member.role || 'member',
         }));
 

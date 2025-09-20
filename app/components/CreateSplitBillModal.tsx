@@ -147,8 +147,29 @@ export default function CreateSplitBillModal({
         category,
       };
 
-      await createSplitBill(billData);
-      Alert.alert('Success', 'Split bill created successfully');
+      console.log('Creating split bill with data:', billData);
+      const result = await createSplitBill(billData);
+
+      // Create individual expenses for each participant
+      for (const participant of participants) {
+        const expenseData = {
+          description: `${description.trim()} (Split with group)`,
+          amount: parseFloat(participant.amount),
+          category: category,
+          userId: participant.userId,
+          groupId: selectedGroup._id
+        };
+
+        try {
+          await useFinanceStore.getState().addExpense(expenseData);
+          console.log(`Created expense for participant ${participant.userId}:`, expenseData);
+        } catch (expenseError) {
+          console.error(`Failed to create expense for participant ${participant.userId}:`, expenseError);
+          // Continue with other participants even if one fails
+        }
+      }
+
+      Alert.alert('Success', 'Split bill created successfully and expenses added to database!');
       onClose();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to create split bill');
