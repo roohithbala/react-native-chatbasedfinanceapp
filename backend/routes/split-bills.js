@@ -82,55 +82,113 @@ router.post('/', auth, async (req, res) => {
       notes
     } = req.body;
 
+    console.log('Creating split bill with data:', {
+      description,
+      totalAmount,
+      groupId,
+      participantsCount: participants?.length,
+      splitType,
+      category,
+      currency
+    });
+
     // Validation
     if (!description || !totalAmount || !participants || !participants.length) {
-      return res.status(400).json({ 
-        message: 'Description, total amount, and participants are required' 
+      return res.status(400).json({
+        message: 'Description, total amount, and participants are required'
+      });
+    }
+
+    // Validate total amount is a positive number
+    if (typeof totalAmount !== 'number' || totalAmount <= 0) {
+      return res.status(400).json({
+        message: 'Total amount must be a positive number'
       });
     }
 
     // If groupId is provided, validate group exists and user is a member
-    if (groupId) {
+    let isGroupSplitBill = false;
+    if (groupId && groupId !== 'undefined' && groupId !== 'null' && groupId !== '') {
+      console.log('Validating group split bill for groupId:', groupId);
       const group = await Group.findById(groupId);
       if (!group) {
         return res.status(404).json({ message: 'Group not found' });
       }
 
-      if (!group.members.some(m => m.userId.toString() === req.userId)) {
-        return res.status(403).json({ message: 'You must be a group member to create a split bill' });
+      const isMember = group.members.some(m => m.userId.toString() === req.userId.toString() && m.isActive);
+      if (!isMember) {
+        return res.status(403).json({ message: 'You must be a member of the group to create split bills' });
       }
+
+      // For group split bills, validate that all participants are group members
+      const groupMemberIds = group.members
+        .filter(m => m.isActive)
+        .map(m => m.userId.toString());
+
+      const invalidParticipants = participants.filter(p => !groupMemberIds.includes(p.userId));
+      if (invalidParticipants.length > 0) {
+        return res.status(400).json({
+          message: 'All participants must be active members of the group'
+        });
+      }
+
+      isGroupSplitBill = true;
+      console.log('Group split bill validation passed');
     } else {
-      // For direct chat split bills, validate that all participants exist
+      console.log('Creating direct chat split bill');
+      // For direct chat split bills, validate that all participants exist and are not the same user
       const participantIds = participants.map(p => p.userId);
-      const users = await User.find({ _id: { $in: participantIds } });
-      
-      if (users.length !== participantIds.length) {
+
+      // Remove duplicates
+      const uniqueParticipantIds = [...new Set(participantIds)];
+
+      if (uniqueParticipantIds.length !== participantIds.length) {
+        return res.status(400).json({ message: 'Duplicate participants are not allowed' });
+      }
+
+      // Check that creator is not trying to split with themselves only
+      const otherParticipants = uniqueParticipantIds.filter(id => id !== req.userId.toString());
+      if (otherParticipants.length === 0) {
+        return res.status(400).json({ message: 'Cannot create split bill with only yourself' });
+      }
+
+      const users = await User.find({ _id: { $in: uniqueParticipantIds } });
+
+      if (users.length !== uniqueParticipantIds.length) {
         return res.status(400).json({ message: 'One or more participants not found' });
       }
 
-      // Ensure the creator is included in participants for direct chat
-      const creatorIdString = req.userId.toString();
-      if (!participantIds.includes(creatorIdString)) {
-        return res.status(400).json({ message: 'Creator must be a participant in direct chat split bills' });
-      }
+      console.log('Direct chat split bill validation passed');
     }
 
-    // Validate total amount matches sum of participant amounts
-    const totalParticipantAmount = participants.reduce((sum, p) => sum + p.amount, 0);
+    // Validate participant amounts
+    const totalParticipantAmount = participants.reduce((sum, p) => sum + (p.amount || 0), 0);
     if (Math.abs(totalAmount - totalParticipantAmount) > 0.01) {
-      return res.status(400).json({ 
-        message: 'Sum of participant amounts must equal total amount' 
+      console.log('Amount mismatch:', { totalAmount, totalParticipantAmount });
+      return res.status(400).json({
+        message: 'Sum of participant amounts must equal total amount'
       });
     }
+
+    // Ensure all participants have valid amounts
+    const invalidAmounts = participants.filter(p => !p.amount || p.amount <= 0);
+    if (invalidAmounts.length > 0) {
+      return res.status(400).json({
+        message: 'All participants must have valid positive amounts'
+      });
+    }
+
+    console.log('Creating split bill in database...');
 
     // Create the split bill
     const splitBill = new SplitBill({
       description,
       totalAmount,
-      groupId,
+      groupId: isGroupSplitBill ? new mongoose.Types.ObjectId(groupId) : null,
       participants: participants.map(p => ({
-        ...p,
-        isPaid: p.userId === req.userId // Mark as paid if creator is participant
+        userId: new mongoose.Types.ObjectId(p.userId),
+        amount: p.amount,
+        isPaid: p.userId === req.userId.toString() // Creator has paid their share
       })),
       splitType: splitType || 'equal',
       category: category || 'Other',
@@ -140,7 +198,7 @@ router.post('/', auth, async (req, res) => {
     });
 
     await splitBill.save();
-    
+
     // Populate the response
     await splitBill
       .populate('createdBy', 'name avatar')
@@ -150,6 +208,8 @@ router.post('/', auth, async (req, res) => {
         select: 'name',
         options: { allowEmpty: true }
       });
+
+    console.log('Split bill created successfully:', splitBill._id);
 
     res.status(201).json({
       message: 'Split bill created successfully',
@@ -256,7 +316,7 @@ router.get('/group/:groupId', auth, async (req, res) => {
       return res.status(404).json({ message: 'Group not found' });
     }
 
-    if (!group.members.some(m => m.userId.toString() === req.userId)) {
+    if (!group.members.some(m => m.userId.toString() === req.userId && m.isActive)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { View as ThemedView } from './ThemedComponents';
-import { PaymentsAPI, PaymentSummary, Debt } from '../services/paymentsAPI';
+import { PaymentsAPI, PaymentSummary, Debt } from '@/lib/services/paymentsAPI';
 import { useFinanceStore } from '../../lib/store/financeStore';
 
 interface PaymentStatusCardProps {

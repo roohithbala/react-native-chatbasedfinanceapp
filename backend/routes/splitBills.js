@@ -72,8 +72,8 @@ router.post('/', auth, async (req, res) => {
         return res.status(404).json({ message: 'Group not found' });
       }
 
-      if (!group.members.some(m => m.userId.toString() === req.userId)) {
-        return res.status(403).json({ message: 'You must be a group member to create a split bill' });
+      if (!group.members.some(m => m.userId.toString() === req.userId.toString() && m.isActive)) {
+        return res.status(403).json({ message: 'You must be a member of the group to create split bills' });
       }
     } else {
       // For direct chat split bills, validate that all participants exist
@@ -86,7 +86,7 @@ router.post('/', auth, async (req, res) => {
       }
 
       // Ensure the creator is included in participants for direct chat
-      if (!participantIds.includes(req.userId)) {
+      if (!participantIds.includes(req.userId.toString())) {
         return res.status(400).json({ message: 'Creator must be a participant in direct chat split bills' });
       }
     }
@@ -103,10 +103,11 @@ router.post('/', auth, async (req, res) => {
     const splitBill = new SplitBill({
       description,
       totalAmount,
-      groupId,
+      groupId: groupId ? new (require('mongoose').Types.ObjectId)(groupId) : null,
       participants: participants.map(p => ({
         ...p,
-        isPaid: p.userId === req.userId // Mark as paid if creator is participant
+        userId: new (require('mongoose').Types.ObjectId)(p.userId), // Convert string to ObjectId
+        isPaid: p.userId === req.userId.toString() // Compare strings for isPaid logic
       })),
       splitType: splitType || 'equal',
       category: category || 'Other',
@@ -120,8 +121,7 @@ router.post('/', auth, async (req, res) => {
     // Populate the response
     await splitBill
       .populate('createdBy', 'name avatar')
-      .populate('participants.userId', 'name avatar')
-      .execPopulate();
+      .populate('participants.userId', 'name avatar');
 
     res.status(201).json({
       message: 'Split bill created successfully',
@@ -162,8 +162,7 @@ router.patch('/:id/mark-paid', auth, async (req, res) => {
     await splitBill.save();
     await splitBill
       .populate('createdBy', 'name avatar')
-      .populate('participants.userId', 'name avatar')
-      .execPopulate();
+      .populate('participants.userId', 'name avatar');
 
     res.json({
       message: 'Payment marked as paid',
@@ -206,7 +205,7 @@ router.get('/group/:groupId', auth, async (req, res) => {
       return res.status(404).json({ message: 'Group not found' });
     }
 
-    if (!group.members.some(m => m.userId.toString() === req.userId)) {
+    if (!group.members.some(m => m.userId.toString() === req.userId.toString() && m.isActive)) {
       return res.status(403).json({ message: 'You must be a group member to view split bills' });
     }
 
@@ -240,7 +239,7 @@ router.get('/user/:userId', auth, async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
 
     // Users can only view their own split bills
-    if (userId !== req.userId) {
+    if (userId !== req.userId.toString()) {
       return res.status(403).json({ message: 'You can only view your own split bills' });
     }
 

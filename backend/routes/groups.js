@@ -73,6 +73,18 @@ router.post('/', auth, async (req, res) => {
     });
 
     await group.save();
+    
+    // Populate the members before returning
+    await group.populate('members.userId', 'name username email avatar');
+
+    // Emit real-time update
+    if (req.io) {
+      req.io.emit('group-update', {
+        type: 'created',
+        group: group
+      });
+    }
+
     res.status(201).json({
       status: 'success',
       data: { 
@@ -257,6 +269,19 @@ router.post('/:id/members', auth, async (req, res) => {
     await user.save();
 
     await group.populate('members.userId', 'name email avatar');
+
+    // Emit real-time update
+    if (req.io) {
+      req.io.to(group._id.toString()).emit('group-update', {
+        type: 'member-added',
+        groupId: group._id.toString(),
+        member: {
+          userId: user._id,
+          name: user.name,
+          avatar: user.avatar
+        }
+      });
+    }
 
     res.json({
       status: 'success',

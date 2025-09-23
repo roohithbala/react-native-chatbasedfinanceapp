@@ -21,6 +21,72 @@ export class CommandParser {
   }
 
   private static parseSplitCommand(message: string): ParsedCommand {
+    // Parse: @split @username category amount or @split @username amount
+    const parts = message.trim().split(/\s+/);
+    
+    console.log('Parsing split command:', message);
+    console.log('Parts:', parts);
+    
+    if (parts.length < 3) {
+      console.log('Not enough parts for split command');
+      return { type: 'unknown', data: {} };
+    }
+
+    // Check if first part after @split is a username mention
+    const firstPart = parts[1];
+    if (!firstPart.startsWith('@')) {
+      console.log('First part is not a username mention, falling back to legacy parser');
+      // Fallback to old format: @split description amount @users...
+      return this.parseSplitCommandLegacy(message);
+    }
+
+    const username = firstPart.substring(1); // Remove @ symbol
+    let category = 'Other';
+    let amount = 0;
+
+    console.log('Username:', username);
+    console.log('Parts length:', parts.length);
+
+    // Check if we have category and amount or just amount
+    if (parts.length === 4) {
+      // Format: @split @username category amount
+      category = parts[2];
+      amount = parseFloat(parts[3]);
+      console.log('4-part format - Category:', category, 'Amount:', amount);
+    } else if (parts.length === 3) {
+      // Format: @split @username amount
+      amount = parseFloat(parts[2]);
+      console.log('3-part format - Amount:', amount);
+    } else {
+      console.log('Invalid number of parts for split command');
+      return { type: 'unknown', data: {} };
+    }
+
+    console.log('Parsed amount:', amount, 'isNaN:', isNaN(amount), 'amount <= 0:', amount <= 0);
+
+    // Validate amount
+    if (isNaN(amount) || amount <= 0) {
+      console.log('Amount validation failed');
+      return { type: 'unknown', data: {} };
+    }
+
+    const result: ParsedCommand = {
+      type: 'split',
+      data: {
+        username,
+        description: `${category} with ${username}`,
+        amount,
+        category,
+        participants: [username],
+        splitType: 'equal',
+      },
+    };
+
+    console.log('Parsed split command result:', result);
+    return result;
+  }
+
+  private static parseSplitCommandLegacy(message: string): ParsedCommand {
     // Parse: @split Dinner $120 @alice @bob or @split Dinner ₹120 @alice @bob or @split Dinner 120 @alice @bob
     const parts = message.split(' ');
     const description = parts[1] || 'Expense';

@@ -26,18 +26,18 @@ export interface GroupExpenseStats {
     settled: number;
     pending: number;
   };
-  byCategory: Array<{
+  byCategory: {
     _id: string;
     amount: number;
     count: number;
-  }>;
-  byParticipant: Array<{
+  }[];
+  byParticipant: {
     _id: string;
     amount: number;
     count: number;
     paid: number;
     pending: number;
-  }>;
+  }[];
 }
 
 // Dummy component to satisfy Expo Router's default export requirement

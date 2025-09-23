@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { format } from 'date-fns';
+import SplitBillMessage from './SplitBillMessage';
 
 interface LocationMention {
   locationId: string;
@@ -19,6 +20,11 @@ interface ChatMessageProps {
   senderName?: string;
   locationMentions?: LocationMention[];
   onLocationMentionPress?: (location: LocationMention) => void;
+  type?: 'text' | 'image' | 'file' | 'system' | 'command' | 'split_bill';
+  splitBillData?: any;
+  currentUserId?: string;
+  onPayBill?: (splitBillId: string) => void;
+  onViewSplitBillDetails?: (splitBillId: string) => void;
 }
 
 export default function ChatMessage({
@@ -28,7 +34,12 @@ export default function ChatMessage({
   status,
   senderName,
   locationMentions = [],
-  onLocationMentionPress
+  onLocationMentionPress,
+  type = 'text',
+  splitBillData,
+  currentUserId,
+  onPayBill,
+  onViewSplitBillDetails
 }: ChatMessageProps) {
   const renderMessageText = () => {
     if (locationMentions.length === 0) {
@@ -127,7 +138,16 @@ export default function ChatMessage({
         styles.bubble,
         isOwnMessage ? styles.ownBubble : styles.otherBubble
       ]}>
-        {renderMessageText()}
+        {type === 'split_bill' && splitBillData && currentUserId ? (
+          <SplitBillMessage
+            splitBillData={splitBillData}
+            currentUserId={currentUserId}
+            onPayBill={onPayBill}
+            onViewDetails={onViewSplitBillDetails}
+          />
+        ) : (
+          renderMessageText()
+        )}
         <View style={styles.messageFooter}>
           <Text style={styles.timestamp}>
             {format(new Date(createdAt), 'HH:mm')}

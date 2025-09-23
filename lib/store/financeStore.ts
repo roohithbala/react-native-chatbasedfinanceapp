@@ -9,17 +9,18 @@ import {
   chatAPI,
   budgetsAPI,
   checkServerConnectivity
-} from '@/app/services/api';
-import type { Message } from '@/app/types/chat';
+} from '../services/api';
+import type { Message } from '../../app/types/chat';
 import type { 
   SplitBill,
   CreateSplitBillParams, 
   GetSplitBillsParams,
   SplitBillsResponse,
   SplitBillStats 
-} from '@/app/services/splitBillService';
-import SplitBillService from '@/app/services/splitBillService';
-import freeAIService, { SpendingAnalysis } from '@/lib/services/freeAIService';
+} from '../services/splitBillService';
+import SplitBillService from '../services/splitBillService';
+import freeAIService, { SpendingAnalysis } from '../services/freeAIService';
+import socketService from '../services/socketService';
 
 export type { SplitBill };
 
@@ -128,8 +129,8 @@ interface FinanceState {
   getSplitBillStats: (groupId?: string, period?: 'week' | 'month' | 'year') => Promise<SplitBillStats>;
   
   // Budget actions
-  setBudget: (category: string, amount: number, groupId?: string) => Promise<void>;
-  loadBudgets: (groupId?: string) => Promise<void>;
+  setBudget: (category: string, amount: number) => Promise<void>;
+  loadBudgets: () => Promise<void>;
   
   // Group actions
   loadGroups: () => Promise<void>;
@@ -152,6 +153,7 @@ interface FinanceState {
   setError: (error: string | null) => void;
   clearError: () => void;
   testConnectivity: () => Promise<{ success: boolean; message: string }>;
+  initializeSocketListeners: () => void;
 }
 
 // Generate random invite code
@@ -274,6 +276,9 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           selectedGroup: Array.isArray(response.user.groups) ? response.user.groups[0] || null : null,
           isLoading: false,
         });
+
+        // Initialize socket listeners for real-time updates
+        get().initializeSocketListeners();
       } else {
         throw new Error('Invalid response from server');
       }
@@ -464,6 +469,9 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           ]);
           
           console.log('All user data loaded successfully');
+          
+          // Initialize socket listeners for real-time updates
+          get().initializeSocketListeners();
         } catch (error) {
           console.error('Error loading data after auth restore:', error);
           // Don't throw error, just log it - user can still use the app
@@ -515,11 +523,15 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       const response = await expensesAPI.addExpense(expenseData);
-      if (!response.data || !response.data._id) {
+      
+      // Handle backend response format: { message: '...', data: expense }
+      const expense = response.data || response;
+      if (!expense || !expense._id) {
         throw new Error('Invalid response from server');
       }
+      
       set((state) => ({
-        expenses: [...state.expenses, response.data],
+        expenses: [...state.expenses, expense],
         isLoading: false
       }));
     } catch (error: any) {
@@ -537,7 +549,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       console.log('Loading expenses from store...');
       set({ isLoading: true, error: null });
       const response = await expensesAPI.getExpenses();
-      
+
       console.log('Expenses API response in store:', {
         hasExpenses: !!response?.expenses,
         expensesCount: response?.expenses?.length || 0,
@@ -545,38 +557,38 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         responseKeys: response ? Object.keys(response) : [],
         fullResponse: response
       });
-      
+
       // Check for error flags
       if (response?.rateLimited) {
         throw new Error('Rate limit exceeded. Please try again later.');
       }
-      
+
       if (response?.authError) {
         throw new Error('Authentication failed. Please log in again.');
       }
-      
+
       if (response?.networkError) {
         throw new Error('Network error. Please check your internet connection.');
       }
-      
+
       if (response?.serverError) {
         throw new Error(`Server error (${response.errorStatus}). Please try again later.`);
       }
-      
+
       if (response?.unknownError) {
         throw new Error('An unexpected error occurred. Please try again.');
       }
-      
+
       // Ensure we always have an array
       const expenses = Array.isArray(response?.expenses) ? response.expenses : [];
-      
+
       console.log(`Setting ${expenses.length} expenses in store`);
-      set({ 
+      set({
         expenses: expenses,
         error: null,
-        isLoading: false 
+        isLoading: false
       });
-      
+
       console.log('Expenses loaded successfully');
     } catch (error: any) {
       console.error('Load expenses error in store:', error);
@@ -587,9 +599,9 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         status: error.response?.status,
         fullError: error
       });
-      
+
       let errorMessage = 'Failed to load expenses';
-      
+
       if (error.message === 'Network Error' || error.name === 'NetworkError' || !error.response) {
         errorMessage = 'Unable to connect to server. Please check your internet connection and ensure the server is running.';
       } else if (error.response?.status === 401) {
@@ -618,14 +630,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       } else {
         errorMessage = 'Unable to load expenses. Please try again later.';
       }
-      
+
       console.log('Setting error state:', errorMessage);
-      set({ 
+      set({
         error: errorMessage,
         expenses: [], // Always ensure we have an array
-        isLoading: false 
+        isLoading: false
       });
-      
+
       // Optional: Show alert for better user experience
       Alert.alert('Error Loading Expenses', errorMessage);
     }
@@ -734,7 +746,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       set({ isLoading: true, error: null });
       const response = await SplitBillService.getGroupSplitBills(groupId, page, limit);
       
-      if (!response.splitBills) {
+      if (!response || !response.splitBills) {
+        console.error('Invalid response structure from SplitBillService:', response);
         throw new Error('Invalid response from server');
       }
 
@@ -745,8 +758,23 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
       return response;
     } catch (error: any) {
+      console.error('Error in getGroupSplitBills:', error);
+      
+      // Handle 403 (Forbidden) errors gracefully - don't throw or set global error
+      if (error.response?.status === 403) {
+        console.log('Group split bills access restricted - user may not have permission');
+        set({ 
+          splitBills: [], // Clear split bills for this group
+          isLoading: false 
+        });
+        // Don't throw error for permission issues
+        return { splitBills: [], totalPages: 0, currentPage: 1, total: 0 };
+      }
+      
+      // For other errors, set error state and throw
       set({ 
         error: error.response?.data?.message || error.message || 'Failed to get group split bills',
+        splitBills: [], // Ensure array is always initialized
         isLoading: false 
       });
       throw error;
@@ -814,10 +842,10 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   },
 
   // Budget actions
-  setBudget: async (category, amount, groupId) => {
+  setBudget: async (category: string, amount: number) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await budgetsAPI.setBudget({ category, amount, groupId });
+      const response = await budgetsAPI.setBudget({ category, amount });
 
       // The budgetsAPI.setBudget already extracts the data property
       // So response.budgets contains the updated budget object directly
@@ -832,7 +860,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         });
       } else {
         // If no budgets returned, reload them
-        await get().loadBudgets(groupId);
+        await get().loadBudgets();
       }
     } catch (error: any) {
       set({
@@ -843,10 +871,10 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
 
-  loadBudgets: async (groupId) => {
+  loadBudgets: async () => {
     try {
       set({ isLoading: true, error: null });
-      const response = await budgetsAPI.getBudgets(groupId);
+      const response = await budgetsAPI.getBudgets();
 
       // The budgetsAPI.getBudgets already extracts the data property
       // So response.budgets contains the budget object directly
@@ -895,23 +923,33 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   // Group actions
   loadGroups: async () => {
     try {
+      console.log('Loading groups from store...');
       set({ isLoading: true, error: null });
       const response = await groupsAPI.getGroups();
+      console.log('Groups API response:', response);
+      
       // Handle both formats: {groups: [...]} or {data: {groups: [...]}}
       let groups: any[] = [];
       if (response && typeof response === 'object') {
         if ('groups' in response && Array.isArray(response.groups)) {
           groups = response.groups;
+          console.log('Found groups in direct response:', groups.length);
         } else if ('data' in response && response.data && typeof response.data === 'object' && 'groups' in response.data && Array.isArray(response.data.groups)) {
           groups = response.data.groups;
+          console.log('Found groups in data response:', groups.length);
         } else if (Array.isArray(response)) {
           groups = response;
+          console.log('Response is array:', groups.length);
         }
       }
+      
+      console.log('Setting groups in store:', groups.length, 'groups');
       set({
         groups: groups,
         isLoading: false
       });
+      
+      console.log('Groups loaded successfully');
     } catch (error: any) {
       console.error('Load groups error:', error);
       let errorMessage = 'Failed to load groups';
@@ -1013,6 +1051,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       const response = await groupsAPI.addMember(groupId, identifier, searchType);
       
       if (!response || !response.group) {
+        console.error('Invalid response structure:', response);
         throw new Error('Invalid response from server');
       }
 
@@ -1027,7 +1066,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         error: null
       }));
 
-      Alert.alert('Success', 'Member added successfully');
+      Alert.alert('Success', response.message || 'Member added successfully');
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || error.message || 'Failed to add member';
       set({ 
@@ -1201,5 +1240,97 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       set({ error: errorMessage, isLoading: false });
       return { success: false, message: errorMessage };
     }
+  },
+
+  // Initialize socket listeners for real-time updates
+  initializeSocketListeners: () => {
+    const currentUser = get().currentUser;
+    if (!currentUser) return;
+
+    // Join user-specific room
+    socketService.joinUserRoom(currentUser._id);
+
+    // Listen for expense updates
+    socketService.onExpenseUpdate((data) => {
+      console.log('Real-time expense update:', data);
+      const { type, expense, expenseId } = data;
+
+      if (type === 'created' && expense) {
+        set((state) => ({
+          expenses: [...state.expenses, expense]
+        }));
+      } else if (type === 'updated' && expense) {
+        set((state) => ({
+          expenses: state.expenses.map(exp =>
+            exp._id === expense._id ? expense : exp
+          )
+        }));
+      } else if (type === 'deleted' && expenseId) {
+        set((state) => ({
+          expenses: state.expenses.filter(exp => exp._id !== expenseId)
+        }));
+      }
+    });
+
+    // Listen for group updates
+    socketService.onGroupUpdate((data) => {
+      console.log('Real-time group update:', data);
+      const { type, group, groupId, member } = data;
+
+      if (type === 'created' && group) {
+        set((state) => ({
+          groups: [...state.groups, group]
+        }));
+      } else if (type === 'updated' && group) {
+        set((state) => ({
+          groups: state.groups.map(g =>
+            g._id === group._id ? group : g
+          ),
+          selectedGroup: state.selectedGroup?._id === group._id ? group : state.selectedGroup
+        }));
+      } else if (type === 'member-added' && groupId && member) {
+        set((state) => ({
+          groups: state.groups.map(g =>
+            g._id === groupId ? {
+              ...g,
+              members: [...(g.members || []), member]
+            } : g
+          )
+        }));
+      }
+    });
+
+    // Listen for budget updates
+    socketService.onBudgetUpdate((data) => {
+      console.log('Real-time budget update:', data);
+      const { type, budget } = data;
+
+      if ((type === 'updated' || type === 'created') && budget) {
+        set((state) => ({
+          budgets: {
+            ...state.budgets,
+            ...budget
+          }
+        }));
+      }
+    });
+
+    // Listen for split bill updates
+    socketService.onSplitBillUpdate((data) => {
+      console.log('Real-time split bill update:', data);
+      const { type, splitBill } = data;
+
+      if (type === 'created' && splitBill) {
+        set((state) => ({
+          splitBills: [...state.splitBills, splitBill]
+        }));
+      } else if (type === 'updated' && splitBill) {
+        set((state) => ({
+          splitBills: state.splitBills.map(bill =>
+            bill._id === splitBill._id ? splitBill : bill
+          )
+        }));
+      }
+    });
   },
 }));

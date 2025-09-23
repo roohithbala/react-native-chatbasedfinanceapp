@@ -14,11 +14,13 @@ import {
   Keyboard,
   Modal,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import { directMessagesAPI } from '../services/api';
+import { LinearGradient } from 'expo-linear-gradient';
+import { directMessagesAPI } from '@/lib/services/api';
 import { useFinanceStore } from '../../lib/store/financeStore';
 import { CommandParser } from '../../lib/components/CommandParser';
 
@@ -116,8 +118,16 @@ export default function ChatDetailScreen() {
   const handleSplitBillCommand = async (data: any) => {
     try {
       console.log('Direct chat handleSplitBillCommand called with data:', data);
+      console.log('Data type checks:', {
+        data: !!data,
+        dataAmount: !!data?.amount,
+        dataAmountValue: data?.amount,
+        dataAmountType: typeof data?.amount,
+        amountGreaterThanZero: data?.amount > 0
+      });
 
       if (!data || !data.amount || data.amount <= 0) {
+        console.log('Validation failed - invalid amount data');
         Alert.alert('Error', 'Please specify a valid amount for the split bill');
         return;
       }
@@ -127,23 +137,55 @@ export default function ChatDetailScreen() {
         return;
       }
 
+      // Handle both old and new command formats
+      let participants = [];
+      let description = data.description || 'Split Bill';
+
+      if (data.username) {
+        // New format: @split @username category amount
+        // We need to find the user ID for the username
+        // For now, assume the username matches the other user's username
+        if (otherUser && otherUser.username === data.username) {
+          participants = [
+            {
+              userId: currentUser._id,
+              amount: data.amount / 2,
+            },
+            {
+              userId: userId,
+              amount: data.amount / 2,
+            }
+          ];
+          description = data.description;
+        } else {
+          Alert.alert('Error', `User @${data.username} not found in this chat`);
+          return;
+        }
+      } else {
+        // Legacy format: handle participants array
+        participants = data.participants || [];
+        if (participants.length === 0) {
+          // Default to splitting with the current chat user
+          participants = [
+            {
+              userId: currentUser._id,
+              amount: data.amount / 2,
+            },
+            {
+              userId: userId,
+              amount: data.amount / 2,
+            }
+          ];
+        }
+      }
+
       // For direct chats, create a personal split bill without a group
-      // This will be tracked as a direct debt between users
       const splitBillData = {
-        description: data.description || 'Split Bill',
+        description: description,
         totalAmount: data.amount,
-        participants: [
-          {
-            userId: currentUser._id,
-            amount: data.amount / 2, // Split equally
-          },
-          {
-            userId: userId,
-            amount: data.amount / 2, // Split equally
-          }
-        ],
+        participants: participants,
         splitType: 'equal' as const,
-        category: 'Other',
+        category: data.category || 'Other',
         currency: 'INR'
       };
 
@@ -156,7 +198,7 @@ export default function ChatDetailScreen() {
       }
 
       // Send confirmation message with proper details
-      const confirmationMessage = `✅ Split bill created!\n📝 ${data.description || 'Split Bill'}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / 2).toFixed(2)}\n💸 You paid your share - ${otherUser?.name || 'Friend'} owes you ₹${((data.amount || 0) / 2).toFixed(2)}`;
+      const confirmationMessage = `✅ Split bill created!\n📝 ${description}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / 2).toFixed(2)}\n💸 You paid your share - ${otherUser?.name || 'Friend'} owes you ₹${((data.amount || 0) / 2).toFixed(2)}`;
 
       try {
         const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage);
@@ -355,6 +397,14 @@ export default function ChatDetailScreen() {
           isOwnMessage ? styles.ownMessage : styles.otherMessage,
         ]}
       >
+        {!isOwnMessage && (
+          <View style={styles.otherAvatarContainer}>
+            <Text style={styles.otherAvatarText}>
+              {item.sender.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+
         <View
           style={[
             styles.messageBubble,
@@ -388,25 +438,46 @@ export default function ChatDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
-        </TouchableOpacity>
-        {otherUser && (
-          <View style={styles.userInfo}>
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>{otherUser.avatar}</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#6366F1" />
+      <LinearGradient
+        colors={['#6366F1', '#8B5CF6', '#EC4899']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+
+          {otherUser && (
+            <View style={styles.userInfo}>
+              <View style={styles.avatarContainer}>
+                <Text style={styles.avatarText}>{otherUser.avatar}</Text>
+              </View>
+              <View style={styles.userDetails}>
+                <Text style={styles.userName}>{otherUser.name}</Text>
+                <Text style={styles.userStatus}>Active now</Text>
+              </View>
             </View>
-            <View>
-              <Text style={styles.userName}>{otherUser.name}</Text>
-              <Text style={styles.userUsername}>@{otherUser.username}</Text>
-            </View>
+          )}
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerButton}>
+              <Ionicons name="call" size={20} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerButton}>
+              <Ionicons name="videocam" size={20} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerButton}>
+              <Ionicons name="ellipsis-vertical" size={20} color="white" />
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
+        </View>
+      </LinearGradient>
 
       <KeyboardAvoidingView
         style={styles.content}
@@ -423,45 +494,55 @@ export default function ChatDetailScreen() {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="chatbubble-outline" size={64} color="#CBD5E1" />
+              </View>
               <Text style={styles.emptyText}>No messages yet</Text>
               <Text style={styles.emptySubtext}>
-                Send a message to start the conversation
+                Start the conversation by sending a message
               </Text>
             </View>
           }
         />
 
         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={newMessage}
-            onChangeText={setNewMessage}
-            placeholder="Type a message..."
-            placeholderTextColor="#94A3B8"
-            multiline
-          />
-          <View style={styles.inputButtons}>
+          <View style={styles.inputWrapper}>
+            <TouchableOpacity style={styles.attachButton}>
+              <Ionicons name="add-circle" size={24} color="#6366F1" />
+            </TouchableOpacity>
+
+            <TextInput
+              style={styles.input}
+              value={newMessage}
+              onChangeText={setNewMessage}
+              placeholder="Type a message..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              maxLength={1000}
+            />
+
             <TouchableOpacity
               style={styles.splitBillButton}
               onPress={startSplitBill}
             >
-              <Ionicons name="cash" size={20} color="#2563EB" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                !newMessage.trim() && styles.sendButtonDisabled,
-              ]}
-              onPress={handleSend}
-              disabled={!newMessage.trim()}
-            >
-              <Ionicons
-                name="send"
-                size={20}
-                color={newMessage.trim() ? 'white' : '#94A3B8'}
-              />
+              <Ionicons name="cash" size={20} color="#6366F1" />
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              !newMessage.trim() && styles.sendButtonDisabled,
+            ]}
+            onPress={handleSend}
+            disabled={!newMessage.trim()}
+          >
+            <Ionicons
+              name="send"
+              size={20}
+              color={newMessage.trim() ? 'white' : '#CBD5E1'}
+            />
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
@@ -472,73 +553,92 @@ export default function ChatDetailScreen() {
         presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'overFullScreen'}
         transparent={false}
       >
-        <KeyboardAvoidingView
+        <LinearGradient
+          colors={['#6366F1', '#8B5CF6']}
           style={styles.modalContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <SafeAreaView style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => {
-                setShowSplitBillModal(false);
-                setIsSplitMode(false);
-              }}>
-                <Text style={styles.modalCancel}>Cancel</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSplitBillModal(false);
+                  setIsSplitMode(false);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="white" />
               </TouchableOpacity>
               <Text style={styles.modalTitle}>💰 Split Bill</Text>
-              <TouchableOpacity onPress={handleSplitBillSubmit}>
-                <Text style={styles.modalSave}>Send</Text>
+              <TouchableOpacity
+                onPress={handleSplitBillSubmit}
+                style={styles.modalSaveButton}
+              >
+                <Text style={styles.modalSaveText}>Send</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>📝 Description</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={splitBillData.description}
-                  onChangeText={(text) => setSplitBillData(prev => ({ ...prev, description: text }))}
-                  placeholder="What are you splitting?"
-                  placeholderTextColor="#94A3B8"
-                  maxLength={100}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>💰 Amount</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  value={splitBillData.amount}
-                  onChangeText={(text) => {
-                    const cleaned = text.replace(/[^0-9.]/g, '');
-                    const parts = cleaned.split('.');
-                    if (parts.length > 2) return;
-                    if (parts[1] && parts[1].length > 2) return;
-                    setSplitBillData(prev => ({ ...prev, amount: cleaned }));
-                  }}
-                  placeholder="0.00"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="decimal-pad"
-                  maxLength={10}
-                />
-              </View>
-
-              {splitBillData.amount && (
-                <View style={styles.splitPreview}>
-                  <Text style={styles.previewTitle}>Split Preview:</Text>
-                  <Text style={styles.previewText}>
-                    Total: ₹{parseFloat(splitBillData.amount) || 0}
-                  </Text>
-                  <Text style={styles.previewText}>
-                    Each person pays: ₹{((parseFloat(splitBillData.amount) || 0) / 2).toFixed(2)}
-                  </Text>
-                  <Text style={styles.previewText}>
-                    Split with: {otherUser?.name || 'Friend'}
-                  </Text>
+              <View style={styles.modalCard}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>📝 Description</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={splitBillData.description}
+                    onChangeText={(text) => setSplitBillData(prev => ({ ...prev, description: text }))}
+                    placeholder="What are you splitting?"
+                    placeholderTextColor="#94A3B8"
+                    maxLength={100}
+                  />
                 </View>
-              )}
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>💰 Amount</Text>
+                  <View style={styles.amountInputContainer}>
+                    <Text style={styles.currencySymbol}>₹</Text>
+                    <TextInput
+                      style={styles.amountInput}
+                      value={splitBillData.amount}
+                      onChangeText={(text) => {
+                        const cleaned = text.replace(/[^0-9.]/g, '');
+                        const parts = cleaned.split('.');
+                        if (parts.length > 2) return;
+                        if (parts[1] && parts[1].length > 2) return;
+                        setSplitBillData(prev => ({ ...prev, amount: cleaned }));
+                      }}
+                      placeholder="0.00"
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="decimal-pad"
+                      maxLength={10}
+                    />
+                  </View>
+                </View>
+
+                {splitBillData.amount && (
+                  <View style={styles.splitPreview}>
+                    <View style={styles.previewHeader}>
+                      <Ionicons name="receipt" size={20} color="#6366F1" />
+                      <Text style={styles.previewTitle}>Split Preview</Text>
+                    </View>
+                    <View style={styles.previewContent}>
+                      <View style={styles.previewRow}>
+                        <Text style={styles.previewLabel}>Total Amount:</Text>
+                        <Text style={styles.previewValue}>₹{parseFloat(splitBillData.amount) || 0}</Text>
+                      </View>
+                      <View style={styles.previewRow}>
+                        <Text style={styles.previewLabel}>Each Person Pays:</Text>
+                        <Text style={styles.previewValue}>₹{((parseFloat(splitBillData.amount) || 0) / 2).toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.previewRow}>
+                        <Text style={styles.previewLabel}>Split With:</Text>
+                        <Text style={styles.previewValue}>{otherUser?.name || 'Friend'}</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
             </ScrollView>
           </SafeAreaView>
-        </KeyboardAvoidingView>
+        </LinearGradient>
       </Modal>
     </SafeAreaView>
   );
@@ -550,48 +650,69 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    justifyContent: 'space-between',
   },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F3F4F6',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   userInfo: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 12,
   },
   avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   avatarText: {
     fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  userDetails: {
+    marginLeft: 12,
   },
   userName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#1E293B',
+    color: 'white',
   },
-  userUsername: {
+  userStatus: {
     fontSize: 12,
-    color: '#64748B',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -600,35 +721,67 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8FAFC',
   },
   messageList: {
     padding: 16,
+    paddingBottom: 20,
   },
   messageContainer: {
-    marginVertical: 4,
-    maxWidth: '80%',
+    marginVertical: 6,
+    maxWidth: '85%',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
   },
   ownMessage: {
     alignSelf: 'flex-end',
+    marginLeft: 60,
   },
   otherMessage: {
     alignSelf: 'flex-start',
+    marginRight: 60,
+  },
+  otherAvatarContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  otherAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
   },
   messageBubble: {
-    padding: 12,
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   ownBubble: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#6366F1',
+    borderBottomRightRadius: 4,
   },
   otherBubble: {
     backgroundColor: 'white',
+    borderBottomLeftRadius: 4,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   messageText: {
     fontSize: 16,
-    marginBottom: 4,
+    lineHeight: 22,
+    marginBottom: 6,
   },
   ownMessageText: {
     color: 'white',
@@ -637,78 +790,107 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   messageTime: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
   },
   ownMessageTime: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.7)',
+    alignSelf: 'flex-end',
   },
   otherMessageTime: {
-    color: '#64748B',
+    color: '#94A3B8',
+    alignSelf: 'flex-end',
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 12,
+  },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  attachButton: {
+    marginRight: 8,
+    padding: 4,
   },
   input: {
     flex: 1,
-    marginRight: 12,
-    padding: 12,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 20,
     fontSize: 16,
     maxHeight: 100,
     color: '#1E293B',
-  },
-  inputButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    paddingVertical: 4,
   },
   splitBillButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
+    marginLeft: 8,
+    padding: 4,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#8B5CF6',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#6366F1',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   sendButtonDisabled: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#E2E8F0',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 60,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: '#1E293B',
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#64748B',
     textAlign: 'center',
+    lineHeight: 22,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -716,26 +898,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: 'white',
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: 'white',
   },
-  modalCancel: {
-    fontSize: 16,
-    color: '#64748B',
+  modalSaveButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
   },
-  modalSave: {
+  modalSaveText: {
     fontSize: 16,
-    color: '#2563EB',
     fontWeight: '600',
+    color: 'white',
   },
   modalContent: {
+    flex: 1,
     padding: 20,
+  },
+  modalCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   inputGroup: {
     marginBottom: 24,
@@ -747,7 +950,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: 'white',
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
@@ -755,33 +958,61 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     color: '#1E293B',
   },
-  amountInput: {
-    backgroundColor: 'white',
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  currencySymbol: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6366F1',
+    paddingLeft: 16,
+    paddingRight: 8,
+  },
+  amountInput: {
+    flex: 1,
     padding: 16,
     fontSize: 20,
     fontWeight: 'bold',
-    borderWidth: 2,
-    borderColor: '#10B981',
     color: '#1E293B',
-    textAlign: 'center',
   },
   splitPreview: {
     backgroundColor: '#F0F9FF',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#BAE6FD',
   },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   previewTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginLeft: 8,
+  },
+  previewContent: {
+    gap: 12,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  previewLabel: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  previewValue: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1E293B',
-    marginBottom: 8,
-  },
-  previewText: {
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 4,
   },
 });

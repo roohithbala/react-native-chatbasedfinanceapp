@@ -35,8 +35,8 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: [
-      'http://10.63.153.172:8081',
-      'http://10.63.153.172:3001',
+      'http://10.40.155.172:8081',
+      'http://10.40.155.172:3001',
       'http://localhost:8081',
       'http://localhost:3001',
       process.env.FRONTEND_URL
@@ -57,8 +57,8 @@ const io = socketIo(server, {
 app.use(helmet());
 app.use(cors({
   origin: [
-    'http://10.63.153.172:8081',
-    'http://10.63.153.172:3001',
+    'http://10.40.155.172:8081',
+    'http://10.40.155.172:3001',
     'http://localhost:8081',
     'http://localhost:3001',
     process.env.FRONTEND_URL
@@ -145,8 +145,7 @@ mongoose.connect(mongoUri, {
         inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
         members: [{
           userId: demoUser._id,
-          role: 'admin',
-          user: demoUser._id
+          role: 'admin'
         }],
         budgets: []
       });
@@ -157,8 +156,7 @@ mongoose.connect(mongoUri, {
         inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
         members: [{
           userId: demoUser._id,
-          role: 'admin',
-          user: demoUser._id
+          role: 'admin'
         }],
         budgets: []
       });
@@ -447,20 +445,217 @@ io.on('connection', (socket) => {
       }
     });
   });
+
+  // Real-time expense updates
+  socket.on('expense-created', async (data) => {
+    try {
+      const { expense, groupId } = data;
+
+      // Broadcast to group members if it's a group expense
+      if (groupId) {
+        socket.to(groupId).emit('expense-update', {
+          type: 'created',
+          expense: expense,
+          groupId: groupId
+        });
+      }
+
+      // Also broadcast to user's personal room for personal expenses
+      socket.to(`user-${socket.user._id}`).emit('expense-update', {
+        type: 'created',
+        expense: expense
+      });
+
+    } catch (error) {
+      console.error('Error broadcasting expense creation:', error);
+    }
+  });
+
+  socket.on('expense-updated', async (data) => {
+    try {
+      const { expense, groupId } = data;
+
+      // Broadcast to group members if it's a group expense
+      if (groupId) {
+        socket.to(groupId).emit('expense-update', {
+          type: 'updated',
+          expense: expense,
+          groupId: groupId
+        });
+      }
+
+      // Also broadcast to user's personal room
+      socket.to(`user-${socket.user._id}`).emit('expense-update', {
+        type: 'updated',
+        expense: expense
+      });
+
+    } catch (error) {
+      console.error('Error broadcasting expense update:', error);
+    }
+  });
+
+  socket.on('expense-deleted', async (data) => {
+    try {
+      const { expenseId, groupId } = data;
+
+      // Broadcast to group members if it's a group expense
+      if (groupId) {
+        socket.to(groupId).emit('expense-update', {
+          type: 'deleted',
+          expenseId: expenseId,
+          groupId: groupId
+        });
+      }
+
+      // Also broadcast to user's personal room
+      socket.to(`user-${socket.user._id}`).emit('expense-update', {
+        type: 'deleted',
+        expenseId: expenseId
+      });
+
+    } catch (error) {
+      console.error('Error broadcasting expense deletion:', error);
+    }
+  });
+
+  // Real-time group updates
+  socket.on('group-created', async (data) => {
+    try {
+      const { group } = data;
+
+      // Broadcast to all users (or specific users who should see this group)
+      // For now, broadcast to the creator's "friends" or all connected users
+      socket.broadcast.emit('group-update', {
+        type: 'created',
+        group: group
+      });
+
+    } catch (error) {
+      console.error('Error broadcasting group creation:', error);
+    }
+  });
+
+  socket.on('group-updated', async (data) => {
+    try {
+      const { group } = data;
+
+      // Broadcast to group members
+      socket.to(group._id.toString()).emit('group-update', {
+        type: 'updated',
+        group: group
+      });
+
+    } catch (error) {
+      console.error('Error broadcasting group update:', error);
+    }
+  });
+
+  socket.on('member-added', async (data) => {
+    try {
+      const { groupId, member } = data;
+
+      // Broadcast to group members
+      socket.to(groupId).emit('group-update', {
+        type: 'member-added',
+        groupId: groupId,
+        member: member
+      });
+
+    } catch (error) {
+      console.error('Error broadcasting member addition:', error);
+    }
+  });
+
+  // Real-time budget updates
+  socket.on('budget-updated', async (data) => {
+    try {
+      const { budget, groupId } = data;
+
+      // Broadcast to group members if it's a group budget
+      if (groupId) {
+        socket.to(groupId).emit('budget-update', {
+          type: 'updated',
+          budget: budget,
+          groupId: groupId
+        });
+      }
+
+      // Also broadcast to user's personal room
+      socket.to(`user-${socket.user._id}`).emit('budget-update', {
+        type: 'updated',
+        budget: budget
+      });
+
+    } catch (error) {
+      console.error('Error broadcasting budget update:', error);
+    }
+  });
+
+  // Real-time split bill updates
+  socket.on('split-bill-created', async (data) => {
+    try {
+      const { splitBill, groupId } = data;
+
+      // Broadcast to group members
+      socket.to(groupId).emit('split-bill-update', {
+        type: 'created',
+        splitBill: splitBill,
+        groupId: groupId
+      });
+
+    } catch (error) {
+      console.error('Error broadcasting split bill creation:', error);
+    }
+  });
+
+  socket.on('split-bill-updated', async (data) => {
+    try {
+      const { splitBill, groupId } = data;
+
+      // Broadcast to group members
+      socket.to(groupId).emit('split-bill-update', {
+        type: 'updated',
+        splitBill: splitBill,
+        groupId: groupId
+      });
+
+    } catch (error) {
+      console.error('Error broadcasting split bill update:', error);
+    }
+  });
+
+  // Join user-specific room for personal updates
+  socket.on('join-user-room', (userId) => {
+    socket.join(`user-${userId}`);
+    console.log(`User ${socket.user?._id} joined personal room user-${userId}`);
+  });
 });
 
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/budgets', budgetRoutes);
-app.use('/api/groups', groupRoutes);
+app.use('/api/expenses', (req, res, next) => {
+  req.io = io;
+  next();
+}, expenseRoutes);
+app.use('/api/budgets', (req, res, next) => {
+  req.io = io;
+  next();
+}, budgetRoutes);
+app.use('/api/groups', (req, res, next) => {
+  req.io = io;
+  next();
+}, groupRoutes);
 app.use('/api/chat', (req, res, next) => {
   req.io = io;
   next();
 }, chatRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/split-bills', splitBillRoutes);
+app.use('/api/split-bills', (req, res, next) => {
+  req.io = io;
+  next();
+}, splitBillRoutes);
 app.use('/api/direct-messages', directMessageRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/payments', paymentRoutes);
@@ -511,7 +706,7 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.63.153.172:8081'}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.40.155.172:8081'}`);
 }).on('error', (err) => {
   console.error('❌ Failed to start server:', err.message);
   process.exit(1);

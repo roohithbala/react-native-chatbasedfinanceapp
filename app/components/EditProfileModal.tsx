@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useFinanceStore } from '@/lib/store/financeStore';
-import { authAPI } from '@/app/services/api';
+import { authAPI } from '@/lib/services/api';
 
 interface EditProfileModalProps {
   visible: boolean;

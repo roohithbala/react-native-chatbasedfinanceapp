@@ -39,23 +39,31 @@ export default function CreateSplitBillModal({
   const [category, setCategory] = useState('Other');
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
   const [participants, setParticipants] = useState<ParticipantInput[]>([]);
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { currentUser, selectedGroup, createSplitBill } = useFinanceStore();
   const { groupMembers } = useGroupContext();
 
-  // Initialize participants with current user
+  // Initialize participants with current user and other group members
   React.useEffect(() => {
     if (currentUser && groupMembers && Array.isArray(groupMembers)) {
-      setParticipants(
-        groupMembers
+      // Include current user as first participant, then other members
+      const allParticipants = [
+        {
+          userId: currentUser._id,
+          name: currentUser.name || 'You',
+          amount: '',
+        },
+        ...groupMembers
           .filter((member: GroupMember) => member && member.userId && member.userId !== currentUser?._id)
           .map((member: GroupMember) => ({
             userId: member.userId,
             name: member.name || 'Unknown User',
             amount: '',
           }))
-      );
+      ];
+      setParticipants(allParticipants);
     } else {
       setParticipants([]);
     }
@@ -65,7 +73,7 @@ export default function CreateSplitBillModal({
     setSplitType(type);
     if (type === 'equal' && totalAmount) {
       const amount = parseFloat(totalAmount);
-      const equalShare = ((amount || 0) / (participants.length + 1)).toFixed(2);
+      const equalShare = ((amount || 0) / participants.length).toFixed(2); // Divide by all participants including creator
       setParticipants(
         participants.map(p => ({
           ...p,
@@ -79,7 +87,7 @@ export default function CreateSplitBillModal({
     setTotalAmount(value);
     if (splitType === 'equal' && value) {
       const amount = parseFloat(value);
-      const equalShare = ((amount || 0) / (participants.length + 1)).toFixed(2);
+      const equalShare = ((amount || 0) / participants.length).toFixed(2); // Divide by all participants including creator
       setParticipants(
         participants.map(p => ({
           ...p,
@@ -145,15 +153,19 @@ export default function CreateSplitBillModal({
         })),
         splitType,
         category,
+        notes: notes.trim() || undefined,
       };
 
       console.log('Creating split bill with data:', billData);
+      console.log('Selected group:', selectedGroup);
+      console.log('Current user:', currentUser);
+
       const result = await createSplitBill(billData);
 
-      // Create individual expenses for each participant
+      // Create individual expenses for each participant (including the creator)
       for (const participant of participants) {
         const expenseData = {
-          description: `${description.trim()} (Split with group)`,
+          description: `${description.trim()} (Split bill)`,
           amount: parseFloat(participant.amount),
           category: category,
           userId: participant.userId,
@@ -161,6 +173,7 @@ export default function CreateSplitBillModal({
         };
 
         try {
+          console.log(`Creating expense for participant ${participant.userId}:`, expenseData);
           await useFinanceStore.getState().addExpense(expenseData);
           console.log(`Created expense for participant ${participant.userId}:`, expenseData);
         } catch (expenseError) {
@@ -172,6 +185,12 @@ export default function CreateSplitBillModal({
       Alert.alert('Success', 'Split bill created successfully and expenses added to database!');
       onClose();
     } catch (error: any) {
+      console.error('Error creating split bill:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       Alert.alert('Error', error.message || 'Failed to create split bill');
     } finally {
       setLoading(false);
@@ -201,8 +220,21 @@ export default function CreateSplitBillModal({
                 style={styles.input}
                 value={description}
                 onChangeText={setDescription}
-                placeholder="Enter bill description"
+                placeholder="What are you splitting? (e.g., Dinner at Restaurant)"
                 placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Notes (Optional)</Text>
+              <TextInput
+                style={[styles.input, styles.notesInput]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Additional details about the split bill..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={3}
               />
             </View>
 
@@ -361,6 +393,10 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     fontSize: 16,
     color: '#1E293B',
+  },
+  notesInput: {
+    height: 80,
+    textAlignVertical: 'top',
   },
   categories: {
     flexDirection: 'row',

@@ -1,12 +1,14 @@
-import { Tabs } from 'expo-router';
+import { Tabs , Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
 import { useFinanceStore } from '@/lib/store/financeStore';
-import { Redirect } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
+
 import React from 'react';
 
 export default function TabLayout() {
   const { isAuthenticated } = useFinanceStore();
+  const { theme } = useTheme();
 
   if (!isAuthenticated) {
     return <Redirect href="/auth" />;
@@ -16,9 +18,12 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: '#2563EB',
-        tabBarInactiveTintColor: '#64748B',
+        tabBarStyle: [styles.tabBar, {
+          backgroundColor: theme.tabBarBackground,
+          borderTopColor: theme.border
+        }],
+        tabBarActiveTintColor: theme.tabBarActive,
+        tabBarInactiveTintColor: theme.tabBarInactive,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
@@ -26,7 +31,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ size, color }) => (
+          tabBarIcon: ({ size, color }: { size: number; color: string }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
         }}
@@ -35,7 +40,7 @@ export default function TabLayout() {
         name="expenses"
         options={{
           title: 'Expenses',
-          tabBarIcon: ({ size, color }) => (
+          tabBarIcon: ({ size, color }: { size: number; color: string }) => (
             <Ionicons name="receipt" size={size} color={color} />
           ),
         }}
@@ -44,8 +49,17 @@ export default function TabLayout() {
         name="chats"
         options={{
           title: 'Chats',
-          tabBarIcon: ({ size, color }) => (
+          tabBarIcon: ({ size, color }: { size: number; color: string }) => (
             <Ionicons name="chatbubbles" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="groups"
+        options={{
+          title: 'Groups',
+          tabBarIcon: ({ size, color }: { size: number; color: string }) => (
+            <Ionicons name="people" size={size} color={color} />
           ),
         }}
       />
@@ -53,7 +67,7 @@ export default function TabLayout() {
         name="budget"
         options={{
           title: 'Budget',
-          tabBarIcon: ({ size, color }) => (
+          tabBarIcon: ({ size, color }: { size: number; color: string }) => (
             <Ionicons name="pie-chart" size={size} color={color} />
           ),
         }}
@@ -62,7 +76,7 @@ export default function TabLayout() {
         name="insights"
         options={{
           title: 'Insights',
-          tabBarIcon: ({ size, color }) => (
+          tabBarIcon: ({ size, color }: { size: number; color: string }) => (
             <Ionicons name="trending-up" size={size} color={color} />
           ),
         }}
@@ -71,7 +85,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ size, color }) => (
+          tabBarIcon: ({ size, color }: { size: number; color: string }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
         }}
@@ -82,9 +96,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
     paddingTop: 8,
     paddingBottom: 8,
     height: 70,

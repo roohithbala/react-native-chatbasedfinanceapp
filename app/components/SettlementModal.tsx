@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { View as ThemedView } from './ThemedComponents';
-import { PaymentsAPI, SettlementPlan } from '../services/paymentsAPI';
+import { PaymentsAPI, SettlementPlan } from '@/lib/services/paymentsAPI';
 import { useFinanceStore } from '../../lib/store/financeStore';
 
 interface SettlementModalProps {

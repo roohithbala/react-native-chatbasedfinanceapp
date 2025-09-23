@@ -15,7 +15,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
-import { usersAPI } from '@/app/services/api';
+import { usersAPI } from '@/lib/services/api';
 
 interface User {
   _id: string;

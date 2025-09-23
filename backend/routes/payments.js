@@ -34,6 +34,25 @@ router.post('/:splitBillId/participants/:participantId/pay', auth, async (req, r
     // Mark participant as paid
     await splitBill.markParticipantAsPaid(participantId, paymentMethod, notes);
 
+    // Emit real-time update to group members
+    if (req.io && splitBill.groupId) {
+      req.io.to(splitBill.groupId.toString()).emit('split-bill-updated', {
+        type: 'payment-made',
+        splitBillId: splitBill._id,
+        participantId: participantId,
+        paymentMethod: paymentMethod,
+        updatedBy: req.userId,
+        splitBill: {
+          _id: splitBill._id,
+          description: splitBill.description,
+          totalAmount: splitBill.totalAmount,
+          isSettled: splitBill.isSettled,
+          participants: splitBill.participants,
+          payments: splitBill.payments
+        }
+      });
+    }
+
     res.json({
       message: 'Payment recorded successfully',
       splitBill: {

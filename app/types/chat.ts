@@ -5,6 +5,12 @@ export interface User {
   avatar?: string;
 }
 
+export interface ChatUser {
+  _id: string;
+  name: string;
+  username: string;
+}
+
 export interface ReadReceipt {
   userId: string;
   readAt: Date;
@@ -14,6 +20,15 @@ export interface Reaction {
   userId: string;
   emoji: string;
   createdAt: Date;
+}
+
+export interface LocationMention {
+  locationId: string;
+  locationName: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export interface CommandData {
@@ -32,6 +47,20 @@ export interface CommandData {
   itemCount?: number;
 }
 
+export interface SplitBillData {
+  splitBillId: string;
+  description: string;
+  totalAmount: number;
+  userShare: number;
+  isPaid: boolean;
+  participants: {
+    userId: string;
+    name: string;
+    amount: number;
+    isPaid: boolean;
+  }[];
+}
+
 export interface SystemData {
   type: 'info' | 'warning' | 'error' | 'success';
   code?: string;
@@ -44,17 +73,20 @@ export interface Message {
   user: User;
   groupId: string;
   createdAt: string;
-  type: 'text' | 'image' | 'file' | 'system' | 'command';
+  type: 'text' | 'image' | 'file' | 'system' | 'command' | 'split_bill';
   status: 'sent' | 'delivered' | 'read' | 'error';
   readBy: ReadReceipt[];
   commandType?: 'split' | 'expense' | 'budget' | 'predict' | 'summary';
   commandData?: CommandData;
   systemData?: SystemData;
+  splitBillData?: SplitBillData;
   mediaUrl?: string;
   mediaType?: 'image' | 'document' | 'audio';
   mediaSize?: number;
   mentions?: string[];
   reactions?: Reaction[];
+  locationMentions?: LocationMention[];
+  isTemp?: boolean;
 }
 
 export interface MessageResponse {

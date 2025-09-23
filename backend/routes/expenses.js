@@ -173,6 +173,23 @@ router.post('/', auth, async (req, res) => {
     await expense.save();
     await expense.populate('userId', 'name avatar');
 
+    // Emit real-time update
+    if (req.io) {
+      req.io.to(`user-${req.userId}`).emit('expense-update', {
+        type: 'created',
+        expense: expense
+      });
+
+      // If it's a group expense, also emit to group room
+      if (validGroupId) {
+        req.io.to(validGroupId).emit('expense-update', {
+          type: 'created',
+          expense: expense,
+          groupId: validGroupId
+        });
+      }
+    }
+
     res.status(201).json({
       message: 'Expense added successfully',
       data: expense
@@ -202,6 +219,23 @@ router.put('/:id', auth, async (req, res) => {
     await expense.save();
     await expense.populate('userId', 'name avatar');
 
+    // Emit real-time update
+    if (req.io) {
+      req.io.to(`user-${req.userId}`).emit('expense-update', {
+        type: 'updated',
+        expense: expense
+      });
+
+      // If it's a group expense, also emit to group room
+      if (expense.groupId) {
+        req.io.to(expense.groupId.toString()).emit('expense-update', {
+          type: 'updated',
+          expense: expense,
+          groupId: expense.groupId.toString()
+        });
+      }
+    }
+
     res.json({
       message: 'Expense updated successfully',
       data: expense
@@ -218,6 +252,23 @@ router.delete('/:id', auth, async (req, res) => {
     const expense = await Expense.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!expense) {
       return res.status(404).json({ message: 'Expense not found' });
+    }
+
+    // Emit real-time update
+    if (req.io) {
+      req.io.to(`user-${req.userId}`).emit('expense-update', {
+        type: 'deleted',
+        expenseId: req.params.id
+      });
+
+      // If it was a group expense, also emit to group room
+      if (expense.groupId) {
+        req.io.to(expense.groupId.toString()).emit('expense-update', {
+          type: 'deleted',
+          expenseId: req.params.id,
+          groupId: expense.groupId.toString()
+        });
+      }
     }
 
     res.json({ message: 'Expense deleted successfully' });

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Text, StyleSheet } from 'react-native';
 import { View, Card } from '@/app/components/ThemedComponents';
 import { BarChart, PieChart } from 'react-native-chart-kit';
-import GroupExpenseService from '@/app/services/groupExpenseService';
+import GroupExpenseService from '@/lib/services/groupExpenseService';
 
 interface GroupExpenseStatsProps {
   groupId: string;

@@ -9,7 +9,7 @@ import {
   Dimensions,
   Keyboard,
 } from 'react-native';
-import { locationsAPI, Location } from '../services/locationsAPI';
+import { locationsAPI, Location } from '@/lib/services/locationsAPI';
 
 const { width } = Dimensions.get('window');
 

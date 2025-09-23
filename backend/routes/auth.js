@@ -59,8 +59,7 @@ router.post('/register', async (req, res) => {
       inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
       members: [{
         userId: user._id,
-        role: 'admin',
-        user: user._id
+        role: 'admin'
       }],
       budgets: []
     });
@@ -71,8 +70,7 @@ router.post('/register', async (req, res) => {
       inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
       members: [{
         userId: user._id,
-        role: 'admin',
-        user: user._id
+        role: 'admin'
       }],
       budgets: []
     });

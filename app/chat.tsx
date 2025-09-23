@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '../lib/store/financeStore';
-import { directMessagesAPI, usersAPI } from './services/api';
+import { directMessagesAPI, usersAPI } from '@/lib/services/api';
 
 interface ChatPreview {
   _id: string;

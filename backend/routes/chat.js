@@ -480,7 +480,9 @@ async function parseAndExecuteCommand(text, userId, groupId, user) {
   if (lowerText.startsWith('@split')) {
     const parts = text.split(' ');
     const description = parts.slice(1).join(' ').split('₹')[0].trim() || 'Split Bill';
-    const amountMatch = text.match(/₹(\d+(?:\.\d{2})?)/);
+    // Extract amount - support multiple currency formats and plain numbers
+    // Handle both formats: $120, ₹120, 120₹, 120, 120.50, $120.50, ₹120.50
+    const amountMatch = text.match(/(?:[\$₹£€¥]\s*)?(\d+(?:\.\d{1,2})?)(?:\s*[\$₹£€¥])?/);
     const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
     const mentions = text.match(/@\w+/g) || [];
     
@@ -630,7 +632,9 @@ async function parseAndExecuteCommand(text, userId, groupId, user) {
   else if (lowerText.startsWith('@addexpense')) {
     const parts = text.split(' ');
     const description = parts[1] || 'Expense';
-    const amountMatch = text.match(/₹(\d+(?:\.\d{2})?)/);
+    // Extract amount - support multiple currency formats and plain numbers
+    // Handle both formats: $120, ₹120, 120₹, 120, 120.50, $120.50, ₹120.50
+    const amountMatch = text.match(/(?:[\$₹£€¥]\s*)?(\d+(?:\.\d{1,2})?)(?:\s*[\$₹£€¥])?/);
     const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
     const categoryMatch = text.match(/#(\w+)/);
     const category = categoryMatch ? categoryMatch[1] : 'Other';
