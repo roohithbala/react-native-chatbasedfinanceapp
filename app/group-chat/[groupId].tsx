@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, StatusBar, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
@@ -14,6 +14,7 @@ import MentionsList from '../components/MentionsList';
 import TypingIndicator from '../components/TypingIndicator';
 import SplitBillModal from '../components/SplitBillModal';
 import AddMemberModal from '../components/AddMemberModal';
+import GroupManagementModal from '../components/GroupManagementModal';
 import PaymentsAPI from '@/lib/services/paymentsAPI';
 import { CommandParser } from '@/lib/components/CommandParser';
 import { Message } from '@/app/types/chat';
@@ -39,6 +40,14 @@ export default function GroupChatScreen() {
     sendMessage: sendMessageFromHook,
   } = useGroupChat();
 
+  // Set selected group when activeGroup is loaded
+  React.useEffect(() => {
+    if (activeGroup && activeGroup._id) {
+      console.log('GroupChat - Setting selected group:', activeGroup._id);
+      useFinanceStore.getState().selectGroup(activeGroup);
+    }
+  }, [activeGroup?._id]);
+
   const {
     mentionResults,
     showMentions,
@@ -58,6 +67,7 @@ export default function GroupChatScreen() {
   const [message, setMessage] = useState('');
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
+  const [showGroupManagement, setShowGroupManagement] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const handleMessageChange = (text: string) => {
@@ -185,15 +195,17 @@ export default function GroupChatScreen() {
           <View style={styles.headerContent}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => {
-                // Navigate back - you might need to import router from expo-router
-                console.log('Back pressed');
+              onPress={() =>{
+                router.back();
               }}
             >
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
 
-            <View style={styles.groupInfo}>
+            <TouchableOpacity
+              style={styles.groupInfo}
+              onPress={() => setShowGroupManagement(true)}
+            >
               <View style={styles.groupAvatar}>
                 <Ionicons name="people" size={24} color="white" />
               </View>
@@ -203,7 +215,7 @@ export default function GroupChatScreen() {
                   {activeGroup?.members?.length || 0} members • {connectionStatus === 'online' ? 'Online' : 'Offline'}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             <View style={styles.headerActions}>
               <TouchableOpacity style={styles.headerButton}>
@@ -332,6 +344,18 @@ export default function GroupChatScreen() {
           visible={showAddMember}
           onClose={() => setShowAddMember(false)}
           groupId={validGroupId || ''}
+        />
+
+        {/* Group Management Modal */}
+        <GroupManagementModal
+          visible={showGroupManagement}
+          onClose={() => setShowGroupManagement(false)}
+          groupId={validGroupId || ''}
+          groupName={groupName || activeGroup?.name || 'Group Chat'}
+          onAddMember={() => {
+            setShowGroupManagement(false);
+            setShowAddMember(true);
+          }}
         />
       </SafeAreaView>
     </GroupProvider>

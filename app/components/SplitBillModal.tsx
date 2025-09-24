@@ -62,7 +62,7 @@ export default function SplitBillModal({
       return;
     }
 
-    if (!groupId || groupId.trim() === '') {
+    if (!groupId || groupId.trim() === '' || groupId === 'undefined' || groupId === 'null') {
       Alert.alert('Error', 'Invalid group. Please try again.');
       return;
     }
@@ -75,6 +75,15 @@ export default function SplitBillModal({
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    // Validate selected members exist in group members
+    const invalidMembers = Array.from(selectedMembers).filter(
+      memberId => !groupMembers.some(m => m.userId === memberId)
+    );
+    if (invalidMembers.length > 0) {
+      Alert.alert('Error', 'Some selected members are not valid group members');
       return;
     }
 
@@ -112,7 +121,7 @@ export default function SplitBillModal({
         groupId,
         participants: allParticipants,
         splitType: 'equal' as const,
-        category: 'General',
+        category: 'Other',
         currency: 'INR',
       };
 

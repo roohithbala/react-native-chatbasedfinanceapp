@@ -694,6 +694,169 @@ export const groupsAPI = {
       throw error;
     }
   },
+
+  getGroupStats: async (groupId: string) => {
+    try {
+      const response = await api.get(`/groups/${groupId}/stats`);
+      if (!response.data || response.data.status !== 'success' || !response.data.data) {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Get group stats error:', error);
+      throw error;
+    }
+  },
+
+  updateGroupInfo: async (groupId: string, groupData: any) => {
+    try {
+      console.log('Calling updateGroupInfo with:', { groupId, groupData });
+      const response = await api.put(`/groups/${groupId}`, groupData);
+      console.log('updateGroupInfo response:', response.data);
+      console.log('Response status:', response.status);
+      
+      if (!response.data) {
+        throw new Error('No response data from server');
+      }
+      
+      if (response.data.status === 'success') {
+        return response.data.data || response.data;
+      }
+      
+      // Handle error responses
+      if (response.data.status === 'error') {
+        throw new Error(response.data.message || 'Server returned an error');
+      }
+      
+      throw new Error(response.data.message || 'Invalid response format from server');
+    } catch (error: any) {
+      console.error('Update group info error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
+  },
+
+  updateGroupSettings: async (groupId: string, settings: any) => {
+    try {
+      console.log('Calling updateGroupSettings with:', { groupId, settings });
+      console.log('Settings object type:', typeof settings);
+      console.log('Settings keys:', Object.keys(settings || {}));
+
+      const requestData = { settings };
+      console.log('Request data being sent:', JSON.stringify(requestData, null, 2));
+
+      const response = await api.put(`/groups/${groupId}/settings`, requestData);
+      console.log('updateGroupSettings response:', response.data);
+      console.log('Response status:', response.status);
+
+      if (!response.data) {
+        throw new Error('No response data from server');
+      }
+
+      if (response.data.status === 'success') {
+        return response.data.data || response.data;
+      }
+
+      // Handle error responses
+      if (response.data.status === 'error') {
+        console.error('Server returned error status:', response.data.message);
+        throw new Error(response.data.message || 'Server returned an error');
+      }
+
+      throw new Error(response.data.message || 'Invalid response format from server');
+    } catch (error: any) {
+      console.error('Update group settings error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+
+      // Safely log error config if it exists
+      if (error.config) {
+        console.error('Error config:', error.config);
+        console.error('Request URL:', error.config.url);
+        console.error('Request method:', error.config.method);
+        console.error('Request data:', error.config.data);
+      } else {
+        console.error('Error config: undefined (not an AxiosError)');
+      }
+
+      // Check if this is a network error or other non-Axios error
+      if (!error.response) {
+        console.error('Network or other error (no response object):', error.message);
+        throw new Error('Network error or server unreachable. Please check your connection.');
+      }
+
+      throw error;
+    }
+  },
+
+  updateNotificationSettings: async (groupId: string, notifications: any) => {
+    try {
+      console.log('Calling updateNotificationSettings with:', { groupId, notifications });
+      const response = await api.put(`/groups/${groupId}/notifications`, { notifications });
+      console.log('updateNotificationSettings response:', response.data);
+      console.log('Response status:', response.status);
+      
+      if (!response.data) {
+        throw new Error('No response data from server');
+      }
+      
+      if (response.data.status === 'success') {
+        return response.data.data || response.data;
+      }
+      
+      // Handle error responses
+      if (response.data.status === 'error') {
+        throw new Error(response.data.message || 'Server returned an error');
+      }
+      
+      throw new Error(response.data.message || 'Invalid response format from server');
+    } catch (error: any) {
+      console.error('Update notification settings error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
+  },
+
+  makeMemberAdmin: async (groupId: string, memberId: string) => {
+    try {
+      const response = await api.put(`/groups/${groupId}/members/${memberId}/role`, { role: 'admin' });
+      if (!response.data || response.data.status !== 'success' || !response.data.data) {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Make member admin error:', error);
+      throw error;
+    }
+  },
+
+  removeMember: async (groupId: string, memberId: string) => {
+    try {
+      const response = await api.delete(`/groups/${groupId}/members/${memberId}`);
+      if (!response.data || response.data.status !== 'success' || !response.data.data) {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Remove member error:', error);
+      throw error;
+    }
+  },
+
+  leaveGroup: async (groupId: string) => {
+    try {
+      const response = await api.delete(`/groups/${groupId}/leave`);
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Leave group error:', error);
+      throw error;
+    }
+  },
 };
 
 export const chatAPI = {

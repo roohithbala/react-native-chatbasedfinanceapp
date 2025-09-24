@@ -1,81 +1,133 @@
 import React, { useState } from 'react';
 import {
+  SafeAreaView,
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
 
+interface GroupTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  suggestedDescription: string;
+}
+
+const GROUP_TEMPLATES: GroupTemplate[] = [
+  {
+    id: 'trip',
+    name: 'Trip Planning',
+    description: 'Plan expenses for vacations, getaways, or business trips',
+    icon: 'airplane',
+    color: '#3B82F6',
+    suggestedDescription: 'Planning our amazing trip! Let\'s track all expenses and split costs fairly.',
+  },
+  {
+    id: 'roommates',
+    name: 'Roommates',
+    description: 'Share household expenses with roommates or housemates',
+    icon: 'home',
+    color: '#10B981',
+    suggestedDescription: 'Managing shared expenses for our home. Rent, utilities, groceries, and more.',
+  },
+  {
+    id: 'event',
+    name: 'Event Planning',
+    description: 'Organize parties, weddings, birthdays, or special events',
+    icon: 'balloon',
+    color: '#F59E0B',
+    suggestedDescription: 'Planning an amazing event! Let\'s track all the costs and contributions.',
+  },
+  {
+    id: 'project',
+    name: 'Project Work',
+    description: 'Collaborate on work projects or freelance assignments',
+    icon: 'briefcase',
+    color: '#8B5CF6',
+    suggestedDescription: 'Working on a project together. Let\'s track expenses and budget effectively.',
+  },
+  {
+    id: 'family',
+    name: 'Family',
+    description: 'Manage family expenses and shared costs',
+    icon: 'people-circle',
+    color: '#EF4444',
+    suggestedDescription: 'Managing family expenses and shared costs. Keeping everything organized and fair.',
+  },
+  {
+    id: 'friends',
+    name: 'Friends Outing',
+    description: 'Plan outings, dinners, or activities with friends',
+    icon: 'heart',
+    color: '#EC4899',
+    suggestedDescription: 'Having fun with friends! Let\'s track our shared expenses and memories.',
+  },
+  {
+    id: 'custom',
+    name: 'Custom Group',
+    description: 'Create a custom group for any purpose',
+    icon: 'add-circle',
+    color: '#6B7280',
+    suggestedDescription: '',
+  },
+];
+
 export default function CreateGroupScreen() {
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
-  const [groupType, setGroupType] = useState<'friends' | 'family' | 'roommates' | 'work' | 'other'>('friends');
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<GroupTemplate | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const { createGroup, isLoading } = useFinanceStore();
+  const { createGroup } = useFinanceStore();
 
-  const groupTypeOptions = [
-    { value: 'friends', label: 'Friends', icon: 'people', description: 'Hang out with friends and split bills' },
-    { value: 'family', label: 'Family', icon: 'home', description: 'Manage family expenses together' },
-    { value: 'roommates', label: 'Roommates', icon: 'bed', description: 'Share rent and household costs' },
-    { value: 'work', label: 'Work Team', icon: 'briefcase', description: 'Team outings and work expenses' },
-    { value: 'other', label: 'Other', icon: 'grid', description: 'Custom group for any purpose' },
-  ];
+  const handleTemplateSelect = (template: GroupTemplate) => {
+    setSelectedTemplate(template);
+    if (template.id !== 'custom') {
+      setGroupName('');
+      setGroupDescription(template.suggestedDescription);
+    } else {
+      setGroupDescription('');
+    }
+  };
 
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
-      Alert.alert('Missing Information', 'Please enter a group name');
-      return;
-    }
-
-    if (groupName.trim().length < 3) {
-      Alert.alert('Invalid Name', 'Group name must be at least 3 characters long');
+      Alert.alert('Error', 'Please enter a group name');
       return;
     }
 
     try {
-      const groupData = {
+      setIsCreating(true);
+      await createGroup({
         name: groupName.trim(),
-        description: groupDescription.trim() || `${groupTypeOptions.find(t => t.value === groupType)?.label} group`,
-        type: groupType,
-        isPrivate,
-      };
+        description: groupDescription.trim() || undefined,
+        avatar: selectedTemplate?.icon ? `👥` : '👥', // Default avatar
+        category: selectedTemplate?.id,
+      });
 
-      await createGroup(groupData);
-
-      Alert.alert(
-        'Group Created!',
-        `"${groupName}" has been created successfully. You can now add members to start sharing expenses.`,
-        [
-          {
-            text: 'Add Members',
-            onPress: () => {
-              // Navigate to add members screen (we'll create this next)
-              router.replace('/chats');
-            }
-          },
-          {
-            text: 'Later',
-            style: 'cancel',
-            onPress: () => router.replace('/chats')
-          }
-        ]
-      );
-    } catch (error) {
-      // Error is handled in the store
+      Alert.alert('Success', 'Group created successfully!', [
+        {
+          text: 'OK',
+          onPress: () => router.replace('/(tabs)/chats')
+        }
+      ]);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create group');
+    } finally {
+      setIsCreating(false);
     }
   };
-
-  const selectedType = groupTypeOptions.find(t => t.value === groupType);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -84,171 +136,115 @@ export default function CreateGroupScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            disabled={isCreating}
           >
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-          <View>
-            <Text style={styles.headerTitle}>Create New Group</Text>
-            <Text style={styles.headerSubtitle}>
-              Start sharing expenses with friends and family
-            </Text>
-          </View>
+          <Text style={styles.headerTitle}>Create Group</Text>
+          <View style={styles.placeholder} />
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Group Details</Text>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Group Name *</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g., Weekend Trip, House Expenses"
-              value={groupName}
-              onChangeText={setGroupName}
-              maxLength={50}
-              autoCapitalize="words"
-            />
-            <Text style={styles.inputHint}>
-              {groupName.length}/50 characters
-            </Text>
+      <View style={styles.content}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.templatesSection}>
+            <Text style={styles.sectionTitle}>Choose a Group Type</Text>
+            <Text style={styles.sectionSubtitle}>Select a template to get started quickly</Text>
+            
+            <View style={styles.templatesGrid}>
+              {GROUP_TEMPLATES.map((template) => (
+                <TouchableOpacity
+                  key={template.id}
+                  style={[
+                    styles.templateCard,
+                    selectedTemplate?.id === template.id && styles.selectedTemplateCard
+                  ]}
+                  onPress={() => handleTemplateSelect(template)}
+                >
+                  <View style={[styles.templateIcon, { backgroundColor: template.color }]}>
+                    <Ionicons name={template.icon as any} size={24} color="white" />
+                  </View>
+                  <Text style={styles.templateName}>{template.name}</Text>
+                  <Text style={styles.templateDescription}>{template.description}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Description</Text>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              placeholder="What's this group for?"
-              value={groupDescription}
-              onChangeText={setGroupDescription}
-              multiline
-              numberOfLines={3}
-              maxLength={200}
-              textAlignVertical="top"
-            />
-            <Text style={styles.inputHint}>
-              {groupDescription.length}/200 characters
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Group Type</Text>
-          <Text style={styles.sectionSubtitle}>
-            Choose the type that best describes your group
-          </Text>
-
-          {groupTypeOptions.map((type) => (
-            <TouchableOpacity
-              key={type.value}
-              style={[
-                styles.typeOption,
-                groupType === type.value && styles.selectedTypeOption
-              ]}
-              onPress={() => setGroupType(type.value as any)}
-            >
-              <View style={styles.typeIcon}>
-                <Ionicons
-                  name={type.icon as any}
-                  size={24}
-                  color={groupType === type.value ? '#2563EB' : '#64748B'}
-                />
-              </View>
-              <View style={styles.typeContent}>
-                <Text style={[
-                  styles.typeLabel,
-                  groupType === type.value && styles.selectedTypeLabel
-                ]}>
-                  {type.label}
-                </Text>
-                <Text style={[
-                  styles.typeDescription,
-                  groupType === type.value && styles.selectedTypeDescription
-                ]}>
-                  {type.description}
-                </Text>
-              </View>
-              {groupType === type.value && (
-                <Ionicons name="checkmark-circle" size={24} color="#2563EB" />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy Settings</Text>
-
-          <TouchableOpacity
-            style={styles.privacyOption}
-            onPress={() => setIsPrivate(!isPrivate)}
-          >
-            <View style={styles.privacyContent}>
-              <Ionicons
-                name={isPrivate ? "lock-closed" : "lock-open"}
-                size={24}
-                color={isPrivate ? "#2563EB" : "#64748B"}
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Group Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={groupName}
+                onChangeText={setGroupName}
+                placeholder="Enter group name"
+                placeholderTextColor="#94A3B8"
+                maxLength={50}
+                editable={!isCreating}
               />
-              <View style={styles.privacyText}>
-                <Text style={styles.privacyLabel}>
-                  {isPrivate ? 'Private Group' : 'Public Group'}
+              <Text style={styles.characterCount}>
+                {groupName.length}/50
+              </Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Description {selectedTemplate?.id !== 'custom' ? '(Auto-filled)' : '(Optional)'}</Text>
+              <TextInput
+                style={[styles.textInput, styles.descriptionInput]}
+                value={groupDescription}
+                onChangeText={setGroupDescription}
+                placeholder="Describe your group"
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={3}
+                maxLength={200}
+                editable={!isCreating}
+              />
+              <Text style={styles.characterCount}>
+                {groupDescription.length}/200
+              </Text>
+            </View>
+
+            <View style={styles.infoSection}>
+              <View style={styles.infoItem}>
+                <Ionicons name="people" size={20} color="#64748B" />
+                <Text style={styles.infoText}>
+                  You'll be the admin of this group
                 </Text>
-                <Text style={styles.privacyDescription}>
-                  {isPrivate
-                    ? 'Only invited members can join'
-                    : 'Anyone with the invite code can join'
-                  }
+              </View>
+              <View style={styles.infoItem}>
+                <Ionicons name="link" size={20} color="#64748B" />
+                <Text style={styles.infoText}>
+                  An invite link will be generated automatically
+                </Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Ionicons name="chatbubbles" size={20} color="#64748B" />
+                <Text style={styles.infoText}>
+                  Members can chat and split expenses
                 </Text>
               </View>
             </View>
-            <TouchableOpacity
-              style={[styles.toggle, isPrivate && styles.toggleActive]}
-              onPress={() => setIsPrivate(!isPrivate)}
-            >
-              <View style={[
-                styles.toggleKnob,
-                isPrivate && styles.toggleKnobActive
-              ]} />
-            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.createButton, (!groupName.trim() || isCreating) && styles.createButtonDisabled]}
+            onPress={handleCreateGroup}
+            disabled={!groupName.trim() || isCreating}
+          >
+            {isCreating ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Ionicons name="people" size={20} color="white" />
+                <Text style={styles.createButtonText}>Create Group</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
-
-        <View style={styles.previewSection}>
-          <Text style={styles.previewTitle}>Preview</Text>
-          <View style={styles.previewCard}>
-            <View style={styles.previewHeader}>
-              <View style={styles.previewAvatar}>
-                <Ionicons name="people" size={20} color="#FFFFFF" />
-              </View>
-              <View style={styles.previewInfo}>
-                <Text style={styles.previewName}>
-                  {groupName || 'Your Group Name'}
-                </Text>
-                <Text style={styles.previewMembers}>1 member</Text>
-              </View>
-            </View>
-            <Text style={styles.previewDescription}>
-              {groupDescription || selectedType?.description || 'Group description'}
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.createButton, (!groupName.trim() || isLoading) && styles.createButtonDisabled]}
-          onPress={handleCreateGroup}
-          disabled={!groupName.trim() || isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle" size={20} color="white" />
-              <Text style={styles.createButtonText}>Create Group</Text>
-            </>
-          )}
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -267,9 +263,9 @@ const styles = StyleSheet.create({
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backButton: {
-    marginRight: 16,
     padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -278,206 +274,125 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 4,
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+  placeholder: {
+    width: 40,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    padding: 20,
   },
-  section: {
+  templatesSection: {
     marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#1E293B',
     marginBottom: 8,
   },
   sectionSubtitle: {
     fontSize: 14,
     color: '#64748B',
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#FFFFFF',
-    color: '#1E293B',
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  inputHint: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 4,
-    textAlign: 'right',
-  },
-  typeOption: {
+  templatesGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  templateCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: 'white',
+    borderRadius: 12,
     padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
+    alignItems: 'center',
+    borderWidth: 2,
     borderColor: '#E2E8F0',
-  },
-  selectedTypeOption: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-  },
-  typeIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  typeContent: {
-    flex: 1,
-  },
-  typeLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
-  },
-  selectedTypeLabel: {
-    color: '#2563EB',
-  },
-  typeDescription: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  selectedTypeDescription: {
-    color: '#2563EB',
-  },
-  privacyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  privacyContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  privacyText: {
-    marginLeft: 16,
-    flex: 1,
-  },
-  privacyLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
-  },
-  privacyDescription: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  toggle: {
-    width: 50,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#D1D5DB',
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-  },
-  toggleActive: {
-    backgroundColor: '#2563EB',
-  },
-  toggleKnob: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
   },
-  toggleKnobActive: {
-    transform: [{ translateX: 22 }],
+  selectedTemplateCard: {
+    borderColor: '#2563EB',
+    backgroundColor: '#F0F9FF',
   },
-  previewSection: {
-    marginBottom: 32,
+  templateIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
-  previewTitle: {
-    fontSize: 18,
+  templateName: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#1E293B',
-    marginBottom: 16,
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  previewCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  templateDescription: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 16,
   },
-  previewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+  form: {
+    marginBottom: 20,
   },
-  previewAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  inputGroup: {
+    marginBottom: 24,
   },
-  previewInfo: {
-    flex: 1,
-  },
-  previewName: {
+  inputLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1E293B',
+    marginBottom: 8,
   },
-  previewMembers: {
+  textInput: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    color: '#1E293B',
+  },
+  descriptionInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  characterCount: {
     fontSize: 12,
     color: '#64748B',
+    textAlign: 'right',
+    marginTop: 4,
   },
-  previewDescription: {
+  infoSection: {
+    marginTop: 32,
+    padding: 20,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoText: {
     fontSize: 14,
     color: '#64748B',
+    marginLeft: 12,
+    flex: 1,
   },
   footer: {
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    paddingTop: 20,
   },
   createButton: {
     flexDirection: 'row',

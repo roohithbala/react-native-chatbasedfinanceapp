@@ -1,17 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { ChatHeader } from '../components/ChatHeader';
 import { SearchBar } from '../components/SearchBar';
 import { ChatTabs } from '../components/ChatTabs';
 import { ChatList } from '../components/ChatList';
 import { JoinGroupModal } from '../components/JoinGroupModal';
-import { ChatMenu } from '../components/ChatMenu';
+import ChatMenu from '../components/ChatMenu';
 import { useChatData } from '@/hooks/useChatData';
 import { useChatActions } from '@/hooks/useChatActions';
 import { useSearch } from '@/hooks/useSearch';
 import { useMenuActions } from '@/hooks/useMenuActions';
 
 export default function ChatsScreen() {
+  const [activeTab, setActiveTab] = useState<'chats' | 'groups'>('chats');
+
   const {
     recentChats,
     setRecentChats,
@@ -20,13 +22,12 @@ export default function ChatsScreen() {
     isLoading,
     storeLoading,
     refreshing,
-    activeTab,
-    setActiveTab,
     handleRefresh,
   } = useChatData();
 
   const {
     showJoinGroup,
+    setShowJoinGroup,
     inviteCode,
     setInviteCode,
     handleJoinGroup,
@@ -57,7 +58,7 @@ export default function ChatsScreen() {
 
   const renderTabContent = () => {
     // Show search results if we have a search query (either searching or have results)
-    if (searchQuery.trim() && activeTab === 'direct') {
+    if (searchQuery.trim() && activeTab === 'chats') {
       return (
         <ChatList
           data={searchResults}
@@ -130,6 +131,7 @@ export default function ChatsScreen() {
         <ChatHeader
           activeTab={activeTab}
           onCreateGroup={handleCreateGroup}
+          onJoinGroup={() => setShowJoinGroup(true)}
         />
       </View>
 

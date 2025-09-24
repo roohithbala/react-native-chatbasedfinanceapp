@@ -157,6 +157,32 @@ class SplitBillService {
   static async createSplitBill(data: CreateSplitBillParams): Promise<{ splitBill: SplitBill }> {
     console.log('SplitBillService createSplitBill called with data:', JSON.stringify(data, null, 2));
     console.log('GroupId in data:', data.groupId, 'type:', typeof data.groupId);
+    
+    // Validate data before sending
+    if (!data.description || !data.description.trim()) {
+      throw new Error('Description is required');
+    }
+    if (!data.totalAmount || data.totalAmount <= 0) {
+      throw new Error('Total amount must be greater than 0');
+    }
+    if (!data.participants || !Array.isArray(data.participants) || data.participants.length === 0) {
+      throw new Error('At least one participant is required');
+    }
+    
+    // Validate participants
+    for (const participant of data.participants) {
+      if (!participant.userId || !participant.amount || participant.amount <= 0) {
+        throw new Error('Each participant must have a valid userId and amount greater than 0');
+      }
+    }
+    
+    // Validate total amount matches sum of participant amounts
+    const totalParticipantAmount = data.participants.reduce((sum, p) => sum + p.amount, 0);
+    if (Math.abs(data.totalAmount - totalParticipantAmount) > 0.01) {
+      console.warn('Amount mismatch:', { totalAmount: data.totalAmount, participantSum: totalParticipantAmount });
+      throw new Error(`Total amount (${data.totalAmount}) must equal sum of participant amounts (${totalParticipantAmount})`);
+    }
+    
     try {
       const response = await axios.post('/split-bills', data);
       console.log('SplitBillService API response status:', response.status);
@@ -201,6 +227,17 @@ class SplitBillService {
         if (error.response.data?.message) {
           throw new Error(error.response.data.message);
         }
+        
+        // Handle specific HTTP status codes
+        if (error.response.status === 400) {
+          throw new Error('Invalid data provided. Please check your input.');
+        } else if (error.response.status === 401) {
+          throw new Error('Authentication required. Please log in again.');
+        } else if (error.response.status === 403) {
+          throw new Error('You do not have permission to create split bills in this group.');
+        } else if (error.response.status === 404) {
+          throw new Error('Group not found.');
+        }
       } else if (error.request) {
         // Network error - no response received
         console.error('Network error - no response received:', error.request);
@@ -208,7 +245,7 @@ class SplitBillService {
       } else {
         // Something else happened
         console.error('Unexpected error:', error.message);
-        throw new Error(error.message || 'An unexpected error occurred');
+        throw new Error(error.message || 'Server error');
       }
       
       throw error;

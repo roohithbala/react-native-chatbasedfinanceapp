@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Group = require('../models/Group');
 const User = require('../models/User');
 const SplitBill = require('../models/SplitBill');
@@ -425,6 +426,513 @@ router.post('/:id/invite-code', auth, async (req, res) => {
   }
 });
 
+// Make member admin
+router.put('/:id/members/:memberId/role', auth, async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    // Validate role
+    if (!['admin', 'member'].includes(role)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid role. Must be admin or member'
+      });
+    }
+
+    const group = await Group.findOne({
+      _id: req.params.id,
+      members: {
+        $elemMatch: {
+          userId: req.userId,
+          role: 'admin',
+          isActive: true
+        }
+      },
+      isActive: true
+    });
+
+    if (!group) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Group not found or insufficient permissions'
+      });
+    }
+
+    // Find the member to update
+    const memberIndex = group.members.findIndex(m =>
+      m.userId.toString() === req.params.memberId && m.isActive
+    );
+
+    if (memberIndex === -1) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Member not found in group'
+      });
+    }
+
+    // Update member role
+    group.members[memberIndex].role = role;
+    await group.save();
+
+    await group.populate('members.userId', 'name username email avatar');
+
+    // Emit real-time update
+    if (req.io) {
+      req.io.to(group._id.toString()).emit('group-update', {
+        type: 'member-role-updated',
+        groupId: group._id.toString(),
+        memberId: req.params.memberId,
+        newRole: role
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        message: `Member role updated to ${role}`,
+        group
+      }
+    });
+  } catch (error) {
+    console.error('Update member role error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
+// Remove member from group
+router.delete('/:id/members/:memberId', auth, async (req, res) => {
+  try {
+    const group = await Group.findOne({
+      _id: req.params.id,
+      members: {
+        $elemMatch: {
+          userId: req.userId,
+          role: 'admin',
+          isActive: true
+        }
+      },
+      isActive: true
+    });
+
+    if (!group) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Group not found or insufficient permissions'
+      });
+    }
+
+    // Cannot remove yourself as admin if you're the only admin
+    const adminCount = group.members.filter(m => m.role === 'admin' && m.isActive).length;
+    const memberToRemove = group.members.find(m => m.userId.toString() === req.params.memberId);
+
+    if (memberToRemove && memberToRemove.role === 'admin' && adminCount === 1) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Cannot remove the last admin from the group'
+      });
+    }
+
+    // Find and deactivate the member
+    const memberIndex = group.members.findIndex(m =>
+      m.userId.toString() === req.params.memberId && m.isActive
+    );
+
+    if (memberIndex === -1) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Member not found in group'
+      });
+    }
+
+    // Deactivate member instead of removing completely
+    group.members[memberIndex].isActive = false;
+    await group.save();
+
+    // Remove group from user's groups list
+    await User.findByIdAndUpdate(req.params.memberId, {
+      $pull: { groups: group._id }
+    });
+
+    await group.populate('members.userId', 'name username email avatar');
+
+    // Emit real-time update
+    if (req.io) {
+      req.io.to(group._id.toString()).emit('group-update', {
+        type: 'member-removed',
+        groupId: group._id.toString(),
+        memberId: req.params.memberId
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        message: 'Member removed from group',
+        group
+      }
+    });
+  } catch (error) {
+    console.error('Remove member error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
+// Leave group
+router.delete('/:id/leave', auth, async (req, res) => {
+  try {
+    const group = await Group.findOne({
+      _id: req.params.id,
+      'members.userId': req.userId,
+      isActive: true
+    });
+
+    if (!group) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Group not found'
+      });
+    }
+
+    // Check if user is the only admin
+    const adminCount = group.members.filter(m => m.role === 'admin' && m.isActive).length;
+    const currentUserMember = group.members.find(m => m.userId.toString() === req.userId);
+
+    if (currentUserMember && currentUserMember.role === 'admin' && adminCount === 1) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Cannot leave group as the last admin. Transfer admin role to another member first.'
+      });
+    }
+
+    // Deactivate member instead of removing completely
+    const memberIndex = group.members.findIndex(m =>
+      m.userId.toString() === req.userId && m.isActive
+    );
+
+    if (memberIndex !== -1) {
+      group.members[memberIndex].isActive = false;
+      await group.save();
+    }
+
+    // Remove group from user's groups list
+    await User.findByIdAndUpdate(req.userId, {
+      $pull: { groups: group._id }
+    });
+
+    // Emit real-time update
+    if (req.io) {
+      req.io.to(group._id.toString()).emit('group-update', {
+        type: 'member-left',
+        groupId: group._id.toString(),
+        memberId: req.userId
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        message: 'Successfully left the group'
+      }
+    });
+  } catch (error) {
+    console.error('Leave group error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
+// Update group basic information
+router.put('/:id', auth, async (req, res) => {
+  try {
+    console.log('Update group info request:', {
+      groupId: req.params.id,
+      userId: req.userId,
+      body: req.body
+    });
+
+    // Validate group ID
+    if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid group ID'
+      });
+    }
+
+    const group = await Group.findOne({
+      _id: req.params.id,
+      members: {
+        $elemMatch: {
+          userId: req.userId,
+          role: 'admin',
+          isActive: true
+        }
+      },
+      isActive: true
+    });
+
+    console.log('Group found:', !!group);
+
+    if (!group) {
+      console.log('Group not found or insufficient permissions');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Group not found or insufficient permissions'
+      });
+    }
+
+    // Update basic information
+    if (req.body.name !== undefined) {
+      group.name = req.body.name.trim();
+    }
+    if (req.body.description !== undefined) {
+      group.description = req.body.description.trim();
+    }
+
+    console.log('Saving group with updates:', { name: group.name, description: group.description });
+    await group.save();
+
+    res.json({
+      status: 'success',
+      data: {
+        message: 'Group information updated',
+        group
+      }
+    });
+  } catch (error) {
+    console.error('Update group info error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
+// Update group settings
+router.put('/:id/settings', auth, async (req, res) => {
+  try {
+    console.log('Update group settings request:', {
+      groupId: req.params.id,
+      userId: req.userId,
+      body: req.body
+    });
+
+    // Validate group ID
+    if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid group ID'
+      });
+    }
+
+    const group = await Group.findOne({
+      _id: req.params.id,
+      members: {
+        $elemMatch: {
+          userId: req.userId,
+          role: 'admin',
+          isActive: true
+        }
+      },
+      isActive: true
+    });
+
+    console.log('Group found for settings update:', !!group);
+
+    if (!group) {
+      console.log('Group not found or insufficient permissions for settings');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Group not found or insufficient permissions'
+      });
+    }
+
+    // Update settings
+    if (req.body.settings) {
+      console.log('Current settings:', group.settings);
+      console.log('New settings:', req.body.settings);
+      console.log('New settings types:', {
+        currency: typeof req.body.settings.currency,
+        isPrivate: typeof req.body.settings.isPrivate,
+        allowInvites: typeof req.body.settings.allowInvites,
+        splitMethod: typeof req.body.settings.splitMethod
+      });
+
+      // Ensure settings object exists
+      if (!group.settings) {
+        group.settings = {
+          isPrivate: false,
+          allowInvites: true,
+          currency: 'INR',
+          splitMethod: 'equal',
+          notifications: {
+            newMember: true,
+            newExpense: true,
+            paymentReminder: true,
+            settlementDue: true
+          }
+        };
+      }
+
+      // Validate the incoming data
+      const validCurrencies = ['INR', 'USD', 'EUR', 'GBP', 'JPY'];
+      const validSplitMethods = ['equal', 'percentage', 'custom'];
+
+      if (req.body.settings.currency && !validCurrencies.includes(req.body.settings.currency)) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid currency',
+          details: `Currency must be one of: ${validCurrencies.join(', ')}`
+        });
+      }
+
+      if (req.body.settings.splitMethod && !validSplitMethods.includes(req.body.settings.splitMethod)) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid split method',
+          details: `Split method must be one of: ${validSplitMethods.join(', ')}`
+        });
+      }
+
+      group.settings = { ...group.settings, ...req.body.settings };
+      console.log('Merged settings:', group.settings);
+
+      try {
+        await group.save();
+        console.log('Group saved successfully');
+      } catch (saveError) {
+        console.error('MongoDB save error:', saveError);
+        console.error('Save error details:', {
+          name: saveError.name,
+          message: saveError.message,
+          errors: saveError.errors
+        });
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid settings data',
+          details: saveError.message
+        });
+      }
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        message: 'Group settings updated',
+        settings: group.settings
+      }
+    });
+  } catch (error) {
+    console.error('Update group settings error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
+// Update notification settings
+router.put('/:id/notifications', auth, async (req, res) => {
+  try {
+    console.log('Update notification settings request:', {
+      groupId: req.params.id,
+      userId: req.userId,
+      body: req.body
+    });
+
+    // Validate group ID
+    if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid group ID'
+      });
+    }
+
+    const group = await Group.findOne({
+      _id: req.params.id,
+      'members.userId': req.userId,
+      isActive: true
+    });
+
+    console.log('Group found for notifications update:', !!group);
+
+    if (!group) {
+      console.log('Group not found for notifications');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Group not found'
+      });
+    }
+
+    // Update notification settings
+    if (req.body.notifications) {
+      console.log('Current notifications:', group.settings.notifications);
+      console.log('New notifications:', req.body.notifications);
+
+      // Ensure settings and notifications objects exist
+      if (!group.settings) {
+        group.settings = {
+          isPrivate: false,
+          allowInvites: true,
+          currency: 'INR',
+          splitMethod: 'equal',
+          notifications: {
+            newMember: true,
+            newExpense: true,
+            paymentReminder: true,
+            settlementDue: true
+          }
+        };
+      }
+
+      if (!group.settings.notifications) {
+        group.settings.notifications = {
+          newMember: true,
+          newExpense: true,
+          paymentReminder: true,
+          settlementDue: true
+        };
+      }
+
+      group.settings.notifications = { ...group.settings.notifications, ...req.body.notifications };
+      console.log('Merged notifications:', group.settings.notifications);
+
+      try {
+        await group.save();
+        console.log('Group saved successfully for notifications');
+      } catch (saveError) {
+        console.error('MongoDB save error for notifications:', saveError);
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid notification settings data',
+          details: saveError.message
+        });
+      }
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        message: 'Notification settings updated',
+        notifications: group.settings.notifications
+      }
+    });
+  } catch (error) {
+    console.error('Update notification settings error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
 // Get group stats
 router.get('/:id/stats', auth, async (req, res) => {
   try {
@@ -511,5 +1019,6 @@ router.get('/:id/stats', auth, async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;

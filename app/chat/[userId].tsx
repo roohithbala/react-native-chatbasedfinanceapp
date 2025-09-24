@@ -337,7 +337,7 @@ export default function ChatDetailScreen() {
         totalAmount: amount,
         participants: participants,
         splitType: 'equal' as const,
-        category: splitBillData.category || 'Split',
+        category: splitBillData.category || 'Other',
         currency: 'INR'
       };
 
@@ -349,7 +349,7 @@ export default function ChatDetailScreen() {
         const expenseData = {
           description: `${splitBillData.description.trim()} (Split with ${otherUser?.name || 'Friend'})`,
           amount: participant.amount,
-          category: splitBillData.category || 'Split',
+          category: splitBillData.category || 'Other',
           userId: participant.userId
           // No groupId for direct chat
         };

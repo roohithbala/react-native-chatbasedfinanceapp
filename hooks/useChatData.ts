@@ -18,7 +18,6 @@ export const useChatData = () => {
   const [recentChats, setRecentChats] = useState<ChatPreview[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'groups' | 'direct'>('direct');
 
   const {
     groups,
@@ -28,12 +27,9 @@ export const useChatData = () => {
   } = useFinanceStore();
 
   useEffect(() => {
-    if (activeTab === 'direct') {
-      loadRecentChats();
-    } else if (activeTab === 'groups') {
-      loadGroups();
-    }
-  }, [activeTab]);
+    loadRecentChats();
+    loadGroups(); // Always load groups since they're shown in the chats tab
+  }, []);
 
   const loadRecentChats = async () => {
     try {
@@ -49,11 +45,7 @@ export const useChatData = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    if (activeTab === 'direct') {
-      await loadRecentChats();
-    } else if (activeTab === 'groups') {
-      await loadGroups();
-    }
+    await Promise.all([loadRecentChats(), loadGroups()]);
     setRefreshing(false);
   };
 
@@ -65,8 +57,6 @@ export const useChatData = () => {
     isLoading,
     storeLoading,
     refreshing,
-    activeTab,
-    setActiveTab,
     loadRecentChats,
     handleRefresh,
     loadGroups,

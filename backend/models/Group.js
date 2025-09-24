@@ -80,6 +80,24 @@ const groupSchema = new mongoose.Schema({
       type: String,
       enum: ['equal', 'percentage', 'custom'],
       default: 'equal'
+    },
+    notifications: {
+      newMember: {
+        type: Boolean,
+        default: true
+      },
+      newExpense: {
+        type: Boolean,
+        default: true
+      },
+      paymentReminder: {
+        type: Boolean,
+        default: true
+      },
+      settlementDue: {
+        type: Boolean,
+        default: true
+      }
     }
   },
   isActive: {

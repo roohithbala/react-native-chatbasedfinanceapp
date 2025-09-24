@@ -3,8 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface ChatTabsProps {
-  activeTab: 'groups' | 'direct';
-  onTabChange: (tab: 'groups' | 'direct') => void;
+  activeTab: 'chats' | 'groups';
+  onTabChange: (tab: 'chats' | 'groups') => void;
 }
 
 export const ChatTabs: React.FC<ChatTabsProps> = ({
@@ -14,11 +14,28 @@ export const ChatTabs: React.FC<ChatTabsProps> = ({
   return (
     <View style={styles.tabContainer}>
       <TouchableOpacity
+        style={[styles.tab, activeTab === 'chats' && styles.activeTab]}
+        onPress={() => onTabChange('chats')}
+      >
+        <Ionicons
+          name="chatbubbles"
+          size={20}
+          color={activeTab === 'chats' ? '#2563EB' : '#64748B'}
+        />
+        <Text style={[
+          styles.tabText,
+          activeTab === 'chats' && styles.activeTabText
+        ]}>
+          Chats
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={[styles.tab, activeTab === 'groups' && styles.activeTab]}
         onPress={() => onTabChange('groups')}
       >
         <Ionicons
-          name="people"
+          name="people-circle"
           size={20}
           color={activeTab === 'groups' ? '#2563EB' : '#64748B'}
         />
@@ -27,23 +44,6 @@ export const ChatTabs: React.FC<ChatTabsProps> = ({
           activeTab === 'groups' && styles.activeTabText
         ]}>
           Groups
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'direct' && styles.activeTab]}
-        onPress={() => onTabChange('direct')}
-      >
-        <Ionicons
-          name="person"
-          size={20}
-          color={activeTab === 'direct' ? '#2563EB' : '#64748B'}
-        />
-        <Text style={[
-          styles.tabText,
-          activeTab === 'direct' && styles.activeTabText
-        ]}>
-          Direct
         </Text>
       </TouchableOpacity>
     </View>

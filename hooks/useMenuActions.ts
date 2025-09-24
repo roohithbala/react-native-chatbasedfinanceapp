@@ -16,7 +16,7 @@ export const useMenuActions = () => {
     setShowMenu(true);
   };
 
-  const handleMenuOption = (option: string, activeTab: 'groups' | 'direct', setRecentChats: any) => {
+  const handleMenuOption = (option: string, activeTab: 'chats' | 'groups', setRecentChats: any) => {
     if (!selectedChat) return;
 
     switch (option) {
@@ -64,7 +64,7 @@ export const useMenuActions = () => {
               style: 'destructive',
               onPress: () => {
                 // Remove from recent chats or groups
-                if (activeTab === 'direct') {
+                if (activeTab === 'chats') {
                   setRecentChats((prev: any) => prev.filter((chat: any) => chat._id !== selectedChat._id));
                 } else {
                   // For groups, you might want to leave the group instead
@@ -123,7 +123,7 @@ export const useMenuActions = () => {
         break;
 
       case 'viewProfile':
-        if (activeTab === 'direct') {
+        if (activeTab === 'chats') {
           router.push(`/profile/${selectedChat._id}`);
         } else {
           router.push(`/group-info/${selectedChat._id}`);

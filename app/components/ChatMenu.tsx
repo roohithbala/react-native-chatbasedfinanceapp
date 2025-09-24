@@ -6,7 +6,7 @@ interface ChatMenuProps {
   visible: boolean;
   onClose: () => void;
   position: { x: number; y: number };
-  activeTab: 'groups' | 'direct';
+  activeTab: 'chats' | 'groups';
   selectedChat: any;
   mutedChats: Set<string>;
   blockedUsers: Set<string>;
@@ -46,7 +46,7 @@ export const ChatMenu: React.FC<ChatMenuProps> = ({
           >
             <Ionicons name="person" size={20} color="#374151" />
             <Text style={styles.menuItemText}>
-              {activeTab === 'direct' ? 'View Profile' : 'Group Info'}
+              {activeTab === 'chats' ? 'View Profile' : 'Group Info'}
             </Text>
           </TouchableOpacity>
 
@@ -68,7 +68,7 @@ export const ChatMenu: React.FC<ChatMenuProps> = ({
             </Text>
           </TouchableOpacity>
 
-          {activeTab === 'direct' && (
+          {activeTab === 'chats' && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => onMenuOption('block')}
@@ -98,7 +98,7 @@ export const ChatMenu: React.FC<ChatMenuProps> = ({
             <Text style={[styles.menuItemText, styles.warningText]}>Clear Chat</Text>
           </TouchableOpacity>
 
-          {activeTab === 'direct' && (
+          {activeTab === 'chats' && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => onMenuOption('report')}

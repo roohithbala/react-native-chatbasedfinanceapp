@@ -140,33 +140,56 @@ export default function CreateSplitBillModal({
       Alert.alert('Error', 'No group selected');
       return;
     }
+    if (!currentUser) {
+      Alert.alert('Error', 'User not authenticated');
+      return;
+    }
 
     try {
       setLoading(true);
+      
+      // Filter out participants with invalid data and ensure amounts are valid numbers
+      const validParticipants = participants
+        .filter(p => p.userId && p.amount && !isNaN(parseFloat(p.amount)) && parseFloat(p.amount) > 0)
+        .map(p => ({
+          userId: p.userId,
+          amount: parseFloat(p.amount),
+        }));
+
+      if (validParticipants.length === 0) {
+        Alert.alert('Error', 'No valid participants found');
+        return;
+      }
+
+      // Ensure current user is included
+      const currentUserIncluded = validParticipants.some(p => p.userId === currentUser._id);
+      if (!currentUserIncluded) {
+        Alert.alert('Error', 'You must be included as a participant');
+        return;
+      }
+
       const billData = {
         description: description.trim(),
         totalAmount: parseFloat(totalAmount),
         groupId: selectedGroup._id,
-        participants: participants.map(p => ({
-          userId: p.userId,
-          amount: parseFloat(p.amount),
-        })),
+        participants: validParticipants,
         splitType,
         category,
         notes: notes.trim() || undefined,
       };
 
-      console.log('Creating split bill with data:', billData);
+      console.log('Creating split bill with data:', JSON.stringify(billData, null, 2));
       console.log('Selected group:', selectedGroup);
       console.log('Current user:', currentUser);
+      console.log('Valid participants count:', validParticipants.length);
 
       const result = await createSplitBill(billData);
 
       // Create individual expenses for each participant (including the creator)
-      for (const participant of participants) {
+      for (const participant of validParticipants) {
         const expenseData = {
           description: `${description.trim()} (Split bill)`,
-          amount: parseFloat(participant.amount),
+          amount: participant.amount,
           category: category,
           userId: participant.userId,
           groupId: selectedGroup._id

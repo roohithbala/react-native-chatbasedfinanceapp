@@ -4,13 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface ChatHeaderProps {
-  activeTab: 'groups' | 'direct';
+  activeTab: 'chats' | 'groups';
   onCreateGroup: () => void;
+  onJoinGroup?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   activeTab,
   onCreateGroup,
+  onJoinGroup,
 }) => {
   return (
     <LinearGradient colors={['#2563EB', '#1D4ED8']} style={styles.header}>
@@ -23,6 +25,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </View>
         {activeTab === 'groups' && (
           <View style={styles.headerActions}>
+            {onJoinGroup && (
+              <TouchableOpacity
+                style={styles.headerButton}
+                onPress={onJoinGroup}
+              >
+                <Ionicons name="enter" size={24} color="white" />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.headerButton}
               onPress={onCreateGroup}
