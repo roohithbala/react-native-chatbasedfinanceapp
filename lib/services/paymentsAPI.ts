@@ -150,6 +150,42 @@ export class PaymentsAPI {
       throw error;
     }
   }
+
+  static async processGooglePayTransaction(
+    paymentData: {
+      paymentMethodId: string;
+      amount: number;
+      currency: string;
+      description: string;
+      recipientId?: string;
+      splitBillId?: string;
+      groupId?: string;
+    }
+  ): Promise<any> {
+    try {
+      const response = await api.post('/payments/google-pay', paymentData);
+      return response.data;
+    } catch (error) {
+      console.error('Google Pay transaction error:', error);
+      throw error;
+    }
+  }
+
+  static async refundGooglePayTransaction(
+    transactionId: string,
+    amount?: number
+  ): Promise<any> {
+    try {
+      const response = await api.post('/payments/google-pay/refund', {
+        transactionId,
+        amount,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Google Pay refund error:', error);
+      throw error;
+    }
+  }
 }
 
 export default PaymentsAPI;

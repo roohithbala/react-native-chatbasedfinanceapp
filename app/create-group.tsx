@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -14,6 +13,9 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
+import GroupTemplateSelector from './components/GroupTemplateSelector';
+import GroupForm from './components/GroupForm';
+import GroupInfoSection from './components/GroupInfoSection';
 
 interface GroupTemplate {
   id: string;
@@ -151,82 +153,23 @@ export default function CreateGroupScreen() {
             <Text style={styles.sectionTitle}>Choose a Group Type</Text>
             <Text style={styles.sectionSubtitle}>Select a template to get started quickly</Text>
             
-            <View style={styles.templatesGrid}>
-              {GROUP_TEMPLATES.map((template) => (
-                <TouchableOpacity
-                  key={template.id}
-                  style={[
-                    styles.templateCard,
-                    selectedTemplate?.id === template.id && styles.selectedTemplateCard
-                  ]}
-                  onPress={() => handleTemplateSelect(template)}
-                >
-                  <View style={[styles.templateIcon, { backgroundColor: template.color }]}>
-                    <Ionicons name={template.icon as any} size={24} color="white" />
-                  </View>
-                  <Text style={styles.templateName}>{template.name}</Text>
-                  <Text style={styles.templateDescription}>{template.description}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <GroupTemplateSelector
+              templates={GROUP_TEMPLATES}
+              selectedTemplate={selectedTemplate}
+              onTemplateSelect={handleTemplateSelect}
+            />
           </View>
 
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Group Name *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={groupName}
-                onChangeText={setGroupName}
-                placeholder="Enter group name"
-                placeholderTextColor="#94A3B8"
-                maxLength={50}
-                editable={!isCreating}
-              />
-              <Text style={styles.characterCount}>
-                {groupName.length}/50
-              </Text>
-            </View>
+          <GroupForm
+            groupName={groupName}
+            groupDescription={groupDescription}
+            selectedTemplateId={selectedTemplate?.id || null}
+            onGroupNameChange={setGroupName}
+            onGroupDescriptionChange={setGroupDescription}
+            isCreating={isCreating}
+          />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Description {selectedTemplate?.id !== 'custom' ? '(Auto-filled)' : '(Optional)'}</Text>
-              <TextInput
-                style={[styles.textInput, styles.descriptionInput]}
-                value={groupDescription}
-                onChangeText={setGroupDescription}
-                placeholder="Describe your group"
-                placeholderTextColor="#94A3B8"
-                multiline
-                numberOfLines={3}
-                maxLength={200}
-                editable={!isCreating}
-              />
-              <Text style={styles.characterCount}>
-                {groupDescription.length}/200
-              </Text>
-            </View>
-
-            <View style={styles.infoSection}>
-              <View style={styles.infoItem}>
-                <Ionicons name="people" size={20} color="#64748B" />
-                <Text style={styles.infoText}>
-                  You'll be the admin of this group
-                </Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Ionicons name="link" size={20} color="#64748B" />
-                <Text style={styles.infoText}>
-                  An invite link will be generated automatically
-                </Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Ionicons name="chatbubbles" size={20} color="#64748B" />
-                <Text style={styles.infoText}>
-                  Members can chat and split expenses
-                </Text>
-              </View>
-            </View>
-          </View>
+          <GroupInfoSection />
         </ScrollView>
 
         <View style={styles.footer}>

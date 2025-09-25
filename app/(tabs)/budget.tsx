@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, ScrollView, View, Text, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { BudgetHeader } from '../components/BudgetHeader';
 import { BudgetSummary } from '../components/BudgetSummary';
 import { BudgetList } from '../components/BudgetList';

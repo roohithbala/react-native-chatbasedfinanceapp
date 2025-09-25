@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, SafeAreaView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface CreateGroupModalProps {
   visible: boolean;

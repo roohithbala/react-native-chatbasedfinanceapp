@@ -1,20 +1,22 @@
-import React, { useState } from 'react';
-import { SafeAreaView, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChatHeader } from '../components/ChatHeader';
 import { SearchBar } from '../components/SearchBar';
 import { ChatTabs } from '../components/ChatTabs';
-import { ChatList } from '../components/ChatList';
+import { ChatsTabContent } from '../components/ChatsTabContent';
 import { JoinGroupModal } from '../components/JoinGroupModal';
 import ChatMenu from '../components/ChatMenu';
-import { useChatData } from '@/hooks/useChatData';
-import { useChatActions } from '@/hooks/useChatActions';
-import { useSearch } from '@/hooks/useSearch';
-import { useMenuActions } from '@/hooks/useMenuActions';
+import { useChatsLogic } from '@/hooks/useChatsLogic';
 
 export default function ChatsScreen() {
-  const [activeTab, setActiveTab] = useState<'chats' | 'groups'>('chats');
-
   const {
+    activeTab,
+    setActiveTab,
+    showJoinGroup,
+    setShowJoinGroup,
+    inviteCode,
+    setInviteCode,
     recentChats,
     setRecentChats,
     groups,
@@ -22,98 +24,26 @@ export default function ChatsScreen() {
     isLoading,
     storeLoading,
     refreshing,
-    handleRefresh,
-  } = useChatData();
-
-  const {
-    showJoinGroup,
-    setShowJoinGroup,
-    inviteCode,
-    setInviteCode,
-    handleJoinGroup,
-    handleUserSelect,
-    handleGroupSelect,
-    handleCreateGroup,
-    handleAddMembers,
-  } = useChatActions();
-
-  const {
     searchQuery,
     searchResults,
     isSearching,
-    handleSearch,
-  } = useSearch();
-
-  const {
     showMenu,
-    setShowMenu,
     selectedChat,
     menuPosition,
     mutedChats,
     blockedUsers,
     archivedChats,
+    handleRefresh,
+    handleSearch,
+    handleJoinGroup,
+    handleUserSelect,
+    handleGroupSelect,
+    handleCreateGroup,
+    handleAddMembers,
     handleMenuPress,
     handleMenuOption,
-  } = useMenuActions();
-
-  const renderTabContent = () => {
-    // Show search results if we have a search query (either searching or have results)
-    if (searchQuery.trim() && activeTab === 'chats') {
-      return (
-        <ChatList
-          data={searchResults}
-          type="users"
-          currentUser={currentUser}
-          mutedChats={mutedChats}
-          blockedUsers={blockedUsers}
-          archivedChats={archivedChats}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          onItemPress={handleUserSelect}
-          isSearching={isSearching}
-          emptyMessage="No users found"
-          emptySubMessage="Try searching with a different name or username"
-        />
-      );
-    }
-
-    if (activeTab === 'groups') {
-      return (
-        <ChatList
-          data={groups || []}
-          type="groups"
-          currentUser={currentUser}
-          mutedChats={mutedChats}
-          blockedUsers={blockedUsers}
-          archivedChats={archivedChats}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          onItemPress={handleGroupSelect}
-          onItemLongPress={handleMenuPress}
-          onAddMembers={handleAddMembers}
-          emptyMessage="No groups found"
-          emptySubMessage="Create or join a group to start sharing expenses"
-        />
-      );
-    }
-
-    return (
-      <ChatList
-        data={recentChats}
-        type="direct"
-        currentUser={currentUser}
-        mutedChats={mutedChats}
-        blockedUsers={blockedUsers}
-        archivedChats={archivedChats}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-        onItemPress={handleUserSelect}
-        onItemLongPress={handleMenuPress}
-        emptyMessage="No recent chats"
-        emptySubMessage="Search for users to start a conversation"
-      />
-    );
-  };
+    setShowMenu,
+  } = useChatsLogic();
 
   if (!currentUser) {
     return (
@@ -156,8 +86,38 @@ export default function ChatsScreen() {
             <ActivityIndicator size="large" color="#2563EB" />
             <Text style={styles.loadingText}>Loading chats...</Text>
           </View>
+        ) : searchQuery.trim() && activeTab === 'chats' ? (
+          <ChatsTabContent
+            activeTab="chats"
+            recentChats={recentChats} // Use recentChats for now, we'll handle search separately
+            groups={[]}
+            currentUser={currentUser}
+            mutedChats={mutedChats}
+            blockedUsers={blockedUsers}
+            archivedChats={archivedChats}
+            refreshing={refreshing}
+            handleRefresh={handleRefresh}
+            handleUserSelect={handleUserSelect}
+            handleGroupSelect={handleGroupSelect}
+            handleMenuPress={handleMenuPress}
+            handleAddMembers={handleAddMembers}
+          />
         ) : (
-          renderTabContent()
+          <ChatsTabContent
+            activeTab={activeTab}
+            recentChats={recentChats}
+            groups={groups}
+            currentUser={currentUser}
+            mutedChats={mutedChats}
+            blockedUsers={blockedUsers}
+            archivedChats={archivedChats}
+            refreshing={refreshing}
+            handleRefresh={handleRefresh}
+            handleUserSelect={handleUserSelect}
+            handleGroupSelect={handleGroupSelect}
+            handleMenuPress={handleMenuPress}
+            handleAddMembers={handleAddMembers}
+          />
         )}
       </View>
 

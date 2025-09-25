@@ -1,57 +1,23 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const Group = require('../models/Group');
-const User = require('../models/User');
-const SplitBill = require('../models/SplitBill');
 const auth = require('../middleware/auth');
-const crypto = require('crypto');
+const groupController = require('../controllers/groupController');
 
 const router = express.Router();
-
-// Generate unique invite code
-const generateInviteCode = () => {
-  return crypto.randomBytes(4).toString('hex');
-};
 
 // Get user groups
 router.get('/', auth, async (req, res) => {
   try {
-    let groups = await Group.find({
-      'members.userId': req.userId,
-      isActive: true
-    })
-    .populate('members.userId', 'name username email avatar')
-    .sort('-createdAt');
-    
-    // If user has no groups, create default Personal group only
-    if (groups.length === 0) {
-      const defaultGroup = {
-        name: 'Personal',
-        description: 'Your personal expenses and finances',
-        inviteCode: generateInviteCode(),
-        members: [{
-          userId: req.userId,
-          role: 'admin'
-        }]
-      };
-      
-      // Create default Personal group
-      const createdGroup = await Group.create(defaultGroup);
-      
-      // Populate the newly created group
-      await createdGroup.populate('members.userId', 'name username email avatar');
-      groups = [createdGroup];
-    }
-    
+    const groups = await groupController.getUserGroups(req.userId);
     res.json({
       status: 'success',
       data: { groups }
     });
   } catch (error) {
     console.error('Error fetching groups:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'error',
-      message: 'Failed to fetch groups' 
+      message: 'Failed to fetch groups'
     });
   }
 });
@@ -60,44 +26,20 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const { name, description } = req.body;
-    
-    const inviteCode = generateInviteCode();
-    
-    const group = new Group({
-      name,
-      description,
-      inviteCode,
-      members: [{
-        userId: req.userId,
-        role: 'admin'
-      }]
-    });
-
-    await group.save();
-    
-    // Populate the members before returning
-    await group.populate('members.userId', 'name username email avatar');
-
-    // Emit real-time update
-    if (req.io) {
-      req.io.emit('group-update', {
-        type: 'created',
-        group: group
-      });
-    }
+    const group = await groupController.createGroup({ name, description }, req.userId, req.io);
 
     res.status(201).json({
       status: 'success',
-      data: { 
+      data: {
         message: 'Group created successfully',
-        group 
+        group
       }
     });
   } catch (error) {
     console.error('Error creating group:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'error',
-      message: 'Failed to create group' 
+      message: 'Failed to create group'
     });
   }
 });
@@ -105,59 +47,21 @@ router.post('/', auth, async (req, res) => {
 // Join group with invite code
 router.post('/join/:inviteCode', auth, async (req, res) => {
   try {
-    const { inviteCode } = req.params;
-    
-    const group = await Group.findOne({ 
-      inviteCode,
-      isActive: true,
-      'settings.allowInvites': true
-    });
+    const group = await groupController.joinGroup(req.params.inviteCode, req.userId);
 
-    if (!group) {
-      return res.status(404).json({ 
-        status: 'error',
-        message: 'Invalid or expired invite code' 
-      });
-    }
-
-    // Check if user is already a member
-    const isMember = group.members.some(m => m.userId.toString() === req.userId && m.isActive);
-    if (isMember) {
-      return res.status(400).json({ 
-        status: 'error',
-        message: 'Already a member of this group' 
-      });
-    }
-
-    // Add user to group
-    group.members.push({
-      userId: req.userId,
-      role: 'member'
-    });
-
-    await group.save();
-
-    // Add group to user's groups
-    const user = await User.findById(req.userId);
-    if (user && user.groups) {
-      user.groups.push(group._id);
-      await user.save();
-    }
-
-    await group.populate('members.userId', 'name email avatar');
-
-    res.json({ 
+    res.json({
       status: 'success',
-      data: { 
+      data: {
         message: 'Successfully joined group',
-        group 
-      } 
+        group
+      }
     });
   } catch (error) {
     console.error('Error joining group:', error);
-    res.status(500).json({ 
+    const statusCode = error.message.includes('already') ? 400 : 404;
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Internal server error while joining group'
+      message: error.message
     });
   }
 });
@@ -165,37 +69,17 @@ router.post('/join/:inviteCode', auth, async (req, res) => {
 // Get group details
 router.get('/:id', auth, async (req, res) => {
   try {
-    const group = await Group.findOne({
-      _id: req.params.id,
-      'members.userId': req.userId,
-      isActive: true
-    }).populate('members.userId', 'name email avatar');
-
-    if (!group) {
-      return res.status(404).json({ 
-        status: 'error',
-        message: 'Group not found' 
-      });
-    }
-
-    // Get group expenses and split bills
-    const splitBills = await SplitBill.find({ groupId: group._id })
-      .populate('createdBy', 'name avatar')
-      .populate('participants.userId', 'name avatar')
-      .sort({ createdAt: -1 });
+    const result = await groupController.getGroupDetails(req.params.id, req.userId);
 
     res.json({
       status: 'success',
-      data: {
-        group,
-        splitBills
-      }
+      data: result
     });
   } catch (error) {
     console.error('Get group error:', error);
-    res.status(500).json({ 
+    res.status(404).json({
       status: 'error',
-      message: 'Server error' 
+      message: error.message
     });
   }
 });
@@ -207,82 +91,16 @@ router.post('/:id/members', auth, async (req, res) => {
 
     // Validate that either email or username is provided
     if ((!email && !username) || (email && username)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         status: 'error',
-        message: 'Please provide either email or username (not both)' 
+        message: 'Please provide either email or username (not both)'
       });
     }
 
     const searchField = email ? 'email' : 'username';
     const searchValue = (email || username).trim();
 
-    const group = await Group.findOne({
-      _id: req.params.id,
-      'members.userId': req.userId,
-      'members.role': 'admin'
-    });
-
-    if (!group) {
-      return res.status(404).json({ 
-        status: 'error',
-        message: 'Group not found or insufficient permissions' 
-      });
-    }
-
-    // Check if group is "Personal" type - don't allow adding members to personal groups
-    if (group.name === 'Personal') {
-      return res.status(400).json({ 
-        status: 'error',
-        message: 'Cannot add members to Personal group. Create a new group for sharing expenses.' 
-      });
-    }
-
-    const user = await User.findOne({ [searchField]: searchValue });
-    if (!user) {
-      return res.status(404).json({ 
-        status: 'error',
-        message: `${searchField === 'email' ? 'User with this email' : 'User with this username'} not found` 
-      });
-    }
-
-    // Check if user is already a member
-    const isMember = group.members.some(member => 
-      member.userId.toString() === user._id.toString()
-    );
-
-    if (isMember) {
-      return res.status(400).json({ 
-        status: 'error',
-        message: 'User is already a member' 
-      });
-    }
-
-    // Add member
-    group.members.push({
-      userId: user._id,
-      role: 'member'
-    });
-
-    await group.save();
-
-    // Add group to user
-    user.groups.push(group._id);
-    await user.save();
-
-    await group.populate('members.userId', 'name email avatar');
-
-    // Emit real-time update
-    if (req.io) {
-      req.io.to(group._id.toString()).emit('group-update', {
-        type: 'member-added',
-        groupId: group._id.toString(),
-        member: {
-          userId: user._id,
-          name: user.name,
-          avatar: user.avatar
-        }
-      });
-    }
+    const group = await groupController.addMemberToGroup(req.params.id, searchField, searchValue, req.userId, req.io);
 
     res.json({
       status: 'success',
@@ -293,9 +111,10 @@ router.post('/:id/members', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Add member error:', error);
-    res.status(500).json({ 
+    const statusCode = error.message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Server error' 
+      message: error.message
     });
   }
 });
@@ -303,76 +122,7 @@ router.post('/:id/members', auth, async (req, res) => {
 // Split bill
 router.post('/:id/split', auth, async (req, res) => {
   try {
-    const { description, amount, participants, splitType = 'equal' } = req.body;
-
-    const group = await Group.findOne({
-      _id: req.params.id,
-      'members.userId': req.userId,
-      isActive: true
-    });
-
-    if (!group) {
-      return res.status(404).json({ 
-        status: 'error',
-        message: 'Group not found' 
-      });
-    }
-
-    // Validate inputs
-    if (!description || !amount || !Array.isArray(participants) || participants.length === 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Missing required fields: description, amount, and participants'
-      });
-    }
-
-    // Calculate splits
-    let splitParticipants = [];
-    
-    if (splitType === 'equal') {
-      const equalPercentage = 100 / participants.length;
-      const splitAmount = amount / participants.length;
-      
-      splitParticipants = participants.map(userId => ({
-        userId: userId,
-        amount: parseFloat(splitAmount.toFixed(2)),
-        percentage: equalPercentage,
-        isPaid: false
-      }));
-    } else if (splitType === 'percentage') {
-      // Validate percentages sum to 100
-      const totalPercentage = participants.reduce((sum, p) => sum + (p.percentage || 0), 0);
-      if (Math.abs(totalPercentage - 100) > 0.01) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Percentages must sum to 100%'
-        });
-      }
-
-      splitParticipants = participants.map(p => ({
-        userId: p.userId,
-        amount: parseFloat(((amount * p.percentage) / 100).toFixed(2)),
-        percentage: p.percentage,
-        isPaid: false
-      }));
-    }
-
-    // Create the split bill with all required fields
-    const splitBill = new SplitBill({
-      description: description.trim(),
-      totalAmount: parseFloat(amount.toFixed(2)),
-      currency: 'INR', // Default currency
-      createdBy: req.userId,
-      groupId: group._id,
-      participants: splitParticipants,
-      splitType: splitType,
-      category: 'Other', // Default category
-      isSettled: false
-    });
-
-    await splitBill.save();
-    await splitBill.populate('createdBy', 'name avatar');
-    await splitBill.populate('participants.userId', 'name avatar');
+    const splitBill = await groupController.splitBill(req.params.id, req.body, req.userId);
 
     res.status(201).json({
       status: 'success',
@@ -383,9 +133,9 @@ router.post('/:id/split', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Split bill error:', error);
-    res.status(500).json({ 
+    res.status(400).json({
       status: 'error',
-      message: 'Server error' 
+      message: error.message
     });
   }
 });
@@ -393,35 +143,20 @@ router.post('/:id/split', auth, async (req, res) => {
 // Generate new invite code
 router.post('/:id/invite-code', auth, async (req, res) => {
   try {
-    const group = await Group.findOne({
-      _id: req.params.id,
-      'members.userId': req.userId,
-      'members.role': 'admin',
-      isActive: true
-    });
-
-    if (!group) {
-      return res.status(404).json({ 
-        status: 'error',
-        message: 'Group not found or insufficient permissions' 
-      });
-    }
-
-    group.inviteCode = generateInviteCode();
-    await group.save();
+    const inviteCode = await groupController.generateNewInviteCode(req.params.id, req.userId);
 
     res.json({
       status: 'success',
       data: {
         message: 'New invite code generated',
-        inviteCode: group.inviteCode
+        inviteCode
       }
     });
   } catch (error) {
     console.error('Generate invite code error:', error);
-    res.status(500).json({ 
+    res.status(404).json({
       status: 'error',
-      message: 'Server error' 
+      message: error.message
     });
   }
 });
@@ -430,61 +165,7 @@ router.post('/:id/invite-code', auth, async (req, res) => {
 router.put('/:id/members/:memberId/role', auth, async (req, res) => {
   try {
     const { role } = req.body;
-
-    // Validate role
-    if (!['admin', 'member'].includes(role)) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid role. Must be admin or member'
-      });
-    }
-
-    const group = await Group.findOne({
-      _id: req.params.id,
-      members: {
-        $elemMatch: {
-          userId: req.userId,
-          role: 'admin',
-          isActive: true
-        }
-      },
-      isActive: true
-    });
-
-    if (!group) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Group not found or insufficient permissions'
-      });
-    }
-
-    // Find the member to update
-    const memberIndex = group.members.findIndex(m =>
-      m.userId.toString() === req.params.memberId && m.isActive
-    );
-
-    if (memberIndex === -1) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Member not found in group'
-      });
-    }
-
-    // Update member role
-    group.members[memberIndex].role = role;
-    await group.save();
-
-    await group.populate('members.userId', 'name username email avatar');
-
-    // Emit real-time update
-    if (req.io) {
-      req.io.to(group._id.toString()).emit('group-update', {
-        type: 'member-role-updated',
-        groupId: group._id.toString(),
-        memberId: req.params.memberId,
-        newRole: role
-      });
-    }
+    const group = await groupController.updateMemberRole(req.params.id, req.params.memberId, role, req.userId, req.io);
 
     res.json({
       status: 'success',
@@ -495,9 +176,10 @@ router.put('/:id/members/:memberId/role', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Update member role error:', error);
-    res.status(500).json({
+    const statusCode = error.message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Server error'
+      message: error.message
     });
   }
 });
@@ -505,67 +187,7 @@ router.put('/:id/members/:memberId/role', auth, async (req, res) => {
 // Remove member from group
 router.delete('/:id/members/:memberId', auth, async (req, res) => {
   try {
-    const group = await Group.findOne({
-      _id: req.params.id,
-      members: {
-        $elemMatch: {
-          userId: req.userId,
-          role: 'admin',
-          isActive: true
-        }
-      },
-      isActive: true
-    });
-
-    if (!group) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Group not found or insufficient permissions'
-      });
-    }
-
-    // Cannot remove yourself as admin if you're the only admin
-    const adminCount = group.members.filter(m => m.role === 'admin' && m.isActive).length;
-    const memberToRemove = group.members.find(m => m.userId.toString() === req.params.memberId);
-
-    if (memberToRemove && memberToRemove.role === 'admin' && adminCount === 1) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Cannot remove the last admin from the group'
-      });
-    }
-
-    // Find and deactivate the member
-    const memberIndex = group.members.findIndex(m =>
-      m.userId.toString() === req.params.memberId && m.isActive
-    );
-
-    if (memberIndex === -1) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Member not found in group'
-      });
-    }
-
-    // Deactivate member instead of removing completely
-    group.members[memberIndex].isActive = false;
-    await group.save();
-
-    // Remove group from user's groups list
-    await User.findByIdAndUpdate(req.params.memberId, {
-      $pull: { groups: group._id }
-    });
-
-    await group.populate('members.userId', 'name username email avatar');
-
-    // Emit real-time update
-    if (req.io) {
-      req.io.to(group._id.toString()).emit('group-update', {
-        type: 'member-removed',
-        groupId: group._id.toString(),
-        memberId: req.params.memberId
-      });
-    }
+    const group = await groupController.removeMemberFromGroup(req.params.id, req.params.memberId, req.userId, req.io);
 
     res.json({
       status: 'success',
@@ -576,9 +198,10 @@ router.delete('/:id/members/:memberId', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Remove member error:', error);
-    res.status(500).json({
+    const statusCode = error.message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Server error'
+      message: error.message
     });
   }
 });
@@ -586,53 +209,7 @@ router.delete('/:id/members/:memberId', auth, async (req, res) => {
 // Leave group
 router.delete('/:id/leave', auth, async (req, res) => {
   try {
-    const group = await Group.findOne({
-      _id: req.params.id,
-      'members.userId': req.userId,
-      isActive: true
-    });
-
-    if (!group) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Group not found'
-      });
-    }
-
-    // Check if user is the only admin
-    const adminCount = group.members.filter(m => m.role === 'admin' && m.isActive).length;
-    const currentUserMember = group.members.find(m => m.userId.toString() === req.userId);
-
-    if (currentUserMember && currentUserMember.role === 'admin' && adminCount === 1) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Cannot leave group as the last admin. Transfer admin role to another member first.'
-      });
-    }
-
-    // Deactivate member instead of removing completely
-    const memberIndex = group.members.findIndex(m =>
-      m.userId.toString() === req.userId && m.isActive
-    );
-
-    if (memberIndex !== -1) {
-      group.members[memberIndex].isActive = false;
-      await group.save();
-    }
-
-    // Remove group from user's groups list
-    await User.findByIdAndUpdate(req.userId, {
-      $pull: { groups: group._id }
-    });
-
-    // Emit real-time update
-    if (req.io) {
-      req.io.to(group._id.toString()).emit('group-update', {
-        type: 'member-left',
-        groupId: group._id.toString(),
-        memberId: req.userId
-      });
-    }
+    await groupController.leaveGroup(req.params.id, req.userId, req.io);
 
     res.json({
       status: 'success',
@@ -642,9 +219,10 @@ router.delete('/:id/leave', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Leave group error:', error);
-    res.status(500).json({
+    const statusCode = error.message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Server error'
+      message: error.message
     });
   }
 });
@@ -652,12 +230,6 @@ router.delete('/:id/leave', auth, async (req, res) => {
 // Update group basic information
 router.put('/:id', auth, async (req, res) => {
   try {
-    console.log('Update group info request:', {
-      groupId: req.params.id,
-      userId: req.userId,
-      body: req.body
-    });
-
     // Validate group ID
     if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
@@ -666,38 +238,7 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
-    const group = await Group.findOne({
-      _id: req.params.id,
-      members: {
-        $elemMatch: {
-          userId: req.userId,
-          role: 'admin',
-          isActive: true
-        }
-      },
-      isActive: true
-    });
-
-    console.log('Group found:', !!group);
-
-    if (!group) {
-      console.log('Group not found or insufficient permissions');
-      return res.status(404).json({
-        status: 'error',
-        message: 'Group not found or insufficient permissions'
-      });
-    }
-
-    // Update basic information
-    if (req.body.name !== undefined) {
-      group.name = req.body.name.trim();
-    }
-    if (req.body.description !== undefined) {
-      group.description = req.body.description.trim();
-    }
-
-    console.log('Saving group with updates:', { name: group.name, description: group.description });
-    await group.save();
+    const group = await groupController.updateGroupInfo(req.params.id, req.body, req.userId);
 
     res.json({
       status: 'success',
@@ -708,9 +249,10 @@ router.put('/:id', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Update group info error:', error);
-    res.status(500).json({
+    const statusCode = error.message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Server error'
+      message: error.message
     });
   }
 });
@@ -718,12 +260,6 @@ router.put('/:id', auth, async (req, res) => {
 // Update group settings
 router.put('/:id/settings', auth, async (req, res) => {
   try {
-    console.log('Update group settings request:', {
-      groupId: req.params.id,
-      userId: req.userId,
-      body: req.body
-    });
-
     // Validate group ID
     if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
@@ -732,108 +268,21 @@ router.put('/:id/settings', auth, async (req, res) => {
       });
     }
 
-    const group = await Group.findOne({
-      _id: req.params.id,
-      members: {
-        $elemMatch: {
-          userId: req.userId,
-          role: 'admin',
-          isActive: true
-        }
-      },
-      isActive: true
-    });
-
-    console.log('Group found for settings update:', !!group);
-
-    if (!group) {
-      console.log('Group not found or insufficient permissions for settings');
-      return res.status(404).json({
-        status: 'error',
-        message: 'Group not found or insufficient permissions'
-      });
-    }
-
-    // Update settings
-    if (req.body.settings) {
-      console.log('Current settings:', group.settings);
-      console.log('New settings:', req.body.settings);
-      console.log('New settings types:', {
-        currency: typeof req.body.settings.currency,
-        isPrivate: typeof req.body.settings.isPrivate,
-        allowInvites: typeof req.body.settings.allowInvites,
-        splitMethod: typeof req.body.settings.splitMethod
-      });
-
-      // Ensure settings object exists
-      if (!group.settings) {
-        group.settings = {
-          isPrivate: false,
-          allowInvites: true,
-          currency: 'INR',
-          splitMethod: 'equal',
-          notifications: {
-            newMember: true,
-            newExpense: true,
-            paymentReminder: true,
-            settlementDue: true
-          }
-        };
-      }
-
-      // Validate the incoming data
-      const validCurrencies = ['INR', 'USD', 'EUR', 'GBP', 'JPY'];
-      const validSplitMethods = ['equal', 'percentage', 'custom'];
-
-      if (req.body.settings.currency && !validCurrencies.includes(req.body.settings.currency)) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid currency',
-          details: `Currency must be one of: ${validCurrencies.join(', ')}`
-        });
-      }
-
-      if (req.body.settings.splitMethod && !validSplitMethods.includes(req.body.settings.splitMethod)) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid split method',
-          details: `Split method must be one of: ${validSplitMethods.join(', ')}`
-        });
-      }
-
-      group.settings = { ...group.settings, ...req.body.settings };
-      console.log('Merged settings:', group.settings);
-
-      try {
-        await group.save();
-        console.log('Group saved successfully');
-      } catch (saveError) {
-        console.error('MongoDB save error:', saveError);
-        console.error('Save error details:', {
-          name: saveError.name,
-          message: saveError.message,
-          errors: saveError.errors
-        });
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid settings data',
-          details: saveError.message
-        });
-      }
-    }
+    const settings = await groupController.updateGroupSettings(req.params.id, req.body.settings || {}, req.userId);
 
     res.json({
       status: 'success',
       data: {
         message: 'Group settings updated',
-        settings: group.settings
+        settings
       }
     });
   } catch (error) {
     console.error('Update group settings error:', error);
-    res.status(500).json({
+    const statusCode = error.message.includes('Invalid') ? 400 : 404;
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Server error'
+      message: error.message
     });
   }
 });
@@ -841,12 +290,6 @@ router.put('/:id/settings', auth, async (req, res) => {
 // Update notification settings
 router.put('/:id/notifications', auth, async (req, res) => {
   try {
-    console.log('Update notification settings request:', {
-      groupId: req.params.id,
-      userId: req.userId,
-      body: req.body
-    });
-
     // Validate group ID
     if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
@@ -855,80 +298,21 @@ router.put('/:id/notifications', auth, async (req, res) => {
       });
     }
 
-    const group = await Group.findOne({
-      _id: req.params.id,
-      'members.userId': req.userId,
-      isActive: true
-    });
-
-    console.log('Group found for notifications update:', !!group);
-
-    if (!group) {
-      console.log('Group not found for notifications');
-      return res.status(404).json({
-        status: 'error',
-        message: 'Group not found'
-      });
-    }
-
-    // Update notification settings
-    if (req.body.notifications) {
-      console.log('Current notifications:', group.settings.notifications);
-      console.log('New notifications:', req.body.notifications);
-
-      // Ensure settings and notifications objects exist
-      if (!group.settings) {
-        group.settings = {
-          isPrivate: false,
-          allowInvites: true,
-          currency: 'INR',
-          splitMethod: 'equal',
-          notifications: {
-            newMember: true,
-            newExpense: true,
-            paymentReminder: true,
-            settlementDue: true
-          }
-        };
-      }
-
-      if (!group.settings.notifications) {
-        group.settings.notifications = {
-          newMember: true,
-          newExpense: true,
-          paymentReminder: true,
-          settlementDue: true
-        };
-      }
-
-      group.settings.notifications = { ...group.settings.notifications, ...req.body.notifications };
-      console.log('Merged notifications:', group.settings.notifications);
-
-      try {
-        await group.save();
-        console.log('Group saved successfully for notifications');
-      } catch (saveError) {
-        console.error('MongoDB save error for notifications:', saveError);
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid notification settings data',
-          details: saveError.message
-        });
-      }
-    }
+    const notifications = await groupController.updateNotificationSettings(req.params.id, req.body.notifications || {}, req.userId);
 
     res.json({
       status: 'success',
       data: {
         message: 'Notification settings updated',
-        notifications: group.settings.notifications
+        notifications
       }
     });
   } catch (error) {
     console.error('Update notification settings error:', error);
-    res.status(500).json({
+    const statusCode = error.message.includes('not found') ? 404 : 400;
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Server error'
+      message: error.message
     });
   }
 });
@@ -936,89 +320,20 @@ router.put('/:id/notifications', auth, async (req, res) => {
 // Get group stats
 router.get('/:id/stats', auth, async (req, res) => {
   try {
-    const { id: groupId } = req.params;
-    
-    // Check if user is member of the group
-    const group = await Group.findOne({
-      _id: groupId,
-      'members.userId': req.userId,
-      isActive: true
-    });
-    
-    if (!group) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Group not found or access denied'
-      });
-    }
-    
-    // Get split bills for the group
-    const splitBills = await SplitBill.find({
-      groupId: groupId
-    }).populate('createdBy', 'name username')
-      .populate('participants.userId', 'name username');
-    
-    // Calculate stats
-    const totalAmount = splitBills.reduce((sum, bill) => sum + (bill.totalAmount || 0), 0);
-    const count = splitBills.length;
-    const settled = splitBills.filter(bill => bill.isSettled || false).length;
-    const pending = count - settled;
-    
-    // Group by category
-    const categoryMap = new Map();
-    splitBills.forEach(bill => {
-      const category = bill.category || 'Other';
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, { category, amount: 0, count: 0 });
-      }
-      const categoryData = categoryMap.get(category);
-      categoryData.amount += bill.totalAmount || 0;
-      categoryData.count += 1;
-    });
-    
-    // Group by participant
-    const participantMap = new Map();
-    splitBills.forEach(bill => {
-      if (bill.participants && Array.isArray(bill.participants)) {
-        bill.participants.forEach(participant => {
-          const userId = participant.userId?._id || participant.userId;
-          const userName = participant.userId?.name || 'Unknown';
-          if (!participantMap.has(userId.toString())) {
-            participantMap.set(userId.toString(), { 
-              userId: userId.toString(), 
-              name: userName, 
-              totalAmount: 0, 
-              billCount: 0 
-            });
-          }
-          const participantData = participantMap.get(userId.toString());
-          participantData.totalAmount += participant.amount || 0;
-          participantData.billCount += 1;
-        });
-      }
-    });
-    
+    const stats = await groupController.getGroupStats(req.params.id, req.userId);
+
     res.json({
       status: 'success',
-      data: {
-        overview: {
-          totalAmount,
-          count,
-          settled,
-          pending
-        },
-        byCategory: Array.from(categoryMap.values()),
-        byParticipant: Array.from(participantMap.values())
-      }
+      data: stats
     });
   } catch (error) {
     console.error('Error fetching group stats:', error);
-    res.status(500).json({
+    const statusCode = error.message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
       status: 'error',
-      message: 'Failed to fetch group stats'
+      message: error.message
     });
   }
 });
-
 
 module.exports = router;

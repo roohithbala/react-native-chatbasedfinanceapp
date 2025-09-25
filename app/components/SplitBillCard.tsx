@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SplitBill, SplitBillParticipant } from '@/lib/store/financeStore';
 import { PaymentStatusCard } from './PaymentStatusCard';
 import { SettlementModal } from './SettlementModal';
+import GooglePayButton from './GooglePayButton';
 
 interface SplitBillCardProps {
   bill: SplitBill;
@@ -56,13 +57,26 @@ export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, group
             ]}>
               Your share: ₹{(userShare?.amount || 0).toFixed(2)}
             </Text>
-            {!userShare?.isPaid && onMarkAsPaid && (
-              <TouchableOpacity
-                style={styles.markAsPaidButton}
-                onPress={() => onMarkAsPaid(bill._id)}
-              >
-                <Text style={styles.markAsPaidText}>Mark as Paid</Text>
-              </TouchableOpacity>
+            {!userShare?.isPaid && (
+              <View style={styles.paymentButtons}>
+                {onMarkAsPaid && (
+                  <TouchableOpacity
+                    style={styles.markAsPaidButton}
+                    onPress={() => onMarkAsPaid(bill._id)}
+                  >
+                    <Text style={styles.markAsPaidText}>Mark as Paid</Text>
+                  </TouchableOpacity>
+                )}
+
+                <GooglePayButton
+                  amount={userShare?.amount || 0}
+                  description={`Payment for ${bill.description}`}
+                  splitBillId={bill._id}
+                  onSuccess={handlePaymentUpdate}
+                  buttonText="Pay with GPay"
+                  style={styles.googlePayButton}
+                />
+              </View>
             )}
           </View>
         </View>
@@ -103,6 +117,7 @@ export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, group
           onSettlementComplete={handlePaymentUpdate}
         />
       )}
+
     </>
   );
 }
@@ -191,6 +206,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  paymentButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -214,5 +235,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 4,
+  },
+  googlePayButton: {
+    marginTop: 16,
   },
 });

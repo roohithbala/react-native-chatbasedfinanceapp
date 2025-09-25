@@ -12,6 +12,7 @@ import {
 import { View as ThemedView } from './ThemedComponents';
 import { PaymentsAPI, SettlementPlan } from '@/lib/services/paymentsAPI';
 import { useFinanceStore } from '../../lib/store/financeStore';
+import GooglePayButton from './GooglePayButton';
 
 interface SettlementModalProps {
   visible: boolean;
@@ -101,17 +102,47 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
         </View>
 
         {(isCurrentUserFrom || isCurrentUserTo) && (
-          <TouchableOpacity
-            style={[
-              styles.settleButton,
-              isCurrentUserFrom ? styles.settleButtonOutgoing : styles.settleButtonIncoming,
-            ]}
-            onPress={() => handleSettlePayment(payment)}
-          >
-            <Text style={styles.settleButtonText}>
-              {isCurrentUserFrom ? 'Pay' : 'Receive'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.paymentOptions}>
+            <TouchableOpacity
+              style={[
+                styles.settleButton,
+                styles.cashButton,
+              ]}
+              onPress={() => handleSettlePayment(payment)}
+            >
+              <Text style={styles.settleButtonText}>Pay Cash</Text>
+            </TouchableOpacity>
+
+            {isCurrentUserFrom && (
+              <GooglePayButton
+                amount={payment.amount}
+                description={`Payment to ${payment.toUserName}`}
+                recipientName={payment.toUserName}
+                recipientId={payment.toUserId}
+                groupId={groupId}
+                onSuccess={(result) => {
+                  Alert.alert(
+                    'Payment Successful',
+                    `₹${payment.amount.toFixed(2)} sent to ${payment.toUserName} via Google Pay`,
+                    [
+                      {
+                        text: 'OK',
+                        onPress: () => {
+                          onSettlementComplete?.();
+                          onClose();
+                        },
+                      },
+                    ]
+                  );
+                }}
+                onError={(error) => {
+                  Alert.alert('Payment Failed', error);
+                }}
+                buttonText="Pay with GPay"
+                style={styles.googlePayButton}
+              />
+            )}
+          </View>
         )}
       </View>
     );
@@ -327,6 +358,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748B',
     marginBottom: 4,
+  },
+  paymentOptions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  cashButton: {
+    backgroundColor: '#10B981',
+    flex: 1,
+  },
+  googlePayButton: {
+    flex: 1,
   },
 });
 

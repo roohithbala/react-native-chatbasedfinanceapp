@@ -8,7 +8,7 @@ import { isMessageResponse, isMessagesResponse } from '@/app/utils/typeGuards';
 // API Configuration
 const getApiBaseUrl = () => {
   // Try to get the server IP from environment or use localhost as fallback
-  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.40.155.172';
+  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.42.112.172';
   const serverPort = process.env.EXPO_PUBLIC_SERVER_PORT || '3001';
   
   if (__DEV__) {
@@ -21,7 +21,7 @@ const getApiBaseUrl = () => {
 export const API_BASE_URL = getApiBaseUrl();
 
 console.log('API Base URL:', API_BASE_URL);
-console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.40.155.172');
+console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.42.112.172');
 console.log('Server Port:', process.env.EXPO_PUBLIC_SERVER_PORT || '3001');
 
 // Network connectivity check
@@ -49,7 +49,8 @@ export const checkServerConnectivity = async (): Promise<boolean> => {
 // Auto-detect server IP (useful for development)
 export const detectServerIP = async (): Promise<string | null> => {
   const commonIPs = [
-    '10.40.155.172', // Current configured IP
+    '10.42.112.172', // Current configured IP
+    '10.40.155.172', // Previous configured IP
     '192.168.1.100',
     '192.168.1.101',
     '192.168.1.102',
@@ -832,15 +833,88 @@ export const groupsAPI = {
     }
   },
 
+  demoteMember: async (groupId: string, memberId: string) => {
+    try {
+      console.log('Attempting to demote member:', { groupId, memberId });
+      const response = await api.put(`/groups/${groupId}/members/${memberId}/demote`);
+      console.log('Demote member response:', response);
+      console.log('Response data:', response.data);
+      console.log('Response status:', response.status);
+
+      // More flexible validation - handle various response formats
+      if (!response.data) {
+        console.error('No response data from demote member API');
+        throw new Error('No response data from server');
+      }
+
+      // Check for success status
+      if (response.data.status === 'success') {
+        console.log('Member demoted successfully');
+        // Return the data object which contains message and group
+        return response.data.data || response.data;
+      }
+
+      // Handle error responses
+      if (response.data.status === 'error') {
+        console.error('Server returned error:', response.data.message);
+        // Provide more user-friendly error messages
+        let errorMessage = response.data.message || 'Server returned an error';
+        if (errorMessage.includes('Cannot demote the last admin')) {
+          errorMessage = 'Cannot demote the last admin. Promote another member to admin first.';
+        }
+        throw new Error(errorMessage);
+      }
+
+      // If we get here, the response format is unexpected
+      console.warn('Unexpected demote member response format:', response.data);
+      throw new Error('Invalid response format from server');
+    } catch (error: any) {
+      console.error('Demote member error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
+  },
+
   removeMember: async (groupId: string, memberId: string) => {
     try {
+      console.log('Attempting to remove member:', { groupId, memberId });
       const response = await api.delete(`/groups/${groupId}/members/${memberId}`);
-      if (!response.data || response.data.status !== 'success' || !response.data.data) {
-        throw new Error('Invalid response format from server');
+      console.log('Remove member response:', response);
+      console.log('Response data:', response.data);
+      console.log('Response status:', response.status);
+
+      // More flexible validation - handle various response formats
+      if (!response.data) {
+        console.error('No response data from remove member API');
+        throw new Error('No response data from server');
       }
-      return response.data.data;
-    } catch (error) {
+
+      // Check for success status
+      if (response.data.status === 'success') {
+        console.log('Member removed successfully');
+        // Return the data object which contains message and group
+        return response.data.data || response.data;
+      }
+
+      // Handle error responses
+      if (response.data.status === 'error') {
+        console.error('Server returned error:', response.data.message);
+        // Provide more user-friendly error messages
+        let errorMessage = response.data.message || 'Server returned an error';
+        if (errorMessage.includes('Cannot remove admin members')) {
+          errorMessage = 'Cannot remove admin members. Groups must have at least one admin. Make another member an admin first.';
+        }
+        throw new Error(errorMessage);
+      }
+
+      // If we get here, the response format is unexpected
+      console.warn('Unexpected remove member response format:', response.data);
+      throw new Error('Invalid response format from server');
+    } catch (error: any) {
       console.error('Remove member error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
       throw error;
     }
   },

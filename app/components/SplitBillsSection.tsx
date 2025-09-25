@@ -31,7 +31,12 @@ export default function SplitBillsSection({
     return splitBills.filter(bill => {
       if (!bill || !bill.participants) return false;
 
-      const userParticipant = bill.participants.find((p: any) => p.userId === currentUser._id);
+      const userParticipant = bill.participants.find((p: any) => {
+        // Handle both populated object and string userId formats
+        const participantUserId = typeof p.userId === 'object' ? p.userId._id : p.userId;
+        return participantUserId === currentUser._id;
+      });
+
       if (!userParticipant) return false;
 
       if (splitBillTab === 'awaiting') {
@@ -56,7 +61,12 @@ export default function SplitBillsSection({
     splitBills.forEach(bill => {
       if (!bill || !bill.participants) return;
 
-      const userParticipant = bill.participants.find((p: any) => p.userId === currentUser._id);
+      const userParticipant = bill.participants.find((p: any) => {
+        // Handle both populated object and string userId formats
+        const participantUserId = typeof p.userId === 'object' ? p.userId._id : p.userId;
+        return participantUserId === currentUser._id;
+      });
+
       if (!userParticipant) return;
 
       if (userParticipant.isPaid) {

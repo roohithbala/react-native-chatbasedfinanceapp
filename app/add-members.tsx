@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  TextInput,
   TouchableOpacity,
   FlatList,
   Alert,
@@ -16,6 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { usersAPI } from '@/lib/services/api';
+import SearchTypeSelector from './components/SearchTypeSelector';
+import UserSearchInput from './components/UserSearchInput';
+import SelectedUsersList from './components/SelectedUsersList';
+import UserListItem from './components/UserListItem';
 
 interface User {
   _id: string;
@@ -137,40 +140,6 @@ export default function AddMembersScreen() {
     }
   };
 
-  const renderUserItem = ({ item }: { item: User }) => {
-    const isSelected = selectedUsers.some(u => u._id === item._id);
-
-    return (
-      <TouchableOpacity
-        style={[styles.userItem, isSelected && styles.selectedUserItem]}
-        onPress={() => toggleUserSelection(item)}
-      >
-        <View style={styles.userAvatar}>
-          {item.avatar ? (
-            <Text style={styles.avatarText}>{item.avatar}</Text>
-          ) : (
-            <Text style={styles.avatarText}>
-              {item.name.charAt(0).toUpperCase()}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{item.name}</Text>
-          <Text style={styles.userDetail}>
-            @{item.username} • {item.email}
-          </Text>
-        </View>
-
-        <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-          {isSelected && (
-            <Ionicons name="checkmark" size={16} color="white" />
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   if (!currentGroup) {
     return (
       <SafeAreaView style={styles.container}>
@@ -202,67 +171,23 @@ export default function AddMembersScreen() {
       </LinearGradient>
 
       <View style={styles.searchContainer}>
-        <View style={styles.searchTypeContainer}>
-          <TouchableOpacity
-            style={[styles.searchTypeButton, searchType === 'username' && styles.activeSearchType]}
-            onPress={() => setSearchType('username')}
-          >
-            <Text style={[styles.searchTypeText, searchType === 'username' && styles.activeSearchTypeText]}>
-              Username
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.searchTypeButton, searchType === 'email' && styles.activeSearchType]}
-            onPress={() => setSearchType('email')}
-          >
-            <Text style={[styles.searchTypeText, searchType === 'email' && styles.activeSearchTypeText]}>
-              Email
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SearchTypeSelector
+          searchType={searchType}
+          onSearchTypeChange={setSearchType}
+        />
 
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color="#64748B" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={`Search by ${searchType}...`}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize={searchType === 'email' ? 'none' : 'none'}
-            keyboardType={searchType === 'email' ? 'email-address' : 'default'}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              style={styles.clearButton}
-            >
-              <Ionicons name="close-circle" size={20} color="#64748B" />
-            </TouchableOpacity>
-          )}
-        </View>
+        <UserSearchInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          searchType={searchType}
+        />
       </View>
 
       <View style={styles.content}>
-        {selectedUsers.length > 0 && (
-          <View style={styles.selectedContainer}>
-            <Text style={styles.selectedTitle}>
-              Selected ({selectedUsers.length})
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedUsers}>
-              {selectedUsers.map(user => (
-                <View key={user._id} style={styles.selectedUserChip}>
-                  <Text style={styles.selectedUserText}>{user.name}</Text>
-                  <TouchableOpacity
-                    onPress={() => toggleUserSelection(user)}
-                    style={styles.removeUserButton}
-                  >
-                    <Ionicons name="close" size={16} color="#64748B" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+        <SelectedUsersList
+          selectedUsers={selectedUsers}
+          onRemoveUser={toggleUserSelection}
+        />
 
         {isSearching ? (
           <View style={styles.loadingContainer}>
@@ -272,7 +197,13 @@ export default function AddMembersScreen() {
         ) : searchQuery.trim() ? (
           <FlatList
             data={searchResults}
-            renderItem={renderUserItem}
+            renderItem={({ item }) => (
+              <UserListItem
+                user={item}
+                isSelected={selectedUsers.some(u => u._id === item._id)}
+                onToggleSelection={toggleUserSelection}
+              />
+            )}
             keyExtractor={(item) => item._id}
             contentContainerStyle={styles.resultsList}
             ListEmptyComponent={
@@ -448,60 +379,6 @@ const styles = StyleSheet.create({
   },
   resultsList: {
     padding: 16,
-  },
-  userItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  selectedUserItem: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-  },
-  userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
-  },
-  userDetail: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxSelected: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
   },
   emptyContainer: {
     flex: 1,

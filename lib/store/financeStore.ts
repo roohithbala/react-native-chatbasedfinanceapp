@@ -21,6 +21,7 @@ import type {
 import SplitBillService from '../services/splitBillService';
 import freeAIService, { SpendingAnalysis } from '../services/freeAIService';
 import socketService from '../services/socketService';
+import biometricAuthService from '../services/biometricAuthService';
 
 export type { SplitBill };
 
@@ -33,6 +34,7 @@ export interface User {
   preferences?: {
     notifications: boolean;
     biometric: boolean;
+    biometricType?: 'fingerprint' | 'facial' | 'iris';
     darkMode: boolean;
     currency: string;
   };
@@ -109,10 +111,12 @@ interface FinanceState {
   // Auth actions
   clearStorage: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  register: (userData: { name: string; email: string; username: string; password: string }) => Promise<void>;
+  register: (userData: { name: string; email: string; username: string; password: string; upiId: string }) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
   updateProfile: (userData: User) => Promise<void>;
+  biometricLogin: () => Promise<void>;
+  updateBiometricPreference: (enabled: boolean) => Promise<void>;
   
   // Expense actions
   addExpense: (expense: CreateExpenseData) => Promise<void>;
@@ -186,6 +190,7 @@ const mockAPI = {
             preferences: {
               notifications: true,
               biometric: false,
+              biometricType: undefined,
               darkMode: false,
               currency: 'INR',
             }
@@ -207,6 +212,7 @@ const mockAPI = {
             preferences: {
               notifications: true,
               biometric: false,
+              biometricType: undefined,
               darkMode: false,
               currency: 'INR',
             }
@@ -310,7 +316,105 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
 
-  register: async (userData: { name: string; email: string; username: string; password: string }) => {
+  biometricLogin: async () => {
+    try {
+      set({ isLoading: true, error: null });
+
+      // Check if biometric is enabled
+      const biometricEnabled = await biometricAuthService.isBiometricEnabled();
+      if (!biometricEnabled) {
+        throw new Error('Biometric authentication is not enabled');
+      }
+
+      // Perform biometric authentication
+      const authResult = await biometricAuthService.authenticateForAppUnlock();
+      if (!authResult.success) {
+        throw new Error(authResult.error || 'Biometric authentication failed');
+      }
+
+      // For biometric login, we need stored credentials
+      // In a real app, you'd store encrypted credentials or use a token-based approach
+      const storedUserData = await AsyncStorage.getItem('userData');
+      const storedToken = await AsyncStorage.getItem('authToken');
+
+      if (!storedUserData || !storedToken) {
+        throw new Error('No stored credentials found. Please login with email and password first.');
+      }
+
+      const user = JSON.parse(storedUserData);
+
+      set({
+        isAuthenticated: true,
+        authToken: storedToken,
+        currentUser: user,
+        groups: Array.isArray(user.groups) ? user.groups : [],
+        selectedGroup: Array.isArray(user.groups) ? user.groups[0] || null : null,
+        isLoading: false,
+      });
+
+      // Initialize socket listeners for real-time updates
+      get().initializeSocketListeners();
+
+    } catch (error: any) {
+      set({
+        error: error.message || 'Biometric login failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  updateBiometricPreference: async (enabled: boolean) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      if (enabled) {
+        // Try to enable biometric authentication
+        const result = await biometricAuthService.enableBiometric();
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to enable biometric authentication');
+        }
+      } else {
+        // Disable biometric authentication
+        await biometricAuthService.disableBiometric();
+      }
+
+      // Update user preferences if we have a current user
+      const currentUser = get().currentUser;
+      if (currentUser) {
+        const updatedUser = {
+          ...currentUser,
+          preferences: {
+            notifications: currentUser.preferences?.notifications ?? true,
+            biometric: enabled,
+            biometricType: enabled ? await biometricAuthService.getStoredBiometricType() || undefined : undefined,
+            darkMode: currentUser.preferences?.darkMode ?? false,
+            currency: currentUser.preferences?.currency ?? 'INR',
+          }
+        };
+
+        // Update stored user data
+        await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+
+        // Update state
+        set({
+          currentUser: updatedUser,
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
+
+    } catch (error: any) {
+      set({
+        error: error.message || 'Failed to update biometric preference',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  register: async (userData: { name: string; email: string; username: string; password: string; upiId: string }) => {
     try {
       set({ isLoading: true, error: null });
       

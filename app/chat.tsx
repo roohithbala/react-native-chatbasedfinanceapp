@@ -7,7 +7,6 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  Image,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -17,6 +16,9 @@ import { format } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '../lib/store/financeStore';
 import { directMessagesAPI, usersAPI } from '@/lib/services/api';
+import ChatSearchBar from './components/ChatSearchBar';
+import UserSearchResults from './components/UserSearchResults';
+import ChatListItem from './components/ChatListItem';
 
 interface ChatPreview {
   _id: string;
@@ -90,87 +92,36 @@ export default function ChatScreen() {
     router.push(`/chat/${userId}`);
   };
 
-  const renderUserItem = ({ item }: { item: User }) => (
-    <TouchableOpacity
-      style={styles.userItem}
-      onPress={() => handleUserSelect(item._id)}
-    >
-      <View style={styles.avatarContainer}>
-        <Text style={styles.avatarText}>{item.avatar}</Text>
-      </View>
-      <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.name}</Text>
-        <Text style={styles.userUsername}>@{item.username}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderChatItem = ({ item }: { item: ChatPreview }) => (
-    <TouchableOpacity
-      style={styles.chatItem}
-      onPress={() => handleUserSelect(item._id)}
-    >
-      <View style={styles.avatarContainer}>
-        <Text style={styles.avatarText}>{item.user.avatar}</Text>
-      </View>
-      <View style={styles.chatInfo}>
-        <View style={styles.chatHeader}>
-          <Text style={styles.chatName}>{item.user.name}</Text>
-          <Text style={styles.chatTime}>
-            {format(new Date(item.lastMessageAt), 'MMM d')}
-          </Text>
-        </View>
-        <View style={styles.chatPreview}>
-          <Text style={styles.lastMessage} numberOfLines={1}>
-            {item.lastMessage}
-          </Text>
-          {item.unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadCount}>{item.unreadCount}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.header}>
         <Text style={styles.headerTitle}>Chats</Text>
       </LinearGradient>
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#64748B" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search users..."
-          value={searchQuery}
-          onChangeText={handleSearch}
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
+      <ChatSearchBar
+        value={searchQuery}
+        onChangeText={handleSearch}
+      />
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#8B5CF6" />
         </View>
       ) : isSearching ? (
-        <FlatList
-          data={searchResults}
-          renderItem={renderUserItem}
-          keyExtractor={(item) => item._id}
-          contentContainerStyle={styles.listContainer}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No users found</Text>
-            </View>
-          }
+        <UserSearchResults
+          users={searchResults}
+          onUserSelect={handleUserSelect}
+          emptyText="No users found"
         />
       ) : (
         <FlatList
           data={recentChats}
-          renderItem={renderChatItem}
+          renderItem={({ item }) => (
+            <ChatListItem
+              chat={item}
+              onPress={() => handleUserSelect(item._id)}
+            />
+          )}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContainer}
           refreshControl={
@@ -207,25 +158,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    margin: 16,
-    paddingHorizontal: 16,
-    height: 48,
-    backgroundColor: 'white',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1E293B',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -233,90 +165,6 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flexGrow: 1,
-  },
-  userItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  chatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  avatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontSize: 20,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 4,
-  },
-  userUsername: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  chatInfo: {
-    flex: 1,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  chatName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  chatTime: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  chatPreview: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  lastMessage: {
-    flex: 1,
-    fontSize: 14,
-    color: '#64748B',
-    marginRight: 8,
-  },
-  unreadBadge: {
-    backgroundColor: '#8B5CF6',
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  unreadCount: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,

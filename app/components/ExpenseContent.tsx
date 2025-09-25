@@ -59,13 +59,22 @@ export default function ExpenseContent({
           )}
         </>
       ) : (
-        <SplitBillsSection
-          splitBills={splitBills}
-          currentUser={currentUser}
-          splitBillTab={splitBillTab}
-          onSplitBillTabChange={onSplitBillTabChange}
-          onMarkAsPaid={onMarkAsPaid}
-        />
+        <>
+          <SplitBillsSection
+            splitBills={splitBills}
+            currentUser={currentUser}
+            splitBillTab={splitBillTab}
+            onSplitBillTabChange={onSplitBillTabChange}
+            onMarkAsPaid={onMarkAsPaid}
+          />
+
+          {selectedGroup && (
+            <>
+              <Text style={styles.sectionTitle}>📊 Group Stats</Text>
+              <GroupExpenseStats groupId={selectedGroup._id} />
+            </>
+          )}
+        </>
       )}
     </ScrollView>
   );

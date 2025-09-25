@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, ScrollView } from 'react-native';
+import { ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { InsightsHeader } from '../components/InsightsHeader';
 import { SpendingTrendChart } from '../components/SpendingTrendChart';
 import { CategoryBreakdownChart } from '../components/CategoryBreakdownChart';

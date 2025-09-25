@@ -8,6 +8,7 @@ export interface AuthFormData {
   username: string;
   password: string;
   confirmPassword: string;
+  upiId: string;
 }
 
 export const useAuthForm = () => {
@@ -18,6 +19,7 @@ export const useAuthForm = () => {
     username: '',
     password: '',
     confirmPassword: '',
+    upiId: '',
   });
 
   const { login, register, isLoading, error, clearError } = useFinanceStore();
@@ -33,6 +35,7 @@ export const useAuthForm = () => {
       username: '',
       password: '',
       confirmPassword: '',
+      upiId: '',
     });
   };
 
@@ -55,6 +58,7 @@ export const useAuthForm = () => {
           email: formData.email.trim(),
           username: formData.username.trim(),
           password: formData.password,
+          upiId: formData.upiId.trim(),
         });
         Alert.alert('Success', 'Account created successfully!');
       }

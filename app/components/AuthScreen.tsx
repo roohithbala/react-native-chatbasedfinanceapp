@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { router } from 'expo-router';
+import biometricAuthService from '@/lib/services/biometricAuthService';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
@@ -21,9 +24,46 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
+  const [upiId, setUpiId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricType, setBiometricType] = useState<'fingerprint' | 'facial' | 'iris' | null>(null);
 
-  const { login, register, isLoading: storeLoading, error, clearError } = useFinanceStore();
+  const { login, register, biometricLogin, isLoading: storeLoading, error, clearError } = useFinanceStore();
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    checkBiometricStatus();
+  }, []);
+
+  const checkBiometricStatus = async () => {
+    try {
+      const enabled = await biometricAuthService.isBiometricEnabled();
+      const type = await biometricAuthService.getStoredBiometricType();
+      setBiometricEnabled(enabled);
+      setBiometricType(type);
+    } catch (error) {
+      console.error('Error checking biometric status:', error);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    if (!biometricEnabled) return;
+
+    setIsLoading(true);
+    clearError();
+
+    try {
+      await biometricLogin();
+      Alert.alert('Success', 'Biometric login successful!');
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      console.error('Biometric login error:', error);
+      Alert.alert('Authentication Failed', error.message || 'Biometric authentication failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -31,7 +71,7 @@ export default function AuthScreen() {
       return;
     }
 
-    if (!isLogin && (!name || !username)) {
+    if (!isLogin && (!name || !username || !upiId)) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
@@ -45,7 +85,7 @@ export default function AuthScreen() {
         Alert.alert('Success', 'Login successful!');
         router.replace('/(tabs)');
       } else {
-        await register({ name, email, username, password });
+        await register({ name, email, username, password, upiId });
         Alert.alert('Success', 'Registration successful!');
         router.replace('/(tabs)');
       }
@@ -83,8 +123,8 @@ export default function AuthScreen() {
           </View>
 
           {/* Form */}
-          <View style={styles.formContainer}>
-            <View style={styles.tabContainer}>
+          <View style={[styles.formContainer, { backgroundColor: theme.surface }]}>
+            <View style={[styles.tabContainer, { backgroundColor: theme.surfaceSecondary }]}>
               <TouchableOpacity
                 style={[styles.tab, isLogin && styles.activeTab]}
                 onPress={() => setIsLogin(true)}
@@ -130,6 +170,20 @@ export default function AuthScreen() {
                         onChangeText={setUsername}
                         placeholder="Choose a username"
                         autoCapitalize="none"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>UPI ID</Text>
+                    <View style={styles.inputWrapper}>
+                      <TextInput
+                        style={styles.textInput}
+                        value={upiId}
+                        onChangeText={setUpiId}
+                        placeholder="Enter your UPI ID (e.g., user@paytm)"
+                        autoCapitalize="none"
+                        keyboardType="email-address"
                       />
                     </View>
                   </View>
@@ -179,6 +233,40 @@ export default function AuthScreen() {
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
+
+              {isLogin && biometricEnabled && (
+                <View style={styles.biometricContainer}>
+                  <View style={styles.dividerContainer}>
+                    <View style={styles.divider} />
+                    <Text style={styles.dividerText}>or</Text>
+                    <View style={styles.divider} />
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.biometricButton}
+                    onPress={handleBiometricLogin}
+                    disabled={isLoading || storeLoading}
+                  >
+                    <LinearGradient
+                      colors={['#10B981', '#059669']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.biometricGradient}
+                    >
+                      <Ionicons
+                        name={biometricType === 'fingerprint' ? 'finger-print' : biometricType === 'facial' ? 'person' : 'eye'}
+                        size={24}
+                        color="white"
+                      />
+                      <Text style={styles.biometricText}>
+                        {biometricType === 'fingerprint' ? 'Use Fingerprint' :
+                         biometricType === 'facial' ? 'Use Face ID' :
+                         biometricType === 'iris' ? 'Use Iris' : 'Use Biometric'}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <TouchableOpacity
                 style={styles.switchModeButton}
@@ -243,7 +331,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingTop: 30,
@@ -258,7 +345,6 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
     borderRadius: 16,
     padding: 6,
     marginBottom: 24,
@@ -360,5 +446,49 @@ const styles = StyleSheet.create({
     color: '#6366f1',
     fontWeight: '700',
     textDecorationLine: 'underline',
+  },
+  biometricContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  dividerText: {
+    paddingHorizontal: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  biometricButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  biometricGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  biometricText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    letterSpacing: 0.5,
   },
 });

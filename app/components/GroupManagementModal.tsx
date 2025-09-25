@@ -145,17 +145,41 @@ export default function GroupManagementModal({
     if (!isCurrentUserAdmin()) return;
 
     const actions = [];
+
+    // Only show "Make Admin" for non-admin members
     if (member.role !== 'admin') {
       actions.push({
         text: 'Make Admin',
         onPress: () => handleMakeAdmin(member),
       });
     }
-    actions.push({
-      text: 'Remove from Group',
-      style: 'destructive' as const,
-      onPress: () => handleRemoveMember(member),
-    });
+
+    // Show "Demote Admin" for admin members (but not for the current user if they're the only admin)
+    if (member.role === 'admin') {
+      const adminCount = groupDetails?.members?.filter((m: GroupMember) => m.role === 'admin' && m.isActive).length || 0;
+      if (adminCount > 1) { // Only allow demotion if there are other admins
+        actions.push({
+          text: 'Demote Admin',
+          style: 'default' as const,
+          onPress: () => handleDemoteAdmin(member),
+        });
+      }
+    }
+
+    // Show "Remove from Group" for all members, but prevent removing the last admin
+    const adminCount = groupDetails?.members?.filter((m: GroupMember) => m.role === 'admin' && m.isActive).length || 0;
+    const isLastAdmin = member.role === 'admin' && adminCount === 1;
+
+    if (!isLastAdmin) {
+      actions.push({
+        text: 'Remove from Group',
+        style: 'destructive' as const,
+        onPress: () => handleRemoveMember(member),
+      });
+    }
+
+    // If no actions available (shouldn't happen), don't show the menu
+    if (actions.length === 0) return;
 
     Alert.alert(
       `${member.userId.name}`,
@@ -179,6 +203,33 @@ export default function GroupManagementModal({
       console.error('Error making member admin:', error);
       Alert.alert('Error', error.message || 'Failed to make member admin');
     }
+  };
+
+  const handleDemoteAdmin = async (member: GroupMember) => {
+    if (!groupId) return;
+
+    Alert.alert(
+      'Demote Admin',
+      `Are you sure you want to demote ${member.userId.name} from admin to regular member?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Demote',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await groupsAPI.demoteMember(groupId, member.userId._id);
+              Alert.alert('Success', `${member.userId.name} has been demoted to regular member`);
+              // Refresh group details to show updated roles
+              loadGroupDetails();
+            } catch (error: any) {
+              console.error('Error demoting member:', error);
+              Alert.alert('Error', error.message || 'Failed to demote member');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleRemoveMember = async (member: GroupMember) => {
@@ -262,7 +313,7 @@ export default function GroupManagementModal({
           </View>
           <Text style={styles.memberUsername}>@{member.userId.username}</Text>
         </View>
-        {isCurrentUserAdmin() && !isCurrentUser && (
+        {isCurrentUserAdmin() && !isCurrentUser && (member.role !== 'admin' || (member.role === 'admin' && (groupDetails?.members?.filter((m: GroupMember) => m.role === 'admin' && m.isActive).length || 0) > 1)) && (
           <TouchableOpacity style={styles.memberAction} onPress={() => handleMemberAction(member)}>
             <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
           </TouchableOpacity>

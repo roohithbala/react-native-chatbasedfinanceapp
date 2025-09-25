@@ -27,6 +27,12 @@ const userSchema = new mongoose.Schema({
     required: true,
     minlength: 6
   },
+  upiId: {
+    type: String,
+    required: true,
+    trim: true,
+    match: /^[a-zA-Z0-9.-]+@[a-zA-Z0-9.-]+$/
+  },
   avatar: {
     type: String,
     default: '👤'

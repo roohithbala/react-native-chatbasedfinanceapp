@@ -400,13 +400,45 @@ npx expo build:ios
 
 This project is licensed under the MIT License.
 
-## 📞 Support
+## � Troubleshooting
 
-For support and questions:
-- Create an issue in the repository
-- Check the documentation
-- Review the troubleshooting guide
+### Metro Bundler Issues
 
----
+If you encounter `InternalBytecode.js` errors or Metro cache issues:
 
-Built with ❤️ using React Native and Expo
+```bash
+# Option 1: Use the cache clearing script
+.\fix-metro-cache.bat
+
+# Option 2: Manual cache clearing
+npx expo start --clear
+
+# Option 3: Complete reset
+rmdir /s /q node_modules
+rmdir /s /q .expo
+npm install
+npx expo start --clear
+```
+
+### Group Settings Update Errors
+
+If group settings updates fail with "Invalid settings data":
+
+1. **Check backend logs** for detailed validation errors
+2. **Verify data types** - ensure boolean fields are actually booleans
+3. **Check enum values** - currency and splitMethod must be valid options
+4. **Restart backend server** if validation logic was updated
+
+### Common Issues
+
+- **"Server error" on split bill creation**: Check backend logs for validation failures
+- **Metro bundler hangs**: Clear cache and restart development server
+- **Authentication issues**: Verify JWT token and backend connectivity
+- **Real-time updates not working**: Check Socket.io connection and server logs
+
+### Development Tips
+
+- Use `console.log` extensively in development to debug API calls
+- Check browser Network tab for API request/response details
+- Use React Native Debugger for component inspection
+- Clear all caches when switching between development environments
