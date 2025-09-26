@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface CategorySelectorProps {
   selectedCategory: string;
@@ -25,6 +26,8 @@ const categoryIcons = {
 };
 
 export default function CategorySelector({ selectedCategory, onCategoryChange }: CategorySelectorProps) {
+  const { theme } = useTheme();
+
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>📂 Category</Text>
@@ -38,6 +41,7 @@ export default function CategorySelector({ selectedCategory, onCategoryChange }:
             key={category}
             style={[
               styles.categoryChip,
+              { backgroundColor: theme.surface },
               selectedCategory === category && styles.categoryChipActive,
             ]}
             onPress={() => onCategoryChange(category)}

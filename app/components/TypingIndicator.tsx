@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface ChatUser {
   _id: string;
@@ -12,6 +13,8 @@ interface TypingIndicatorProps {
 }
 
 export default function TypingIndicator({ typingUsers }: TypingIndicatorProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   if (typingUsers.length === 0) {
     return null;
   }
@@ -28,17 +31,17 @@ export default function TypingIndicator({ typingUsers }: TypingIndicatorProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   typingContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.border,
   },
   typingText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary,
     fontStyle: 'italic',
   },
 });

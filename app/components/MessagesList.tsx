@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import ChatBubble from './ChatBubble';
+import { useTheme } from '../context/ThemeContext';
 
 interface Message {
   _id: string;
@@ -42,6 +43,8 @@ export default function MessagesList({
   currentUserId,
   scrollViewRef,
 }: MessagesListProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const renderMessage = (msg: Message) => {
     if (!msg || !msg.user) {
       console.warn('Invalid message object:', msg);
@@ -101,7 +104,7 @@ export default function MessagesList({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -109,7 +112,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: theme.textSecondary,
   },
   messagesContainer: {
     flex: 1,
@@ -127,12 +130,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary,
     textAlign: 'center',
   },
 });

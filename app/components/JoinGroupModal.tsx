@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 interface JoinGroupModalProps {
   visible: boolean;
@@ -27,6 +28,7 @@ export const JoinGroupModal: React.FC<JoinGroupModalProps> = ({
   onJoin,
   loading,
 }) => {
+  const { theme } = useTheme();
   return (
     <Modal
       visible={visible}
@@ -35,17 +37,18 @@ export const JoinGroupModal: React.FC<JoinGroupModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Join Group</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Join Group</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#64748B" />
+              <Ionicons name="close" size={24} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <TextInput
-            style={styles.modalInput}
+            style={[styles.modalInput, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
             placeholder="Enter invite code"
+            placeholderTextColor={theme.textSecondary}
             value={inviteCode}
             onChangeText={onInviteCodeChange}
             autoCapitalize="characters"
@@ -54,18 +57,18 @@ export const JoinGroupModal: React.FC<JoinGroupModalProps> = ({
 
           <View style={styles.modalActions}>
             <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton]}
+              style={[styles.modalButton, styles.cancelButton, { backgroundColor: theme.surfaceSecondary }]}
               onPress={onClose}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={[styles.cancelButtonText, { color: theme.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.modalButton, styles.primaryButton]}
+              style={[styles.modalButton, styles.primaryButton, { backgroundColor: theme.primary }]}
               onPress={onJoin}
               disabled={loading}
             >
-              <Text style={styles.primaryButtonText}>
+              <Text style={[styles.primaryButtonText, { color: theme.surface }]}>
                 {loading ? 'Joining...' : 'Join'}
               </Text>
             </TouchableOpacity>
@@ -85,7 +88,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 24,
     width: '100%',
@@ -100,17 +102,14 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1E293B',
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
     marginBottom: 16,
-    backgroundColor: '#FFFFFF',
   },
   modalActions: {
     flexDirection: 'row',
@@ -124,18 +123,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#F1F5F9',
   },
   cancelButtonText: {
-    color: '#64748B',
     fontSize: 16,
     fontWeight: '600',
   },
   primaryButton: {
-    backgroundColor: '#2563EB',
   },
   primaryButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },

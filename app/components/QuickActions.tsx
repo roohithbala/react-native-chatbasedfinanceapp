@@ -2,53 +2,56 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 export default function QuickActions() {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Quick Actions</Text>
       <View style={styles.actionGrid}>
         <TouchableOpacity
-          style={styles.actionCard}
+          style={[styles.actionCard, { backgroundColor: theme.surface }]}
           onPress={() => router.push('/(tabs)/expenses')}
         >
           <View style={styles.actionIcon}>
-            <Ionicons name="add" size={24} color="#2563EB" />
+            <Ionicons name="add" size={24} color={theme.primary} />
           </View>
           <Text style={styles.actionTitle}>Add Expense</Text>
           <Text style={styles.actionSubtitle}>Track new spending</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionCard}
+          style={[styles.actionCard, { backgroundColor: theme.surface }]}
           onPress={() => router.push('/(tabs)/chats')}
         >
           <View style={styles.actionIcon}>
-            <Ionicons name="people" size={24} color="#10B981" />
+            <Ionicons name="people" size={24} color={theme.success} />
           </View>
           <Text style={styles.actionTitle}>Group Chat</Text>
           <Text style={styles.actionSubtitle}>Split bills with friends</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionCard}
+          style={[styles.actionCard, { backgroundColor: theme.surface }]}
           onPress={() => router.push('/(tabs)/budget')}
         >
           <View style={styles.actionIcon}>
-            <Ionicons name="pie-chart" size={24} color="#F59E0B" />
+            <Ionicons name="pie-chart" size={24} color={theme.warning} />
           </View>
           <Text style={styles.actionTitle}>Budget</Text>
           <Text style={styles.actionSubtitle}>Manage your limits</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionCard}
+          style={[styles.actionCard, { backgroundColor: theme.surface }]}
           onPress={() => router.push('/(tabs)/insights')}
         >
           <View style={styles.actionIcon}>
-            <Ionicons name="trending-up" size={24} color="#8B5CF6" />
+            <Ionicons name="trending-up" size={24} color={theme.primary} />
           </View>
           <Text style={styles.actionTitle}>Insights</Text>
           <Text style={styles.actionSubtitle}>View analytics</Text>
@@ -58,7 +61,7 @@ export default function QuickActions() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   section: {
     marginBottom: 24,
     paddingHorizontal: 20,
@@ -66,7 +69,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 16,
   },
   actionGrid: {
@@ -90,7 +93,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -98,12 +101,12 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 4,
   },
   actionSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary,
     textAlign: 'center',
   },
 });

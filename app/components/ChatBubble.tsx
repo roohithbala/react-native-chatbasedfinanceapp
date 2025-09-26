@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { format } from 'date-fns';
+import { useTheme } from '../context/ThemeContext';
 
 interface LocationMention {
   locationId: string;
@@ -32,6 +33,8 @@ export default function ChatBubble({
   locationMentions = [],
   onLocationMentionPress
 }: ChatBubbleProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const isSystem = type === 'system' || type === 'command';
 
   const renderMessageText = () => {
@@ -133,7 +136,7 @@ export default function ChatBubble({
       )}
       <View style={[
         styles.bubble,
-        isOwnMessage ? styles.ownBubble : styles.otherBubble,
+        isOwnMessage ? styles.ownBubble : [styles.otherBubble, { backgroundColor: theme.surface }],
         isSystem && styles.systemBubble
       ]}>
         {renderMessageText()}
@@ -158,7 +161,7 @@ export default function ChatBubble({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     marginVertical: 2,
     paddingHorizontal: 12,
@@ -171,7 +174,7 @@ const styles = StyleSheet.create({
   },
   senderName: {
     fontSize: 12,
-    color: '#6B7280',
+    color: theme.textSecondary || '#6B7280',
     marginBottom: 2,
     marginLeft: 12,
   },
@@ -182,7 +185,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   ownBubble: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.primary || '#EFF6FF',
     borderTopRightRadius: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -191,7 +194,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   otherBubble: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     borderTopLeftRadius: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -200,9 +203,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   systemBubble: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.border || '#E2E8F0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -214,13 +217,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   ownMessageText: {
-    color: '#000000',
+    color: theme.surface || '#FFFFFF',
   },
   otherMessageText: {
-    color: '#000000',
+    color: theme.text || '#000000',
   },
   systemText: {
-    color: '#374151',
+    color: theme.textSecondary || '#374151',
     fontWeight: '500',
   },
   footer: {
@@ -232,20 +235,20 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 11,
-    color: '#667781',
+    color: theme.textSecondary || '#667781',
   },
   systemTimestamp: {
-    color: '#6B7280',
+    color: theme.textSecondary || '#6B7280',
   },
   status: {
     fontSize: 11,
-    color: '#667781',
+    color: theme.textSecondary || '#667781',
   },
   statusRead: {
-    color: '#2563EB', // App's primary blue
+    color: theme.primary || '#2563EB',
   },
   locationMention: {
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    backgroundColor: theme.primary ? `${theme.primary}20` : 'rgba(37, 99, 235, 0.1)',
     borderRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -257,9 +260,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   ownLocationMentionText: {
-    color: '#2563EB',
+    color: theme.primary || '#2563EB',
   },
   otherLocationMentionText: {
-    color: '#059669',
+    color: theme.success || '#059669',
   },
 });

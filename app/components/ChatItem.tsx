@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
 
 interface User {
   _id: string;
@@ -54,6 +55,7 @@ export const ChatItem: React.FC<ChatItemProps> = ({
   onLongPress,
   onAddMembers,
 }) => {
+  const { theme } = useTheme();
   const isMuted = mutedChats.has(item._id);
   const isBlocked = blockedUsers.has(item._id);
   const isArchived = archivedChats.has(item._id);
@@ -62,7 +64,7 @@ export const ChatItem: React.FC<ChatItemProps> = ({
     const user = item as User;
     return (
       <TouchableOpacity
-        style={styles.chatItem}
+        style={[styles.chatItem, { backgroundColor: theme.surface }]}
         onPress={onPress}
       >
         <View style={styles.avatarContainer}>
@@ -93,7 +95,7 @@ export const ChatItem: React.FC<ChatItemProps> = ({
 
     return (
       <TouchableOpacity
-        style={styles.chatItem}
+        style={[styles.chatItem, { backgroundColor: theme.surface }]}
         onPress={onPress}
         onLongPress={onLongPress}
       >
@@ -142,7 +144,7 @@ export const ChatItem: React.FC<ChatItemProps> = ({
     const chat = item as ChatPreview;
     return (
       <TouchableOpacity
-        style={styles.chatItem}
+        style={[styles.chatItem, { backgroundColor: theme.surface }]}
         onPress={onPress}
         onLongPress={onLongPress}
       >

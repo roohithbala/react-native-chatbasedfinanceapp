@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   StyleSheet,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface AddBudgetModalProps {
   visible: boolean;
@@ -33,6 +34,9 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   categories,
   categoryIcons,
 }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
+
   return (
     <Modal
       visible={visible}
@@ -40,7 +44,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
       presentationStyle="pageSheet"
     >
       <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
+        <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
           <TouchableOpacity onPress={onClose}>
             <Text style={styles.modalCancel}>Cancel</Text>
           </TouchableOpacity>
@@ -63,6 +67,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
                   key={cat}
                   style={[
                     styles.categoryChip,
+                    { backgroundColor: theme.surface },
                     category === cat && styles.categoryChipActive,
                   ]}
                   onPress={() => onCategoryChange(cat)}
@@ -86,11 +91,11 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Budget Limit</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { backgroundColor: theme.surface }]}
               value={limit}
               onChangeText={onLimitChange}
               placeholder="0.00"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={theme.textSecondary || '#94A3B8'}
               keyboardType="numeric"
             />
           </View>
@@ -100,10 +105,10 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.background || '#F8FAFC',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -112,21 +117,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: 'white',
+    borderBottomColor: theme.border || '#E2E8F0',
+    backgroundColor: theme.surface || 'white',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
   },
   modalCancel: {
     fontSize: 16,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   modalSave: {
     fontSize: 16,
-    color: '#8B5CF6',
+    color: theme.primary || '#8B5CF6',
     fontWeight: '600',
   },
   modalContent: {
@@ -138,7 +143,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     marginBottom: 8,
   },
   categoryScroll: {
@@ -147,17 +152,17 @@ const styles = StyleSheet.create({
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 20,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.border || '#E2E8F0',
   },
   categoryChipActive: {
-    backgroundColor: '#8B5CF6',
-    borderColor: '#8B5CF6',
+    backgroundColor: theme.primary || '#8B5CF6',
+    borderColor: theme.primary || '#8B5CF6',
   },
   categoryEmoji: {
     fontSize: 16,
@@ -166,19 +171,19 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   categoryTextActive: {
-    color: 'white',
+    color: theme.surface || 'white',
   },
   textInput: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    color: '#1E293B',
+    borderColor: theme.border || '#E2E8F0',
+    color: theme.text || '#1E293B',
   },
 });
 

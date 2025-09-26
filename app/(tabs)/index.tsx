@@ -35,6 +35,7 @@ export default function HomeScreen() {
     testConnectivity
   } = useFinanceStore();
   const { theme } = useTheme();
+  const styles = getStyles(theme);
 
   useEffect(() => {
     // Only load data if user is authenticated and we don't have data yet
@@ -190,7 +191,7 @@ function getCategoryIcon(category: string): string {
   return icons[category] || 'ellipsis-horizontal';
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -202,24 +203,24 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#EF4444',
+    color: theme.error,
     textAlign: 'center',
   },
   loadingText: {
     fontSize: 16,
-    color: '#64748B',
+    color: theme.textSecondary,
     marginTop: 16,
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
     marginTop: 16,
   },
   retryButtonText: {
-    color: 'white',
+    color: theme.surface,
     fontSize: 16,
     fontWeight: '600',
   },

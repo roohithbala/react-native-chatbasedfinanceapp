@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import LocationMentionInput from './LocationMentionInput';
+import { useTheme } from '../context/ThemeContext';
 
 interface MessageInputProps {
   message: string;
@@ -16,6 +17,8 @@ export default function MessageInput({
   onSendPress,
   onSplitBillPress,
 }: MessageInputProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.inputContainer}>
       <View style={styles.inputWrapper}>
@@ -23,7 +26,7 @@ export default function MessageInput({
           style={styles.moneyIcon}
           onPress={onSplitBillPress}
         >
-          <Ionicons name="cash" size={20} color="#2563EB" />
+          <Ionicons name="cash" size={20} color={theme.primary} />
         </TouchableOpacity>
         <LocationMentionInput
           style={styles.textInput}
@@ -43,7 +46,7 @@ export default function MessageInput({
           <Ionicons
             name="send"
             size={20}
-            color={message.trim() ? '#FFFFFF' : '#9CA3AF'}
+            color={message.trim() ? theme.surface : '#9CA3AF'}
           />
         </TouchableOpacity>
       </View>
@@ -51,18 +54,18 @@ export default function MessageInput({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   inputContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -71,13 +74,13 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1F2937',
+    color: theme.text,
     maxHeight: 100,
     paddingVertical: 8,
     textAlignVertical: 'center',
   },
   sendButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.primary,
     borderRadius: 20,
     width: 40,
     height: 40,
@@ -86,14 +89,14 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   sendButtonDisabled: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: theme.surfaceSecondary,
   },
   moneyIcon: {
     padding: 8,
     marginRight: 8,
     borderRadius: 16,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.surfaceSecondary,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: theme.border,
   },
 });

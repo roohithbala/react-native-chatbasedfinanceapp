@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
 
 interface Group {
   _id: string;
@@ -14,6 +15,8 @@ interface GroupsListProps {
 }
 
 export default function GroupsList({ groups }: GroupsListProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -30,7 +33,7 @@ export default function GroupsList({ groups }: GroupsListProps) {
             onPress={() => router.push('/(tabs)/chats')}
           >
             <View style={styles.groupIcon}>
-              <Ionicons name="people" size={20} color="#2563EB" />
+              <Ionicons name="people" size={20} color={theme.primary} />
             </View>
             <View style={styles.groupDetails}>
               <Text style={styles.groupName}>{group.name}</Text>
@@ -38,12 +41,12 @@ export default function GroupsList({ groups }: GroupsListProps) {
                 {group.members.length} members
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
+            <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
           </TouchableOpacity>
         ))
       ) : (
         <View style={styles.emptyState}>
-          <Ionicons name="people-outline" size={32} color="#CBD5E1" />
+          <Ionicons name="people-outline" size={32} color={theme.textTertiary} />
           <Text style={styles.emptyStateText}>No groups yet</Text>
         </View>
       )}
@@ -51,7 +54,7 @@ export default function GroupsList({ groups }: GroupsListProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   section: {
     marginBottom: 24,
     paddingHorizontal: 20,
@@ -65,17 +68,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text,
   },
   seeAllButton: {
     fontSize: 14,
-    color: '#2563EB',
+    color: theme.primary,
     fontWeight: '600',
   },
   groupItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: theme.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
@@ -89,7 +92,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.primary + '20', // 20% opacity
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -100,12 +103,12 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 2,
   },
   groupMembers: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary,
   },
   emptyState: {
     alignItems: 'center',
@@ -113,7 +116,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary,
     marginTop: 8,
   },
 });

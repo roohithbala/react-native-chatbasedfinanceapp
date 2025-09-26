@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTheme } from '../app/context/ThemeContext';
 
 interface AuthTabSwitcherProps {
   isLogin: boolean;
@@ -10,23 +11,24 @@ export const AuthTabSwitcher: React.FC<AuthTabSwitcherProps> = ({
   isLogin,
   onSwitchMode
 }) => {
+  const { theme } = useTheme();
   return (
-    <View style={styles.tabContainer}>
+    <View style={[styles.tabContainer, { backgroundColor: theme.surfaceSecondary }]}>
       <TouchableOpacity
-        style={[styles.tab, isLogin && styles.activeTab]}
+        style={[styles.tab, isLogin && [styles.activeTab, { backgroundColor: theme.surface }]]}
         onPress={() => !isLogin && onSwitchMode()}
         activeOpacity={0.8}
       >
-        <Text style={[styles.tabText, isLogin && styles.activeTabText]}>
+        <Text style={[styles.tabText, isLogin && [styles.activeTabText, { color: theme.primary }]]}>
           Sign In
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.tab, !isLogin && styles.activeTab]}
+        style={[styles.tab, !isLogin && [styles.activeTab, { backgroundColor: theme.surface }]]}
         onPress={() => isLogin && onSwitchMode()}
         activeOpacity={0.8}
       >
-        <Text style={[styles.tabText, !isLogin && styles.activeTabText]}>
+        <Text style={[styles.tabText, !isLogin && [styles.activeTabText, { color: theme.primary }]]}>
           Sign Up
         </Text>
       </TouchableOpacity>

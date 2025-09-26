@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 const menuItems = [
   {
@@ -46,6 +47,8 @@ interface AccountSectionProps {
 }
 
 export const AccountSection: React.FC<AccountSectionProps> = ({ onMenuAction }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const handleMenuPress = (action: string) => {
     switch (action) {
       case 'paymentMethods':
@@ -68,17 +71,17 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ onMenuAction }) 
       {menuItems.map((item, index) => (
         <TouchableOpacity
           key={index}
-          style={styles.menuItem}
+          style={[styles.menuItem, { backgroundColor: theme.surface }]}
           onPress={() => handleMenuPress(item.action)}
         >
           <View style={styles.menuIcon}>
-            <Ionicons name={item.icon as any} size={24} color="#64748B" />
+            <Ionicons name={item.icon as any} size={24} color={theme.textSecondary} />
           </View>
           <View style={styles.menuContent}>
             <Text style={styles.menuTitle}>{item.title}</Text>
             <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+          <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
         </TouchableOpacity>
       ))}
     </View>
@@ -87,14 +90,14 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ onMenuAction }) 
 
 export default AccountSection;
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   section: {
     marginBottom: 32,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 16,
   },
   menuItem: {
@@ -114,7 +117,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -125,11 +128,11 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 4,
   },
   menuSubtitle: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary,
   },
 });

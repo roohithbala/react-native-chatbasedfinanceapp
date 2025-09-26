@@ -23,6 +23,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { directMessagesAPI } from '@/lib/services/api';
 import { useFinanceStore } from '../../lib/store/financeStore';
 import { CommandParser } from '../../lib/components/CommandParser';
+import { useTheme } from '../context/ThemeContext';
+import MessageInput from '../components/MessageInput';
 
 interface Message {
   _id: string;
@@ -46,6 +48,8 @@ interface Message {
 export default function ChatDetailScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const { currentUser } = useFinanceStore();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -198,7 +202,7 @@ export default function ChatDetailScreen() {
       }
 
       // Send confirmation message with proper details
-      const confirmationMessage = `✅ Split bill created!\n📝 ${description}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / 2).toFixed(2)}\n💸 You paid your share - ${otherUser?.name || 'Friend'} owes you ₹${((data.amount || 0) / 2).toFixed(2)}`;
+      const confirmationMessage = `✅ Split bill created!\n📝 ${description}\n💰 Total: $${(data.amount || 0).toFixed(2)}\n🤝 Each pays: $${((data.amount || 0) / 2).toFixed(2)}\n💸 You paid your share - ${otherUser?.name || 'Friend'} owes you $${((data.amount || 0) / 2).toFixed(2)}`;
 
       try {
         const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage);
@@ -240,7 +244,7 @@ export default function ChatDetailScreen() {
       await addExpense(expenseData);
 
       // Send confirmation message
-      const confirmationMessage = `✅ Expense added!\n📝 ${data.description}\n💰 Amount: ₹${(data.amount || 0).toFixed(2)}\n📂 Category: ${data.category}`;
+      const confirmationMessage = `✅ Expense added!\n📝 ${data.description}\n💰 Amount: $${(data.amount || 0).toFixed(2)}\n📂 Category: ${data.category}`;
       const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage);
       setMessages(prev => [...prev, sent]);
 
@@ -364,7 +368,7 @@ export default function ChatDetailScreen() {
       }
 
       // Send confirmation message
-      const confirmationMessage = `✅ Split bill created!\n📝 ${splitBillData.description.trim()}\n💰 Total: ₹${amount.toFixed(2)}\n🤝 Each pays: ₹${amountPerPerson.toFixed(2)}\n👥 Split with: ${otherUser?.name || 'Friend'}\n💾 Data saved to database`;
+      const confirmationMessage = `✅ Split bill created!\n📝 ${splitBillData.description.trim()}\n💰 Total: $${amount.toFixed(2)}\n🤝 Each pays: $${amountPerPerson.toFixed(2)}\n👥 Split with: ${otherUser?.name || 'Friend'}\n💾 Data saved to database`;
 
       const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage);
       setMessages(prev => [...prev, sent]);
@@ -505,45 +509,12 @@ export default function ChatDetailScreen() {
           }
         />
 
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
-            <TouchableOpacity style={styles.attachButton}>
-              <Ionicons name="add-circle" size={24} color="#6366F1" />
-            </TouchableOpacity>
-
-            <TextInput
-              style={styles.input}
-              value={newMessage}
-              onChangeText={setNewMessage}
-              placeholder="Type a message..."
-              placeholderTextColor="#94A3B8"
-              multiline
-              maxLength={1000}
-            />
-
-            <TouchableOpacity
-              style={styles.splitBillButton}
-              onPress={startSplitBill}
-            >
-              <Ionicons name="cash" size={20} color="#6366F1" />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              !newMessage.trim() && styles.sendButtonDisabled,
-            ]}
-            onPress={handleSend}
-            disabled={!newMessage.trim()}
-          >
-            <Ionicons
-              name="send"
-              size={20}
-              color={newMessage.trim() ? 'white' : '#CBD5E1'}
-            />
-          </TouchableOpacity>
-        </View>
+        <MessageInput
+          message={newMessage}
+          onMessageChange={setNewMessage}
+          onSendPress={handleSend}
+          onSplitBillPress={startSplitBill}
+        />
       </KeyboardAvoidingView>
 
       {/* Split Bill Modal */}
@@ -586,7 +557,7 @@ export default function ChatDetailScreen() {
                     value={splitBillData.description}
                     onChangeText={(text) => setSplitBillData(prev => ({ ...prev, description: text }))}
                     placeholder="What are you splitting?"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={theme.textSecondary}
                     maxLength={100}
                   />
                 </View>
@@ -594,7 +565,7 @@ export default function ChatDetailScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>💰 Amount</Text>
                   <View style={styles.amountInputContainer}>
-                    <Text style={styles.currencySymbol}>₹</Text>
+                    <Text style={styles.currencySymbol}>{theme.currency}</Text>
                     <TextInput
                       style={styles.amountInput}
                       value={splitBillData.amount}
@@ -606,7 +577,7 @@ export default function ChatDetailScreen() {
                         setSplitBillData(prev => ({ ...prev, amount: cleaned }));
                       }}
                       placeholder="0.00"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={theme.textSecondary}
                       keyboardType="decimal-pad"
                       maxLength={10}
                     />
@@ -616,17 +587,17 @@ export default function ChatDetailScreen() {
                 {splitBillData.amount && (
                   <View style={styles.splitPreview}>
                     <View style={styles.previewHeader}>
-                      <Ionicons name="receipt" size={20} color="#6366F1" />
+                      <Ionicons name="receipt" size={20} color={theme.primary} />
                       <Text style={styles.previewTitle}>Split Preview</Text>
                     </View>
                     <View style={styles.previewContent}>
                       <View style={styles.previewRow}>
                         <Text style={styles.previewLabel}>Total Amount:</Text>
-                        <Text style={styles.previewValue}>₹{parseFloat(splitBillData.amount) || 0}</Text>
+                        <Text style={styles.previewValue}>{theme.currency}{parseFloat(splitBillData.amount) || 0}</Text>
                       </View>
                       <View style={styles.previewRow}>
                         <Text style={styles.previewLabel}>Each Person Pays:</Text>
-                        <Text style={styles.previewValue}>₹{((parseFloat(splitBillData.amount) || 0) / 2).toFixed(2)}</Text>
+                        <Text style={styles.previewValue}>{theme.currency}{((parseFloat(splitBillData.amount) || 0) / 2).toFixed(2)}</Text>
                       </View>
                       <View style={styles.previewRow}>
                         <Text style={styles.previewLabel}>Split With:</Text>
@@ -644,10 +615,10 @@ export default function ChatDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.background,
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
@@ -721,7 +692,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.background,
   },
   messageList: {
     padding: 16,
@@ -745,7 +716,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -754,7 +725,7 @@ const styles = StyleSheet.create({
   otherAvatarText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.text,
   },
   messageBubble: {
     padding: 14,
@@ -769,14 +740,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   ownBubble: {
-    backgroundColor: '#6366F1',
+    backgroundColor: theme.primary,
     borderBottomRightRadius: 4,
   },
   otherBubble: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface,
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.border,
   },
   messageText: {
     fontSize: 16,
@@ -784,10 +755,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   ownMessageText: {
-    color: 'white',
+    color: theme.surface,
   },
   otherMessageText: {
-    color: '#1E293B',
+    color: theme.text,
   },
   messageTime: {
     fontSize: 11,
@@ -798,7 +769,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   otherMessageTime: {
-    color: '#94A3B8',
+    color: theme.textSecondary,
     alignSelf: 'flex-end',
   },
   inputContainer: {
@@ -806,22 +777,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: 'white',
+    backgroundColor: theme.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: theme.border,
     paddingBottom: Platform.OS === 'ios' ? 34 : 12,
   },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 25,
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.border,
   },
   attachButton: {
     marginRight: 8,
@@ -831,7 +802,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     maxHeight: 100,
-    color: '#1E293B',
+    color: theme.text,
     paddingVertical: 4,
   },
   splitBillButton: {
@@ -842,10 +813,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#6366F1',
+    backgroundColor: theme.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#6366F1',
+    shadowColor: theme.primary,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -855,7 +826,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   sendButtonDisabled: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.surfaceSecondary,
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -869,23 +840,23 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
+    borderColor: theme.border,
   },
   emptyText: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 16,
-    color: '#64748B',
+    color: theme.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -928,7 +899,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface,
     borderRadius: 20,
     padding: 24,
     shadowColor: '#000',
@@ -946,30 +917,30 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    color: '#1E293B',
+    borderColor: theme.border,
+    color: theme.text,
   },
   amountInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.border,
   },
   currencySymbol: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#6366F1',
+    color: theme.primary,
     paddingLeft: 16,
     paddingRight: 8,
   },
@@ -978,14 +949,14 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text,
   },
   splitPreview: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: theme.surfaceSecondary,
     padding: 20,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: theme.border,
   },
   previewHeader: {
     flexDirection: 'row',
@@ -995,7 +966,7 @@ const styles = StyleSheet.create({
   previewTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
     marginLeft: 8,
   },
   previewContent: {
@@ -1008,11 +979,11 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary,
   },
   previewValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
   },
 });

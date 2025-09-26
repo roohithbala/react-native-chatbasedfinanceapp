@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 interface ProfileHeaderProps {
   currentUser: any;
@@ -15,12 +16,14 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   totalSplitBills,
   groupsCount,
 }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
-    <LinearGradient colors={['#2563EB', '#3B82F6']} style={styles.header}>
+    <LinearGradient colors={[theme.primary, theme.primaryLight]} style={styles.header}>
       <View style={styles.profileSection}>
         <View style={styles.avatarContainer}>
           <LinearGradient
-            colors={['#FFFFFF', '#F1F5F9']}
+            colors={[theme.surface, theme.surfaceSecondary]}
             style={styles.avatarGradient}
           >
             <Text style={styles.avatarText}>
@@ -36,7 +39,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>₹{totalExpenses.toFixed(2)}</Text>
+          <Text style={styles.statValue}>{theme.currency}{totalExpenses.toFixed(2)}</Text>
           <Text style={styles.statLabel}>Total Spent</Text>
         </View>
         <View style={styles.statDivider} />
@@ -54,7 +57,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   header: {
     paddingTop: 20,
     paddingHorizontal: 20,
@@ -80,7 +83,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2563EB',
+    color: theme.primary,
   },
   userInfo: {
     flex: 1,
@@ -88,16 +91,16 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
+    color: theme.surface,
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.surfaceSecondary,
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: theme.surface + '40', // 40% opacity
     borderRadius: 16,
     padding: 16,
   },
@@ -108,16 +111,16 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: 'white',
+    color: theme.surface,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.surfaceSecondary,
   },
   statDivider: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: theme.surfaceSecondary + '60', // 60% opacity
     marginHorizontal: 16,
   },
 });

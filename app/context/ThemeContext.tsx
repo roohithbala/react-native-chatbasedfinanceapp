@@ -47,6 +47,9 @@ export interface ThemeColors {
   // Modal colors
   modalBackground: string;
   modalOverlay: string;
+
+  // Currency
+  currency: string;
 }
 
 const lightTheme: ThemeColors = {
@@ -83,6 +86,8 @@ const lightTheme: ThemeColors = {
 
   modalBackground: '#FFFFFF',
   modalOverlay: 'rgba(0, 0, 0, 0.5)',
+
+  currency: '₹',
 };
 
 const darkTheme: ThemeColors = {
@@ -119,6 +124,8 @@ const darkTheme: ThemeColors = {
 
   modalBackground: '#1E293B',
   modalOverlay: 'rgba(0, 0, 0, 0.7)',
+
+  currency: '₹',
 };
 
 export interface ThemeContextType {

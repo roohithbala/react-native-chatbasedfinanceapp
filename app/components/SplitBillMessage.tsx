@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SplitBillData } from '../types/chat';
+import { useTheme } from '../context/ThemeContext';
 
 interface SplitBillMessageProps {
   splitBillData: SplitBillData;
@@ -16,6 +17,7 @@ export default function SplitBillMessage({
   onPayBill,
   onViewDetails
 }: SplitBillMessageProps) {
+  const { theme } = useTheme();
   const userParticipant = splitBillData.participants.find(p => p.userId === currentUserId);
   const isPaid = userParticipant?.isPaid || false;
   const userShare = userParticipant?.amount || 0;
@@ -31,10 +33,10 @@ export default function SplitBillMessage({
 
       <View style={styles.amountContainer}>
         <Text style={styles.totalAmount}>
-          Total: ₹{splitBillData.totalAmount.toFixed(2)}
+          Total: {theme.currency}{splitBillData.totalAmount.toFixed(2)}
         </Text>
         <Text style={styles.userShare}>
-          Your share: ₹{userShare.toFixed(2)}
+          Your share: {theme.currency}{userShare.toFixed(2)}
         </Text>
       </View>
 
@@ -68,7 +70,7 @@ export default function SplitBillMessage({
             style={[styles.actionButton, styles.payButton]}
             onPress={() => onPayBill(splitBillData.splitBillId)}
           >
-            <Text style={styles.payButtonText}>Pay ₹{userShare.toFixed(2)}</Text>
+            <Text style={styles.payButtonText}>Pay {theme.currency}{userShare.toFixed(2)}</Text>
           </TouchableOpacity>
         )}
 

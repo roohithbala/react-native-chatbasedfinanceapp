@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useGroupContext } from '../context/GroupContext';
 import { useFinanceStore } from '@/lib/store/financeStore';
+import { useTheme } from '../context/ThemeContext';
 
 interface SplitBillModalProps {
   visible: boolean;
@@ -33,6 +34,8 @@ export default function SplitBillModal({
   const { groupMembers: contextGroupMembers } = useGroupContext();
   const groupMembers = propGroupMembers || contextGroupMembers;
   const { createSplitBill, currentUser } = useFinanceStore();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -155,7 +158,7 @@ export default function SplitBillModal({
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#6B7280" />
+            <Ionicons name="close" size={24} color={theme.textSecondary || '#6B7280'} />
           </TouchableOpacity>
           <Text style={styles.title}>Create Split Bill</Text>
           <View style={styles.headerSpacer} />
@@ -165,13 +168,13 @@ export default function SplitBillModal({
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Description</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="document-text" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons name="document-text" size={20} color={theme.textSecondary || '#9CA3AF'} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={description}
                 onChangeText={setDescription}
                 placeholder="What is this bill for?"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={theme.textSecondary || '#9CA3AF'}
               />
             </View>
           </View>
@@ -179,13 +182,13 @@ export default function SplitBillModal({
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Total Amount</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="cash" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons name="cash" size={20} color={theme.textSecondary || '#9CA3AF'} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={amount}
                 onChangeText={setAmount}
                 placeholder="0.00"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={theme.textSecondary || '#9CA3AF'}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -213,7 +216,7 @@ export default function SplitBillModal({
                   <Text style={styles.memberName}>{member.name}</Text>
                 </View>
                 {selectedMembers.has(member.userId) && (
-                  <Ionicons name="checkmark-circle" size={24} color="#2563EB" />
+                  <Ionicons name="checkmark-circle" size={24} color={theme.primary || '#2563EB'} />
                 )}
               </TouchableOpacity>
             ))}
@@ -236,10 +239,10 @@ export default function SplitBillModal({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface || '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -248,7 +251,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: theme.border || '#E5E7EB',
   },
   closeButton: {
     padding: 8,
@@ -256,7 +259,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: theme.text || '#1F2937',
   },
   headerSpacer: {
     width: 40,
@@ -271,18 +274,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#374151',
+    color: theme.text || '#374151',
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: theme.border || '#D1D5DB',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.surfaceSecondary || '#F9FAFB',
   },
   inputIcon: {
     marginRight: 12,
@@ -290,14 +293,14 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#1F2937',
+    color: theme.text || '#1F2937',
   },
   membersSection: {
     marginBottom: 24,
   },
   splitAmount: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary || '#6B7280',
     marginBottom: 16,
   },
   memberItem: {
@@ -306,14 +309,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: theme.border || '#E5E7EB',
     borderRadius: 8,
     marginBottom: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface || '#FFFFFF',
   },
   memberItemSelected: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
+    borderColor: theme.primary || '#2563EB',
+    backgroundColor: theme.surfaceSecondary || '#EFF6FF',
   },
   memberInfo: {
     flexDirection: 'row',
@@ -323,7 +326,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: theme.surfaceSecondary || '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -331,28 +334,28 @@ const styles = StyleSheet.create({
   memberInitial: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: theme.textSecondary || '#6B7280',
   },
   memberName: {
     fontSize: 16,
-    color: '#1F2937',
+    color: theme.text || '#1F2937',
   },
   footer: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.border || '#E5E7EB',
   },
   createButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.primary || '#2563EB',
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
   },
   createButtonDisabled: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: theme.textSecondary || '#9CA3AF',
   },
   createButtonText: {
-    color: '#FFFFFF',
+    color: theme.surface || '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },

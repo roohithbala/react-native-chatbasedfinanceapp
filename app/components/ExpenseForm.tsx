@@ -18,6 +18,7 @@ import PaymentMethodSelector from './PaymentMethodSelector';
 import DatePicker from './DatePicker';
 import RecurringExpenseToggle from './RecurringExpenseToggle';
 import TagsInput from './TagsInput';
+import { useTheme } from '../context/ThemeContext';
 
 interface ExpenseFormProps {
   visible: boolean;
@@ -36,6 +37,8 @@ export default function ExpenseForm({
   initialData,
   isEdit = false
 }: ExpenseFormProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [description, setDescription] = useState(initialData?.description || '');
   const [amount, setAmount] = useState(initialData?.amount?.toString() || '');
   const [category, setCategory] = useState(initialData?.category || 'Food');
@@ -175,7 +178,7 @@ export default function ExpenseForm({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
             <TouchableOpacity onPress={handleClose}>
               <Text style={styles.modalCancel}>Cancel</Text>
             </TouchableOpacity>
@@ -257,10 +260,10 @@ export default function ExpenseForm({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -269,27 +272,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: 'white',
+    borderBottomColor: theme.border || '#E2E8F0',
+    backgroundColor: theme.surface || 'white',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
   },
   modalCancel: {
     fontSize: 16,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   modalSave: {
     fontSize: 16,
-    color: '#2563EB',
+    color: theme.primary || '#2563EB',
     fontWeight: '600',
   },
   modalContent: {
     padding: 20,
   },
   disabledText: {
-    color: '#94A3B8',
+    color: theme.textSecondary || '#94A3B8',
   },
 });

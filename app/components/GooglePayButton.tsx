@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import googlePayService, { GooglePayPaymentData } from '@/lib/services/googlePayService';
+import { useTheme } from '../context/ThemeContext';
 
 interface GooglePayButtonProps {
   amount: number;
@@ -41,6 +42,7 @@ export const GooglePayButton: React.FC<GooglePayButtonProps> = ({
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
+  const { theme } = useTheme();
 
   useEffect(() => {
     checkAvailability();
@@ -77,7 +79,7 @@ export const GooglePayButton: React.FC<GooglePayButtonProps> = ({
       if (result.success) {
         Alert.alert(
           'Payment Successful',
-          `Payment of ₹${amount.toFixed(2)} completed successfully!`,
+          `Payment of ${theme.currency}${amount.toFixed(2)} completed successfully!`,
           [
             {
               text: 'OK',

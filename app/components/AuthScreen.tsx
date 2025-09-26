@@ -31,6 +31,7 @@ export default function AuthScreen() {
 
   const { login, register, biometricLogin, isLoading: storeLoading, error, clearError } = useFinanceStore();
   const { theme } = useTheme();
+  const styles = getStyles(theme);
 
   useEffect(() => {
     checkBiometricStatus();
@@ -100,7 +101,7 @@ export default function AuthScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#6366f1', '#8b5cf6', '#ec4899']}
+        colors={[theme.primary, theme.primaryLight, theme.primaryDark]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.backgroundGradient}
@@ -126,20 +127,20 @@ export default function AuthScreen() {
           <View style={[styles.formContainer, { backgroundColor: theme.surface }]}>
             <View style={[styles.tabContainer, { backgroundColor: theme.surfaceSecondary }]}>
               <TouchableOpacity
-                style={[styles.tab, isLogin && styles.activeTab]}
+                style={[styles.tab, isLogin && [styles.activeTab, { backgroundColor: theme.surface }]]}
                 onPress={() => setIsLogin(true)}
                 disabled={isLoading || storeLoading}
               >
-                <Text style={[styles.tabText, isLogin && styles.activeTabText]}>
+                <Text style={[styles.tabText, isLogin && [styles.activeTabText, { color: theme.primary }]]}>
                   Login
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.tab, !isLogin && styles.activeTab]}
+                style={[styles.tab, !isLogin && [styles.activeTab, { backgroundColor: theme.surface }]]}
                 onPress={() => setIsLogin(false)}
                 disabled={isLoading || storeLoading}
               >
-                <Text style={[styles.tabText, !isLogin && styles.activeTabText]}>
+                <Text style={[styles.tabText, !isLogin && [styles.activeTabText, { color: theme.primary }]]}>
                   Sign Up
                 </Text>
               </TouchableOpacity>
@@ -149,8 +150,8 @@ export default function AuthScreen() {
               {!isLogin && (
                 <>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Full Name</Text>
-                    <View style={styles.inputWrapper}>
+                    <Text style={[styles.inputLabel, { color: theme.text }]}>Full Name</Text>
+                    <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
                       <TextInput
                         style={styles.textInput}
                         value={name}
@@ -162,10 +163,10 @@ export default function AuthScreen() {
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Username</Text>
-                    <View style={styles.inputWrapper}>
+                    <Text style={[styles.inputLabel, { color: theme.text }]}>Username</Text>
+                    <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
                       <TextInput
-                        style={styles.textInput}
+                        style={[styles.textInput, { color: theme.text }]}
                         value={username}
                         onChangeText={setUsername}
                         placeholder="Choose a username"
@@ -175,10 +176,10 @@ export default function AuthScreen() {
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>UPI ID</Text>
-                    <View style={styles.inputWrapper}>
+                    <Text style={[styles.inputLabel, { color: theme.text }]}>UPI ID</Text>
+                    <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
                       <TextInput
-                        style={styles.textInput}
+                        style={[styles.textInput, { color: theme.text }]}
                         value={upiId}
                         onChangeText={setUpiId}
                         placeholder="Enter your UPI ID (e.g., user@paytm)"
@@ -191,10 +192,10 @@ export default function AuthScreen() {
               )}
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Email Address</Text>
-                <View style={styles.inputWrapper}>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Email Address</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
                   <TextInput
-                    style={styles.textInput}
+                    style={[styles.textInput, { color: theme.text }]}
                     value={email}
                     onChangeText={setEmail}
                     placeholder="Enter your email"
@@ -205,10 +206,10 @@ export default function AuthScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Password</Text>
-                <View style={styles.inputWrapper}>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Password</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
                   <TextInput
-                    style={styles.textInput}
+                    style={[styles.textInput, { color: theme.text }]}
                     value={password}
                     onChangeText={setPassword}
                     placeholder="Enter your password"
@@ -223,12 +224,12 @@ export default function AuthScreen() {
                 disabled={isLoading || storeLoading}
               >
                 <LinearGradient
-                  colors={['#6366f1', '#8b5cf6']}
+                  colors={[theme.primary, theme.primaryLight]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.submitGradient}
                 >
-                  <Text style={styles.submitText}>
+                  <Text style={[styles.submitText, { color: theme.text }]}>
                     {isLoading || storeLoading ? 'Loading...' : (isLogin ? 'Login' : 'Sign Up')}
                   </Text>
                 </LinearGradient>
@@ -248,7 +249,7 @@ export default function AuthScreen() {
                     disabled={isLoading || storeLoading}
                   >
                     <LinearGradient
-                      colors={['#10B981', '#059669']}
+                      colors={[theme.success, theme.success]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.biometricGradient}
@@ -256,9 +257,9 @@ export default function AuthScreen() {
                       <Ionicons
                         name={biometricType === 'fingerprint' ? 'finger-print' : biometricType === 'facial' ? 'person' : 'eye'}
                         size={24}
-                        color="white"
+                        color={theme.text}
                       />
-                      <Text style={styles.biometricText}>
+                      <Text style={[styles.biometricText, { color: theme.text }]}>
                         {biometricType === 'fingerprint' ? 'Use Fingerprint' :
                          biometricType === 'facial' ? 'Use Face ID' :
                          biometricType === 'iris' ? 'Use Iris' : 'Use Biometric'}
@@ -273,9 +274,9 @@ export default function AuthScreen() {
                 onPress={() => setIsLogin(!isLogin)}
                 disabled={isLoading || storeLoading}
               >
-                <Text style={styles.switchModeText}>
+                <Text style={[styles.switchModeText, { color: theme.textSecondary }]}>
                   {isLogin ? "Don't have an account? " : "Already have an account? "}
-                  <Text style={styles.switchModeLink}>
+                  <Text style={[styles.switchModeLink, { color: theme.primary }]}>
                     {isLogin ? 'Sign Up' : 'Login'}
                   </Text>
                 </Text>
@@ -288,10 +289,10 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f23',
+    backgroundColor: theme.background,
   },
   backgroundGradient: {
     position: 'absolute',
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: '700',
-    color: 'white',
+    color: theme.text,
     marginBottom: 12,
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
     fontWeight: '400',
@@ -342,6 +343,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 10,
+    backgroundColor: theme.surface,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -353,6 +355,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    backgroundColor: theme.surfaceSecondary,
   },
   tab: {
     flex: 1,
@@ -361,8 +364,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   activeTab: {
-    backgroundColor: 'white',
-    shadowColor: '#6366f1',
+    backgroundColor: theme.surface,
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -371,10 +374,10 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#64748b',
+    color: theme.textSecondary,
   },
   activeTabText: {
-    color: '#6366f1',
+    color: theme.primary,
     fontWeight: '700',
   },
   form: {
@@ -386,16 +389,16 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1e293b',
+    color: theme.text,
     marginLeft: 4,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: theme.surface,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderColor: theme.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -407,14 +410,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#1e293b',
+    color: theme.text,
     fontWeight: '500',
   },
   submitButton: {
     marginTop: 8,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#6366f1',
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -439,11 +442,11 @@ const styles = StyleSheet.create({
   },
   switchModeText: {
     fontSize: 16,
-    color: '#64748b',
+    color: theme.textSecondary,
     fontWeight: '500',
   },
   switchModeLink: {
-    color: '#6366f1',
+    color: theme.primary,
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
@@ -460,18 +463,18 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: theme.border,
   },
   dividerText: {
     paddingHorizontal: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.textSecondary,
     fontSize: 14,
     fontWeight: '500',
   },
   biometricButton: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#10B981',
+    shadowColor: theme.success,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,

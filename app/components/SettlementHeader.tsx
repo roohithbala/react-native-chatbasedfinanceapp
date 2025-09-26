@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import SettlementStats from './SettlementStats';
+import { useTheme } from '../context/ThemeContext';
 
 interface SettlementStatsData {
   awaiting: number;
@@ -15,8 +16,10 @@ interface SettlementHeaderProps {
 }
 
 export default function SettlementHeader({ stats }: SettlementHeaderProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
-    <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.header}>
+    <LinearGradient colors={[theme.primary, theme.primaryDark]} style={styles.header}>
       <Text style={styles.headerTitle}>💰 Settlement Tracker</Text>
       <Text style={styles.headerSubtitle}>Track your split bill payments</Text>
       <SettlementStats stats={stats} />
@@ -24,7 +27,7 @@ export default function SettlementHeader({ stats }: SettlementHeaderProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   header: {
     paddingTop: 20,
     paddingHorizontal: 20,
@@ -35,12 +38,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: 'white',
+    color: theme.surface,
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.surfaceSecondary,
     marginBottom: 20,
   },
 });

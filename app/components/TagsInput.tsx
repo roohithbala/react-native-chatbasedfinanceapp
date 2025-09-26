@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface TagsInputProps {
   value: string;
@@ -7,11 +8,13 @@ interface TagsInputProps {
 }
 
 export default function TagsInput({ value, onChangeText }: TagsInputProps) {
+  const { theme } = useTheme();
+
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>🏷️ Tags (Optional)</Text>
       <TextInput
-        style={styles.textInput}
+        style={[styles.textInput, { backgroundColor: theme.surface }]}
         value={value}
         onChangeText={onChangeText}
         placeholder="Add tags separated by commas (e.g., lunch, work, urgent)"

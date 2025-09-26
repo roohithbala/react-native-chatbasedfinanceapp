@@ -19,6 +19,7 @@ import PaymentsAPI from '@/lib/services/paymentsAPI';
 import { CommandParser } from '@/lib/components/CommandParser';
 import { Message } from '@/app/types/chat';
 import { GroupProvider } from '../context/GroupContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function GroupChatScreen() {
   const { groupId, groupName } = useLocalSearchParams<{
@@ -30,6 +31,8 @@ export default function GroupChatScreen() {
   const validGroupId = groupId && groupId !== 'undefined' && groupId !== 'null' && groupId.trim() !== '' ? groupId : null;
 
   const { currentUser } = useFinanceStore();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
 
   // Use the custom hooks
   const {
@@ -163,7 +166,7 @@ export default function GroupChatScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
-          <Text style={styles.errorText}>Please log in to access chat</Text>
+          <Text style={[styles.errorText, { color: theme.error || '#EF4444' }]}>Please log in to access chat</Text>
         </View>
       </SafeAreaView>
     );
@@ -173,8 +176,8 @@ export default function GroupChatScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
-          <Text style={styles.noGroupTitle}>Group Not Found</Text>
-          <Text style={styles.noGroupText}>
+          <Text style={[styles.noGroupTitle, { color: theme.text }]}>Group Not Found</Text>
+          <Text style={[styles.noGroupText, { color: theme.textSecondary || '#6B7280' }]}>
             The group you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
           </Text>
         </View>
@@ -218,6 +221,9 @@ export default function GroupChatScreen() {
             </TouchableOpacity>
 
             <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.headerButton} onPress={() => router.push(`/group-stats?groupId=${validGroupId}&groupName=${encodeURIComponent(groupName || activeGroup?.name || 'Group Chat')}`)}>
+                <Ionicons name="stats-chart" size={20} color="white" />
+              </TouchableOpacity>
               <TouchableOpacity style={styles.headerButton}>
                 <Ionicons name="call" size={20} color="white" />
               </TouchableOpacity>
@@ -243,13 +249,13 @@ export default function GroupChatScreen() {
         >
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading messages...</Text>
+              <Text style={[styles.loadingText, { color: theme.textSecondary || '#6B7280' }]}>Loading messages...</Text>
             </View>
           ) : messages.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="chatbubble-ellipses" size={64} color="#CBD5E1" style={styles.emptyIcon} />
-              <Text style={styles.emptyTitle}>No messages yet</Text>
-              <Text style={styles.emptySubtitle}>Start the conversation!</Text>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>No messages yet</Text>
+              <Text style={[styles.emptySubtitle, { color: theme.textSecondary || '#64748B' }]}>Start the conversation!</Text>
             </View>
           ) : (
             messages.map((msg, index) => renderMessage(msg, index))
@@ -267,18 +273,18 @@ export default function GroupChatScreen() {
         <TypingIndicator typingUsers={typingUsers} />
 
         {/* Input */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
+        <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderTopColor: theme.border || '#E2E8F0' }]}>
+          <View style={[styles.inputWrapper, { backgroundColor: theme.surfaceSecondary || '#F8FAFC', borderColor: theme.border || '#E2E8F0' }]}>
             <TouchableOpacity style={styles.attachButton}>
-              <Ionicons name="add-circle" size={24} color="#6366F1" />
+              <Ionicons name="add-circle" size={24} color={theme.primary || "#6366F1"} />
             </TouchableOpacity>
 
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: theme.text }]}
               value={message}
               onChangeText={handleMessageChange}
               placeholder="Type a message..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={theme.textSecondary || "#94A3B8"}
               multiline
               maxLength={1000}
             />
@@ -305,14 +311,14 @@ export default function GroupChatScreen() {
                 setShowSplitBillModal(true);
               }}
             >
-              <Ionicons name="cash" size={20} color="#6366F1" />
+              <Ionicons name="cash" size={20} color={theme.primary || "#6366F1"} />
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
             style={[
-              styles.sendButton,
-              !message.trim() && styles.sendButtonDisabled,
+              [styles.sendButton, { backgroundColor: theme.primary || '#6366F1', shadowColor: theme.primary || '#6366F1' }],
+              !message.trim() && [styles.sendButtonDisabled, { backgroundColor: theme.surfaceSecondary || '#E2E8F0' }],
             ]}
             onPress={handleSendMessage}
             disabled={!message.trim()}
@@ -320,7 +326,7 @@ export default function GroupChatScreen() {
             <Ionicons
               name="send"
               size={20}
-              color={message.trim() ? 'white' : '#CBD5E1'}
+              color={message.trim() ? theme.surface || 'white' : '#CBD5E1'}
             />
           </TouchableOpacity>
         </View>
@@ -362,10 +368,10 @@ export default function GroupChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.background,
   },
   centerContent: {
     flex: 1,
@@ -380,12 +386,12 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: theme.textSecondary,
   },
   mentionsContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.border,
     maxHeight: 200,
   },
   mentionsList: {
@@ -401,7 +407,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -409,7 +415,7 @@ const styles = StyleSheet.create({
   mentionAvatarText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#4B5563',
+    color: theme.text,
   },
   mentionInfo: {
     flex: 1,
@@ -417,32 +423,32 @@ const styles = StyleSheet.create({
   mentionName: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1F2937',
+    color: theme.text,
   },
   mentionUsername: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary,
   },
   errorText: {
     fontSize: 16,
-    color: '#EF4444',
+    color: theme.error,
     textAlign: 'center',
   },
   noGroupTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: theme.text,
     marginTop: 16,
     marginBottom: 8,
   },
   noGroupText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: theme.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
   },
   backButtonText: {
-    color: '#FFFFFF',
+    color: theme.surface,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -514,23 +520,23 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   commandHelper: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.border,
   },
   commandChip: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.surfaceSecondary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: theme.border,
   },
   commandChipText: {
-    color: '#2563EB',
+    color: theme.primary,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -539,22 +545,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: 'white',
+    backgroundColor: theme.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: theme.border,
     paddingBottom: Platform.OS === 'ios' ? 34 : 12,
   },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 25,
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.border,
   },
   attachButton: {
     marginRight: 8,
@@ -564,7 +570,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     maxHeight: 100,
-    color: '#1E293B',
+    color: theme.text,
     paddingVertical: 4,
   },
   splitBillButton: {
@@ -575,10 +581,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#6366F1',
+    backgroundColor: theme.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#6366F1',
+    shadowColor: theme.primary,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -588,7 +594,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   sendButtonDisabled: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.surfaceSecondary,
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -596,9 +602,9 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: 8,
     borderRadius: 16,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.surfaceSecondary,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: theme.border,
   },
   statusRow: {
     flexDirection: 'row',
@@ -616,17 +622,17 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   connectionDotOnline: {
-    backgroundColor: '#10B981',
+    backgroundColor: theme.success,
   },
   connectionDotConnecting: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: theme.warning,
   },
   connectionDotOffline: {
-    backgroundColor: '#EF4444',
+    backgroundColor: theme.error,
   },
   connectionText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: theme.textSecondary,
   },
   invertedScrollView: {
     // Removed inverted transforms to fix flipped text
@@ -650,31 +656,31 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 16,
-    color: '#64748B',
+    color: theme.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
   },
   typingContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.border,
   },
   typingText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary,
     fontStyle: 'italic',
   },
   noMembersText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary,
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 16,

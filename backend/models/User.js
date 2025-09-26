@@ -41,6 +41,26 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
   }],
+  blockedUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  mutedChats: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User' // For direct messages, reference to other user
+  }],
+  mutedGroups: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group'
+  }],
+  archivedChats: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User' // For direct messages, reference to other user
+  }],
+  archivedGroups: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group'
+  }],
   preferences: {
     notifications: {
       type: Boolean,

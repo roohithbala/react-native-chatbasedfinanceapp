@@ -1,8 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 export const SecuritySection: React.FC = () => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Security</Text>
@@ -11,7 +14,7 @@ export const SecuritySection: React.FC = () => {
         onPress={() => Alert.alert('Security', 'All data is encrypted end-to-end')}
       >
         <View style={styles.securityIcon}>
-          <Ionicons name="shield-checkmark" size={20} color="#10B981" />
+          <Ionicons name="shield-checkmark" size={20} color={theme.success} />
         </View>
         <Text style={styles.securityText}>End-to-End Encryption Active</Text>
         <View style={styles.securityBadge}>
@@ -22,30 +25,30 @@ export const SecuritySection: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   section: {
     marginBottom: 32,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 16,
   },
   securityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: theme.success + '20', // 20% opacity
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: theme.success + '40', // 40% opacity
   },
   securityIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: theme.success + '30', // 30% opacity
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -54,10 +57,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: '#166534',
+    color: theme.success,
   },
   securityBadge: {
-    backgroundColor: '#10B981',
+    backgroundColor: theme.success,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -65,7 +68,7 @@ const styles = StyleSheet.create({
   securityBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'white',
+    color: theme.surface,
   },
 });
 

@@ -5,16 +5,19 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface ViewModeSelectorProps {
-  viewMode: 'list' | 'category';
-  onViewModeChange: (mode: 'list' | 'category') => void;
+  viewMode: 'list' | 'category' | 'participants';
+  onViewModeChange: (mode: 'list' | 'category' | 'participants') => void;
 }
 
 export default function ViewModeSelector({
   viewMode,
   onViewModeChange
 }: ViewModeSelectorProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.viewModeContainer}>
       <Text style={styles.sectionTitle}>Recent Expenses</Text>
@@ -24,7 +27,15 @@ export default function ViewModeSelector({
           onPress={() => onViewModeChange('category')}
         >
           <Text style={[styles.viewModeText, viewMode === 'category' && styles.viewModeTextActive]}>
-            📊 By Category
+            📊 Category
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.viewModeButton, viewMode === 'participants' && styles.viewModeButtonActive]}
+          onPress={() => onViewModeChange('participants')}
+        >
+          <Text style={[styles.viewModeText, viewMode === 'participants' && styles.viewModeTextActive]}>
+            👥 People
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -32,7 +43,7 @@ export default function ViewModeSelector({
           onPress={() => onViewModeChange('list')}
         >
           <Text style={[styles.viewModeText, viewMode === 'list' && styles.viewModeTextActive]}>
-            📝 All
+            📝 List
           </Text>
         </TouchableOpacity>
       </View>
@@ -40,38 +51,44 @@ export default function ViewModeSelector({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   viewModeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    paddingHorizontal: 0,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
+    flex: 1,
   },
   viewModeButtons: {
     flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
     borderRadius: 8,
     padding: 2,
+    marginLeft: 16,
   },
   viewModeButton: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 6,
+    minWidth: 80,
+    alignItems: 'center',
   },
   viewModeButtonActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.primary || '#2563EB',
   },
   viewModeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
+    textAlign: 'center',
   },
   viewModeTextActive: {
-    color: 'white',
+    color: theme.surface || 'white',
   },
 });

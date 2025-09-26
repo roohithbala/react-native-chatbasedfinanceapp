@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 interface ChatTabsProps {
   activeTab: 'chats' | 'groups';
@@ -11,16 +12,18 @@ export const ChatTabs: React.FC<ChatTabsProps> = ({
   activeTab,
   onTabChange,
 }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.tabContainer}>
       <TouchableOpacity
-        style={[styles.tab, activeTab === 'chats' && styles.activeTab]}
+        style={[styles.tab, activeTab === 'chats' && [styles.activeTab, { backgroundColor: theme.surface }]]}
         onPress={() => onTabChange('chats')}
       >
         <Ionicons
           name="chatbubbles"
           size={20}
-          color={activeTab === 'chats' ? '#2563EB' : '#64748B'}
+          color={activeTab === 'chats' ? (theme.primary || '#2563EB') : (theme.textSecondary || '#64748B')}
         />
         <Text style={[
           styles.tabText,
@@ -31,13 +34,13 @@ export const ChatTabs: React.FC<ChatTabsProps> = ({
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.tab, activeTab === 'groups' && styles.activeTab]}
+        style={[styles.tab, activeTab === 'groups' && [styles.activeTab, { backgroundColor: theme.surface }]]}
         onPress={() => onTabChange('groups')}
       >
         <Ionicons
           name="people-circle"
           size={20}
-          color={activeTab === 'groups' ? '#2563EB' : '#64748B'}
+          color={activeTab === 'groups' ? (theme.primary || '#2563EB') : (theme.textSecondary || '#64748B')}
         />
         <Text style={[
           styles.tabText,
@@ -50,12 +53,12 @@ export const ChatTabs: React.FC<ChatTabsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     marginHorizontal: 16,
     marginBottom: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.surfaceSecondary || '#F1F5F9',
     borderRadius: 12,
     padding: 4,
   },
@@ -69,7 +72,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   activeTab: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -82,11 +85,11 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginLeft: 6,
   },
   activeTabText: {
-    color: '#2563EB',
+    color: theme.primary || '#2563EB',
   },
 });
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { format } from 'date-fns';
 import SplitBillMessage from './SplitBillMessage';
+import { useTheme } from '../context/ThemeContext';
 
 interface LocationMention {
   locationId: string;
@@ -41,6 +42,8 @@ export default function ChatMessage({
   onPayBill,
   onViewSplitBillDetails
 }: ChatMessageProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const renderMessageText = () => {
     if (locationMentions.length === 0) {
       return (
@@ -136,7 +139,7 @@ export default function ChatMessage({
       )}
       <View style={[
         styles.bubble,
-        isOwnMessage ? styles.ownBubble : styles.otherBubble
+        isOwnMessage ? styles.ownBubble : [styles.otherBubble, { backgroundColor: theme.surface }]
       ]}>
         {type === 'split_bill' && splitBillData && currentUserId ? (
           <SplitBillMessage
@@ -166,7 +169,7 @@ export default function ChatMessage({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     marginVertical: 2,
     paddingHorizontal: 12,
@@ -179,7 +182,7 @@ const styles = StyleSheet.create({
   },
   senderName: {
     fontSize: 12,
-    color: '#6B7280',
+    color: theme.textSecondary || '#6B7280',
     marginBottom: 2,
     marginLeft: 12,
   },
@@ -189,7 +192,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   ownBubble: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.primary || '#EFF6FF',
     borderTopRightRadius: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -198,7 +201,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   otherBubble: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     borderTopLeftRadius: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -211,10 +214,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   ownMessageText: {
-    color: '#000000',
+    color: theme.surface || '#FFFFFF',
   },
   otherMessageText: {
-    color: '#000000',
+    color: theme.text || '#000000',
   },
   messageFooter: {
     flexDirection: 'row',
@@ -224,18 +227,18 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 11,
-    color: '#667781',
+    color: theme.textSecondary || '#667781',
     marginRight: 4,
   },
   status: {
     fontSize: 11,
-    color: '#667781',
+    color: theme.textSecondary || '#667781',
   },
   statusRead: {
-    color: '#2563EB',
+    color: theme.primary || '#2563EB',
   },
   locationMention: {
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    backgroundColor: theme.primary ? `${theme.primary}20` : 'rgba(37, 99, 235, 0.1)',
     borderRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -247,9 +250,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   ownLocationMentionText: {
-    color: '#2563EB',
+    color: theme.primary || '#2563EB',
   },
   otherLocationMentionText: {
-    color: '#059669',
+    color: theme.success || '#059669',
   },
 });

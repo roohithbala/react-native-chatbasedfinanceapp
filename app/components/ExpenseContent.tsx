@@ -8,8 +8,8 @@ import { Expense } from '@/lib/store/financeStore';
 
 interface ExpenseContentProps {
   activeTab: 'expenses' | 'splitBills';
-  viewMode: 'list' | 'category';
-  onViewModeChange: (mode: 'list' | 'category') => void;
+  viewMode: 'list' | 'category' | 'participants';
+  onViewModeChange: (mode: 'list' | 'category' | 'participants') => void;
   filteredExpenses: Expense[];
   onEditExpense: (expense: Expense) => void;
   onDeleteExpense: (expense: Expense) => void;
@@ -49,6 +49,8 @@ export default function ExpenseContent({
             viewMode={viewMode}
             onEditExpense={onEditExpense}
             onDeleteExpense={onDeleteExpense}
+            splitBills={splitBills}
+            currentUser={currentUser}
           />
 
           {selectedGroup && (

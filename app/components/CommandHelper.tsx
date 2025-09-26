@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface CommandHelperProps {
   onSplitBillPress: () => void;
@@ -14,6 +15,8 @@ export default function CommandHelper({
   onPredictPress,
   onSummaryPress,
 }: CommandHelperProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.commandHelper}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -46,25 +49,25 @@ export default function CommandHelper({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   commandHelper: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.border,
   },
   commandChip: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.surfaceSecondary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: theme.border,
   },
   commandChipText: {
-    color: '#2563EB',
+    color: theme.primary,
     fontSize: 12,
     fontWeight: '500',
   },

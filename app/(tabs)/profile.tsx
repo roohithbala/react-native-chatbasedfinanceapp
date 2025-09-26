@@ -51,6 +51,7 @@ export default function ProfileScreen() {
   } = useFinanceStore();
 
   const { themeMode, setThemeMode, theme } = useTheme();
+  const styles = getStyles(theme);
 
   useEffect(() => {
     if (currentUser?.preferences?.biometric !== undefined) {
@@ -247,7 +248,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -259,6 +260,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
+    color: theme.error,
     textAlign: 'center',
   },
   content: {
@@ -268,7 +270,7 @@ const styles = StyleSheet.create({
   versionText: {
     textAlign: 'center',
     fontSize: 14,
-    color: '#94A3B8',
+    color: theme.textSecondary,
     marginBottom: 20,
   },
 });

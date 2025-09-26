@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Switch } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface SettingItem {
   title: string;
@@ -14,11 +15,13 @@ interface SettingsSectionProps {
 }
 
 export const SettingsSection: React.FC<SettingsSectionProps> = ({ settingsItems }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Settings</Text>
       {settingsItems.map((item, index) => (
-        <View key={index} style={styles.settingItem}>
+        <View key={index} style={[styles.settingItem, { backgroundColor: theme.surface }]}>
           <View style={styles.settingContent}>
             <Text style={styles.settingTitle}>{item.title}</Text>
             <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
@@ -26,8 +29,8 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({ settingsItems 
           <Switch
             value={item.value}
             onValueChange={item.onToggle}
-            trackColor={{ false: '#E2E8F0', true: '#2563EB' }}
-            thumbColor={item.value ? '#FFFFFF' : '#94A3B8'}
+            trackColor={{ false: theme.border, true: theme.primary }}
+            thumbColor={item.value ? theme.surface : theme.textSecondary}
           />
         </View>
       ))}
@@ -35,14 +38,14 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({ settingsItems 
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   section: {
     marginBottom: 32,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 16,
   },
   settingItem: {
@@ -64,12 +67,12 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 4,
   },
   settingSubtitle: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary,
   },
 });
 

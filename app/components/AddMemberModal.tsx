@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { X } from 'lucide-react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface AddMemberModalProps {
   visible: boolean;
@@ -22,6 +23,8 @@ export default function AddMemberModal({ visible, onClose, groupId }: AddMemberM
   const [identifier, setIdentifier] = useState('');
   const [searchType, setSearchType] = useState<'email' | 'username'>('username');
   const { addMemberToGroup, isLoading } = useFinanceStore();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
 
   const handleAddMember = async () => {
     if (!identifier.trim() || !groupId) {
@@ -52,7 +55,7 @@ export default function AddMemberModal({ visible, onClose, groupId }: AddMemberM
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Add Member</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color="#6B7280" />
+              <X size={24} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -96,7 +99,7 @@ export default function AddMemberModal({ visible, onClose, groupId }: AddMemberM
             disabled={!identifier.trim() || isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={theme.surface} />
             ) : (
               <Text style={styles.addButtonText}>Add Member</Text>
             )}
@@ -107,16 +110,16 @@ export default function AddMemberModal({ visible, onClose, groupId }: AddMemberM
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.modalOverlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.modalBackground,
     borderRadius: 12,
     padding: 20,
     width: '100%',
@@ -131,7 +134,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: theme.text,
   },
   closeButton: {
     padding: 4,
@@ -139,12 +142,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#374151',
+    color: theme.text,
     marginBottom: 8,
   },
   searchTypeContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 8,
     padding: 2,
     marginBottom: 16,
@@ -157,35 +160,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchTypeButtonActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.primary,
   },
   searchTypeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: theme.textSecondary,
   },
   searchTypeTextActive: {
-    color: 'white',
+    color: theme.surface,
   },
   input: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.inputBackground,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#1F2937',
+    color: theme.text,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.inputBorder,
   },
   addButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.primary,
     borderRadius: 8,
     padding: 14,
     alignItems: 'center',
   },
   addButtonDisabled: {
-    backgroundColor: '#93C5FD',
+    backgroundColor: theme.primaryLight,
   },
   addButtonText: {
-    color: '#FFFFFF',
+    color: theme.surface,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface ChatUser {
   _id: string;
@@ -18,6 +19,8 @@ export default function MentionsList({
   mentionResults,
   onMentionPress,
 }: MentionsListProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   if (!showMentions || mentionResults.length === 0) {
     return null;
   }
@@ -54,11 +57,11 @@ export default function MentionsList({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   mentionsContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.border,
     maxHeight: 200,
   },
   mentionsList: {
@@ -74,7 +77,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -82,7 +85,7 @@ const styles = StyleSheet.create({
   mentionAvatarText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#4B5563',
+    color: theme.text,
   },
   mentionInfo: {
     flex: 1,
@@ -90,10 +93,10 @@ const styles = StyleSheet.create({
   mentionName: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1F2937',
+    color: theme.text,
   },
   mentionUsername: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary,
   },
 });

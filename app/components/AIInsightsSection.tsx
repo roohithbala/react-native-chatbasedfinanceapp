@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ColorValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 interface AIInsightsSectionProps {
   isLoading: boolean;
@@ -55,27 +56,28 @@ export const AIInsightsSection: React.FC<AIInsightsSectionProps> = ({
   insights,
   onRefresh,
 }) => {
+  const { theme } = useTheme();
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>AI Insights & Predictions</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>AI Insights & Predictions</Text>
         <TouchableOpacity
-          style={styles.refreshButton}
+          style={[styles.refreshButton, { backgroundColor: theme.surfaceSecondary }]}
           onPress={onRefresh}
           disabled={isLoading}
         >
           <Ionicons
             name="refresh"
             size={20}
-            color={isLoading ? "#94A3B8" : "#8B5CF6"}
+            color={isLoading ? theme.textSecondary : theme.primary}
           />
         </TouchableOpacity>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
-          <Text style={styles.loadingText}>Analyzing your spending patterns...</Text>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Analyzing your spending patterns...</Text>
         </View>
       ) : (
         (insights.length > 0 ? insights : sampleInsights).map((insight: any) => (

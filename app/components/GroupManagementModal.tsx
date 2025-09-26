@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { groupsAPI } from '@/lib/services/api';
 import GroupSettingsModal from './GroupSettingsModal';
+import { useTheme } from '../context/ThemeContext';
 
 interface GroupManagementModalProps {
   visible: boolean;
@@ -47,6 +48,7 @@ export default function GroupManagementModal({
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const { currentUser } = useFinanceStore();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (visible && groupId) {
@@ -95,7 +97,7 @@ export default function GroupManagementModal({
       const stats = await groupsAPI.getGroupStats(groupId);
       Alert.alert(
         'Group Statistics',
-        `Total Expenses: ₹${stats.overview?.totalAmount || 0}\n` +
+        `Total Expenses: ${theme.currency}${stats.overview?.totalAmount || 0}\n` +
         `Total Bills: ${stats.overview?.count || 0}\n` +
         `Settled: ${stats.overview?.settled || 0}\n` +
         `Pending: ${stats.overview?.pending || 0}`

@@ -3,12 +3,15 @@ import { Text, StyleSheet } from 'react-native';
 import { View, Card } from '@/app/components/ThemedComponents';
 import { BarChart, PieChart } from 'react-native-chart-kit';
 import GroupExpenseService from '@/lib/services/groupExpenseService';
+import { useTheme } from '../context/ThemeContext';
 
 interface GroupExpenseStatsProps {
   groupId: string;
 }
 
 export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [period, setPeriod] = useState<'week' | 'month' | 'year'>('month');
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -76,18 +79,18 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
       return {
         name,
         amount,
-        color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
-        legendFontColor: "#7F7F7F",
+        color: theme.primary || `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`,
+        legendFontColor: theme.textSecondary || "#7F7F7F",
         legendFontSize: 12
       };
     })
     .filter((part: any) => part && part.amount > 0); // Only show participants with amounts > 0
 
   const chartConfig = {
-    backgroundColor: "#ffffff",
-    backgroundGradientFrom: "#ffffff",
-    backgroundGradientTo: "#ffffff",
-    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    backgroundColor: theme.surface || "#ffffff",
+    backgroundGradientFrom: theme.surface || "#ffffff",
+    backgroundGradientTo: theme.surface || "#ffffff",
+    color: (opacity = 1) => `rgba(${theme.primary ? parseInt(theme.primary.slice(1, 3), 16) : 37}, ${theme.primary ? parseInt(theme.primary.slice(3, 5), 16) : 99}, ${theme.primary ? parseInt(theme.primary.slice(5, 7), 16) : 235}, ${opacity})`,
     style: {
       borderRadius: 16
     }
@@ -99,7 +102,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
         <Text style={styles.title}>Overview</Text>
         <View style={styles.stats}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>₹{(stats.overview?.totalAmount || 0).toFixed(2)}</Text>
+            <Text style={styles.statValue}>{theme.currency}{(stats.overview?.totalAmount || 0).toFixed(2)}</Text>
             <Text style={styles.statLabel}>Total Amount</Text>
           </View>
           <View style={styles.statItem}>
@@ -126,7 +129,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
           chartConfig={chartConfig}
           verticalLabelRotation={30}
           showValuesOnTopOfBars
-          yAxisLabel="₹"
+          yAxisLabel={theme.currency}
           yAxisSuffix=""
         />
       </Card>
@@ -154,7 +157,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     padding: 16,
   },
@@ -162,11 +165,15 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderRadius: 12,
+    backgroundColor: theme.surface,
+    borderColor: theme.border,
+    borderWidth: 1,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 16,
+    color: theme.text,
   },
   stats: {
     flexDirection: 'row',
@@ -181,29 +188,29 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#2563EB',
+    color: theme.primary || '#2563EB',
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: theme.textSecondary || '#666',
     marginTop: 4,
   },
   emptyChart: {
     height: 220,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
     borderRadius: 8,
   },
   emptyText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: theme.textSecondary || '#94A3B8',
     textAlign: 'center',
   }
 });

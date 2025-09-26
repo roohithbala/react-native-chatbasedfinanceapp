@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface GroupCardProps {
   group: any;
@@ -12,9 +13,11 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   onPress,
   onLongPress,
 }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <TouchableOpacity
-      style={styles.groupCard}
+      style={[styles.groupCard, { backgroundColor: theme.surface }]}
       onPress={onPress}
       onLongPress={onLongPress}
     >
@@ -58,9 +61,9 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   groupCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -79,13 +82,14 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.surfaceSecondary || '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   groupEmoji: {
     fontSize: 24,
+    color: theme.text || '#1E293B',
   },
   groupInfo: {
     flex: 1,
@@ -93,12 +97,12 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     marginBottom: 4,
   },
   groupMembers: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   groupStats: {
     flexDirection: 'row',
@@ -106,7 +110,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
     borderRadius: 12,
   },
   statItem: {
@@ -116,19 +120,19 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   statDivider: {
     width: 1,
     height: 24,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.border || '#E2E8F0',
     marginHorizontal: 16,
   },
   groupFooter: {
@@ -138,12 +142,12 @@ const styles = StyleSheet.create({
   },
   inviteCode: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     fontFamily: 'monospace',
   },
   lastActivity: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
 });
 

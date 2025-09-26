@@ -124,7 +124,7 @@ export const useCommandHandlers = (groupId: string) => {
         .map((p: any) => p.name)
         .join(', ');
 
-      const confirmationMessage = `✅ Split bill created!\n📝 ${description}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / participants.length).toFixed(2)}\n👥 Participants: ${participantNames || 'All group members'}\n💾 Data saved to database`;
+      const confirmationMessage = `✅ Split bill created!\n📝 ${description}\n💰 Total: $${(data.amount || 0).toFixed(2)}\n🤝 Each pays: $${((data.amount || 0) / participants.length).toFixed(2)}\n👥 Participants: ${participantNames || 'All group members'}\n💾 Data saved to database`;
 
       // Note: This will be called by the parent component
       return confirmationMessage;
@@ -160,7 +160,7 @@ export const useCommandHandlers = (groupId: string) => {
       await addExpense(expenseData);
 
       // Send confirmation message
-      const confirmationMessage = `✅ Expense added!\n📝 ${data.description}\n💰 Amount: ₹${(data.amount || 0).toFixed(2)}\n📂 Category: ${data.category}`;
+      const confirmationMessage = `✅ Expense added!\n📝 ${data.description}\n💰 Amount: $${(data.amount || 0).toFixed(2)}\n📂 Category: ${data.category}`;
 
       return confirmationMessage;
     } catch (error: any) {
@@ -220,8 +220,8 @@ export const useCommandHandlers = (groupId: string) => {
       console.log('AI summary response:', data);
 
       // Create AI response message
-      const aiMessage = `📊 Financial Summary:\n\n💰 Total Expenses: ₹${data.totalExpenses?.toFixed(2) || '0.00'}\n💵 Personal: ₹${data.totalPersonalExpenses?.toFixed(2) || '0.00'}\n🤝 Split Bills: ₹${data.totalSplitExpenses?.toFixed(2) || '0.00'}\n\n📈 Expense Count: ${data.expenseCount || 0}\n🔄 Split Bills: ${data.splitBillCount || 0}\n\n📂 Top Categories:\n${Object.entries(data.categoryBreakdown || {}).map(([cat, amount]: [string, any]) =>
-        `• ${cat}: ₹${Number(amount).toFixed(2)}`
+      const aiMessage = `📊 Financial Summary:\n\n💰 Total Expenses: $${data.totalExpenses?.toFixed(2) || '0.00'}\n💵 Personal: $${data.totalPersonalExpenses?.toFixed(2) || '0.00'}\n🤝 Split Bills: $${data.totalSplitExpenses?.toFixed(2) || '0.00'}\n\n📈 Expense Count: ${data.expenseCount || 0}\n🔄 Split Bills: ${data.splitBillCount || 0}\n\n📂 Top Categories:\n${Object.entries(data.categoryBreakdown || {}).map(([cat, amount]: [string, any]) =>
+        `• ${cat}: $${Number(amount).toFixed(2)}`
       ).join('\n') || 'No category data'}`;
 
       return aiMessage;

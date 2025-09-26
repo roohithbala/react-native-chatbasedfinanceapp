@@ -23,9 +23,9 @@ export const useExpensesCalculations = (
     let filtered = expenses;
 
     if (selectedGroup) {
-      // When a group is selected, show both personal expenses (no groupId) and group expenses
+      // When a group is selected, show only expenses that belong to that group
       filtered = expenses.filter(expense =>
-        !expense.groupId || expense.groupId === selectedGroup._id
+        expense.groupId === selectedGroup._id
       );
     }
 

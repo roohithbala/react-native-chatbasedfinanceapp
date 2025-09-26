@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ColorValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 interface BudgetCardProps {
   category: string;
@@ -26,6 +27,8 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
   onPress,
   showDetailsButton = true,
 }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const remaining = budgetLimit - spentAmount;
 
   return (
@@ -50,7 +53,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
             <View style={styles.categoryDetails}>
               <Text style={styles.categoryName}>{category}</Text>
               <Text style={styles.budgetRange}>
-                ₹{spentAmount.toFixed(2)} of ₹{budgetLimit.toFixed(2)}
+                {theme.currency}{spentAmount.toFixed(2)} of {theme.currency}{budgetLimit.toFixed(2)}
               </Text>
             </View>
           </View>
@@ -72,21 +75,21 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
         </View>
       </LinearGradient>
 
-      <View style={styles.cardBody}>
+      <View style={[styles.cardBody, { backgroundColor: theme.surface }]}>
         <View style={styles.statsRow}>
           <View style={styles.stat}>
             <Text style={styles.statLabel}>Spent</Text>
-            <Text style={[styles.statValue, { color: '#EF4444' }]}>
-              ₹{spentAmount.toFixed(2)}
+            <Text style={[styles.statValue, { color: theme.error || '#EF4444' }]}>
+              {theme.currency}{spentAmount.toFixed(2)}
             </Text>
           </View>
           <View style={styles.stat}>
             <Text style={styles.statLabel}>Remaining</Text>
             <Text style={[
               styles.statValue,
-              { color: remaining >= 0 ? '#10B981' : '#EF4444' }
+              { color: remaining >= 0 ? (theme.success || '#10B981') : (theme.error || '#EF4444') }
             ]}>
-              ₹{remaining.toFixed(2)}
+              {theme.currency}{remaining.toFixed(2)}
             </Text>
           </View>
         </View>
@@ -105,7 +108,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
 
         {progressPercentage >= 90 && (
           <View style={styles.warningContainer}>
-            <Ionicons name="warning" size={16} color="#DC2626" />
+            <Ionicons name="warning" size={16} color={theme.error || '#DC2626'} />
             <Text style={styles.warningText}>
               Approaching budget limit!
             </Text>
@@ -118,7 +121,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
 
 export default BudgetCard;
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   budgetCard: {
     borderRadius: 16,
     marginBottom: 16,
@@ -181,7 +184,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   cardBody: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     padding: 16,
   },
   statsRow: {
@@ -195,7 +198,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginBottom: 4,
     textTransform: 'uppercase',
     fontWeight: '600',
@@ -209,7 +212,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.surfaceSecondary || '#F1F5F9',
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -222,15 +225,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 12,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: theme.error ? `${theme.error}20` : '#FEF2F2',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: theme.error ? `${theme.error}40` : '#FECACA',
     gap: 8,
   },
   warningText: {
     fontSize: 14,
-    color: '#DC2626',
+    color: theme.error || '#DC2626',
     fontWeight: '600',
   },
 });

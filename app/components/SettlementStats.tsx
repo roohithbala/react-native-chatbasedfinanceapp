@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface SettlementStatsData {
   awaiting: number;
@@ -13,47 +14,49 @@ interface SettlementStatsProps {
 }
 
 export default function SettlementStats({ stats }: SettlementStatsProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.statsContainer}>
       <View style={styles.statCard}>
         <Text style={styles.statLabel}>Awaiting</Text>
         <Text style={styles.statValue}>{stats.awaiting}</Text>
-        <Text style={styles.statAmount}>₹{stats.totalAwaiting.toFixed(2)}</Text>
+        <Text style={styles.statAmount}>{theme.currency}{stats.totalAwaiting.toFixed(2)}</Text>
       </View>
       <View style={styles.statCard}>
         <Text style={styles.statLabel}>Settled</Text>
         <Text style={styles.statValue}>{stats.settled}</Text>
-        <Text style={styles.statAmount}>₹{stats.totalSettled.toFixed(2)}</Text>
+        <Text style={styles.statAmount}>{theme.currency}{stats.totalSettled.toFixed(2)}</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     gap: 16,
   },
   statCard: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: theme.surface + '40', // 40% opacity
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   statLabel: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.surfaceSecondary,
     fontSize: 14,
     marginBottom: 4,
   },
   statValue: {
-    color: 'white',
+    color: theme.surface,
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   statAmount: {
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: theme.surfaceSecondary,
     fontSize: 14,
     fontWeight: '600',
   },

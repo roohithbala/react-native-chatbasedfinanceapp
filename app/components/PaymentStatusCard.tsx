@@ -11,6 +11,7 @@ import {
 import { View as ThemedView } from './ThemedComponents';
 import { PaymentsAPI, PaymentSummary, Debt } from '@/lib/services/paymentsAPI';
 import { useFinanceStore } from '../../lib/store/financeStore';
+import { useTheme } from '../context/ThemeContext';
 
 interface PaymentStatusCardProps {
   splitBillId: string;
@@ -22,6 +23,8 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
   onPaymentUpdate,
 }) => {
   const { currentUser } = useFinanceStore();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +104,7 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
       <ThemedView style={styles.container}>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadPaymentSummary}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={[styles.retryButtonText, { color: theme.text }]}>Retry</Text>
         </TouchableOpacity>
       </ThemedView>
     );
@@ -123,16 +126,16 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
       <View style={styles.summaryContainer}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Total Paid</Text>
-          <Text style={styles.summaryValue}>₹{(summary?.totalPaid || 0).toFixed(2)}</Text>
+          <Text style={styles.summaryValue}>{theme.currency}{(summary?.totalPaid || 0).toFixed(2)}</Text>
         </View>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Total Owed</Text>
-          <Text style={styles.summaryValue}>₹{(summary?.totalOwed || 0).toFixed(2)}</Text>
+          <Text style={styles.summaryValue}>{theme.currency}{(summary?.totalOwed || 0).toFixed(2)}</Text>
         </View>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Balance</Text>
-          <Text style={[styles.summaryValue, (summary?.balance || 0) >= 0 ? styles.positive : styles.negative]}>
-            ₹{(summary?.balance || 0).toFixed(2)}
+          <Text style={[styles.summaryValue, (summary?.balance || 0) >= 0 ? { color: theme.success || '#4CAF50' } : { color: theme.error || '#F44336' }]}>
+            {theme.currency}{(summary?.balance || 0).toFixed(2)}
           </Text>
         </View>
       </View>
@@ -145,27 +148,27 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
             <View style={styles.participantInfo}>
               <Text style={styles.participantName}>{participant?.name || 'Unknown User'}</Text>
               <Text style={styles.participantAmount}>
-                Owed: ₹{(participant?.amountOwed || 0).toFixed(2)}
+                Owed: {theme.currency}{(participant?.amountOwed || 0).toFixed(2)}
               </Text>
               <Text style={styles.participantAmount}>
-                Paid: ₹{(participant?.amountPaid || 0).toFixed(2)}
+                Paid: {theme.currency}{(participant?.amountPaid || 0).toFixed(2)}
               </Text>
-              <Text style={[styles.participantBalance, (participant?.balance || 0) >= 0 ? styles.positive : styles.negative]}>
-                Balance: ₹{(participant?.balance || 0).toFixed(2)}
+              <Text style={[styles.participantBalance, (participant?.balance || 0) >= 0 ? { color: theme.success || '#4CAF50' } : { color: theme.error || '#F44336' }]}>
+                Balance: {theme.currency}{(participant?.balance || 0).toFixed(2)}
               </Text>
             </View>
 
             <View style={styles.participantActions}>
               {participant?.isPaid ? (
-                <View style={styles.paidBadge}>
-                  <Text style={styles.paidBadgeText}>Paid</Text>
+                <View style={[styles.paidBadge, { backgroundColor: theme.success || '#4CAF50' }]}>
+                  <Text style={[styles.paidBadgeText, { color: theme.surface || 'white' }]}>Paid</Text>
                 </View>
               ) : (
                 <TouchableOpacity
-                  style={styles.payButton}
+                  style={[styles.payButton, { backgroundColor: theme.primary || '#007AFF' }]}
                   onPress={() => handleMarkAsPaid(participant?.userId)}
                 >
-                  <Text style={styles.payButtonText}>Mark Paid</Text>
+                  <Text style={[styles.payButtonText, { color: theme.surface || 'white' }]}>Mark Paid</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -180,9 +183,7 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
           <ScrollView style={styles.debtsContainer}>
             {debts.map((debt, index) => (
               <View key={index} style={styles.debtCard}>
-                <Text style={styles.debtText}>
-                  {debt?.fromUserName || 'Unknown'} owes {debt?.toUserName || 'Unknown'} ₹{(debt?.amount || 0).toFixed(2)}
-                </Text>
+                <Text style={[styles.debtText, { color: theme.text }]}>{debt?.fromUserName || 'Unknown'} owes {debt?.toUserName || 'Unknown'} {theme.currency}{(debt?.amount || 0).toFixed(2)}</Text>
               </View>
             ))}
           </ScrollView>
@@ -192,7 +193,7 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     padding: 16,
     borderRadius: 12,
@@ -203,38 +204,41 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
     textAlign: 'center',
+    color: theme.text,
   },
   loadingText: {
     textAlign: 'center',
     marginTop: 8,
     opacity: 0.7,
+    color: theme.textSecondary,
   },
   errorText: {
-    color: '#ff4444',
+    color: theme.error,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: theme.primary,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
     alignSelf: 'center',
   },
   retryButtonText: {
-    color: 'white',
+    color: theme.surface,
     fontWeight: 'bold',
   },
   noDataText: {
     textAlign: 'center',
     opacity: 0.7,
+    color: theme.textSecondary,
   },
   summaryContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
     padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 8,
   },
   summaryItem: {
@@ -245,22 +249,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.7,
     marginBottom: 4,
+    color: theme.textSecondary,
   },
   summaryValue: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: theme.text,
   },
   positive: {
-    color: '#4CAF50',
+    color: theme.success,
   },
   negative: {
-    color: '#F44336',
+    color: theme.error,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginTop: 16,
     marginBottom: 12,
+    color: theme.text,
   },
   participantsContainer: {
     maxHeight: 300,
@@ -271,7 +278,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     marginBottom: 8,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 8,
   },
   participantInfo: {
@@ -281,10 +288,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 4,
+    color: theme.text,
   },
   participantAmount: {
     fontSize: 14,
     opacity: 0.8,
+    color: theme.textSecondary,
   },
   participantBalance: {
     fontSize: 14,
@@ -295,24 +304,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   paidBadge: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.success,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
   paidBadgeText: {
-    color: 'white',
+    color: theme.surface,
     fontWeight: 'bold',
     fontSize: 12,
   },
   payButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: theme.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   payButtonText: {
-    color: 'white',
+    color: theme.surface,
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -322,14 +331,14 @@ const styles = StyleSheet.create({
   debtCard: {
     padding: 12,
     marginBottom: 8,
-    backgroundColor: 'rgba(255,193,7,0.1)',
+    backgroundColor: theme.warning ? `${theme.warning}20` : 'rgba(255,193,7,0.1)',
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#FFC107',
+    borderLeftColor: theme.warning || '#FFC107',
   },
   debtText: {
     fontSize: 14,
-    color: '#333',
+    color: theme.text,
   },
 });
 

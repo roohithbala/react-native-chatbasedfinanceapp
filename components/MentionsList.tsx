@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { ChatUser } from '@/app/types/chat';
+import { useTheme } from '../app/context/ThemeContext';
 
 interface MentionsListProps {
   mentionResults: ChatUser[];
@@ -11,12 +12,13 @@ export const MentionsList: React.FC<MentionsListProps> = ({
   mentionResults,
   onSelectMention
 }) => {
+  const { theme } = useTheme();
   if (mentionResults.length === 0) {
     return null;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
       <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
         {mentionResults.map((user) => (
           <TouchableOpacity
@@ -24,14 +26,14 @@ export const MentionsList: React.FC<MentionsListProps> = ({
             style={styles.mentionItem}
             onPress={() => onSelectMention(user)}
           >
-            <View style={styles.mentionAvatar}>
-              <Text style={styles.mentionAvatarText}>
+            <View style={[styles.mentionAvatar, { backgroundColor: theme.surfaceSecondary }]}>
+              <Text style={[styles.mentionAvatarText, { color: theme.text }]}>
                 {user.name.charAt(0).toUpperCase()}
               </Text>
             </View>
             <View style={styles.mentionInfo}>
-              <Text style={styles.mentionName}>{user.name}</Text>
-              <Text style={styles.mentionUsername}>@{user.username}</Text>
+              <Text style={[styles.mentionName, { color: theme.text }]}>{user.name}</Text>
+              <Text style={[styles.mentionUsername, { color: theme.textSecondary }]}>@{user.username}</Text>
             </View>
           </TouchableOpacity>
         ))}

@@ -10,6 +10,7 @@ const splitBillRoutes = require('../routes/splitBills');
 const directMessageRoutes = require('../routes/direct-messages');
 const locationRoutes = require('../routes/locations');
 const paymentRoutes = require('../routes/payments');
+const relationshipRoutes = require('../routes/relationships');
 
 const configureRoutes = (app, io) => {
   // Mount routes
@@ -39,6 +40,7 @@ const configureRoutes = (app, io) => {
   app.use('/api/direct-messages', directMessageRoutes);
   app.use('/api/locations', locationRoutes);
   app.use('/api/payments', paymentRoutes);
+  app.use('/api/relationships', relationshipRoutes);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {

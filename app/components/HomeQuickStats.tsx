@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
+import { router } from 'expo-router';
 
 interface HomeQuickStatsProps {
   totalExpensesThisMonth: number;
@@ -9,38 +11,41 @@ interface HomeQuickStatsProps {
 }
 
 export default function HomeQuickStats({ totalExpensesThisMonth, totalOwed }: HomeQuickStatsProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
+
   return (
-    <View style={styles.statsContainer}>
-      <View style={styles.statCard}>
+    <View style={[styles.statsContainer, { backgroundColor: theme.background }]}>
+      <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/expenses')}>
         <LinearGradient
-          colors={['#10B981', '#059669']}
+          colors={[theme.success, theme.success + 'CC']}
           style={styles.statGradient}
         >
-          <Ionicons name="wallet" size={24} color="white" />
+          <Ionicons name="wallet" size={24} color={theme.surface} />
           <Text style={styles.statAmount}>
-            ${totalExpensesThisMonth.toFixed(2)}
+            {theme.currency}{totalExpensesThisMonth.toFixed(2)}
           </Text>
           <Text style={styles.statLabel}>This Month</Text>
         </LinearGradient>
-      </View>
+      </TouchableOpacity>
 
-      <View style={styles.statCard}>
+      <TouchableOpacity style={styles.statCard} onPress={() => router.push('/you-owe')}>
         <LinearGradient
-          colors={['#F59E0B', '#D97706']}
+          colors={[theme.warning, theme.warning + 'CC']}
           style={styles.statGradient}
         >
-          <Ionicons name="time" size={24} color="white" />
+          <Ionicons name="time" size={24} color={theme.surface} />
           <Text style={styles.statAmount}>
-            ${totalOwed.toFixed(2)}
+            {theme.currency}{totalOwed.toFixed(2)}
           </Text>
           <Text style={styles.statLabel}>You Owe</Text>
         </LinearGradient>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -65,12 +70,12 @@ const styles = StyleSheet.create({
   statAmount: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
+    color: theme.surface,
     marginVertical: 8,
   },
   statLabel: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: theme.surfaceSecondary,
   },
 });
 

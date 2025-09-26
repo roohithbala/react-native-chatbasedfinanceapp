@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
 
 interface SplitBill {
   _id: string;
@@ -20,6 +21,8 @@ interface PendingPaymentsProps {
 }
 
 export default function PendingPayments({ splitBills, currentUserId }: PendingPaymentsProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -34,7 +37,7 @@ export default function PendingPayments({ splitBills, currentUserId }: PendingPa
           return (
             <View key={bill._id || index} style={styles.billItem}>
               <View style={styles.billIcon}>
-                <Ionicons name="people" size={20} color="#F59E0B" />
+                <Ionicons name="people" size={20} color={theme.warning} />
               </View>
               <View style={styles.billDetails}>
                 <Text style={styles.billDescription}>
@@ -45,14 +48,14 @@ export default function PendingPayments({ splitBills, currentUserId }: PendingPa
                 </Text>
               </View>
               <Text style={styles.billAmount}>
-                ${userParticipant?.amount.toFixed(2) || '0.00'}
+                {theme.currency}{userParticipant?.amount.toFixed(2) || '0.00'}
               </Text>
             </View>
           );
         })
       ) : (
         <View style={styles.emptyState}>
-          <Ionicons name="checkmark-circle-outline" size={32} color="#10B981" />
+          <Ionicons name="checkmark-circle-outline" size={32} color={theme.success} />
           <Text style={styles.emptyStateText}>All caught up!</Text>
         </View>
       )}
@@ -60,7 +63,7 @@ export default function PendingPayments({ splitBills, currentUserId }: PendingPa
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   section: {
     marginBottom: 24,
     paddingHorizontal: 20,
@@ -74,17 +77,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text,
   },
   seeAllButton: {
     fontSize: 14,
-    color: '#2563EB',
+    color: theme.primary,
     fontWeight: '600',
   },
   billItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: theme.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
@@ -98,7 +101,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: theme.warning + '20', // 20% opacity
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -109,17 +112,17 @@ const styles = StyleSheet.create({
   billDescription: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 2,
   },
   billDate: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary,
   },
   billAmount: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#F59E0B',
+    color: theme.warning,
   },
   emptyState: {
     alignItems: 'center',
@@ -127,7 +130,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary,
     marginTop: 8,
   },
 });

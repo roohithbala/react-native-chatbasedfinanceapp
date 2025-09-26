@@ -1,18 +1,21 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 interface SettlementEmptyStateProps {
   activeTab: 'awaiting' | 'settled';
 }
 
 export default function SettlementEmptyState({ activeTab }: SettlementEmptyStateProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.emptyState}>
       <Ionicons
         name={activeTab === 'awaiting' ? 'time-outline' : 'checkmark-circle-outline'}
         size={64}
-        color="#94A3B8"
+        color={theme.textTertiary}
       />
       <Text style={styles.emptyTitle}>
         {activeTab === 'awaiting' ? 'No pending payments' : 'No settled bills'}
@@ -27,7 +30,7 @@ export default function SettlementEmptyState({ activeTab }: SettlementEmptyState
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     padding: 40,
@@ -36,13 +39,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.textSecondary,
     marginTop: 16,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: theme.textTertiary,
     marginTop: 8,
     textAlign: 'center',
   },

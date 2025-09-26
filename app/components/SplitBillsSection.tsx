@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SplitBillCard from './SplitBillCard';
+import { useTheme } from '../context/ThemeContext';
 
 interface SplitBillsSectionProps {
   splitBills: any[];
@@ -24,6 +25,8 @@ export default function SplitBillsSection({
   onSplitBillTabChange,
   onMarkAsPaid
 }: SplitBillsSectionProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   // Filter split bills based on settlement status
   const filteredSplitBills = useMemo(() => {
     if (!Array.isArray(splitBills) || !currentUser) return [];
@@ -86,26 +89,26 @@ export default function SplitBillsSection({
       {/* Split Bills Tab Navigation */}
       <View style={styles.splitBillTabContainer}>
         <TouchableOpacity
-          style={[styles.splitBillTab, splitBillTab === 'awaiting' && styles.splitBillTabActive]}
+          style={[styles.splitBillTab, splitBillTab === 'awaiting' && [styles.splitBillTabActive, { backgroundColor: theme.surface }]]}
           onPress={() => onSplitBillTabChange('awaiting')}
         >
           <Ionicons
             name="time-outline"
             size={20}
-            color={splitBillTab === 'awaiting' ? '#EF4444' : '#64748B'}
+            color={splitBillTab === 'awaiting' ? (theme.error || '#EF4444') : (theme.textSecondary || '#64748B')}
           />
           <Text style={[styles.splitBillTabText, splitBillTab === 'awaiting' && styles.splitBillTabTextActive]}>
             Awaiting ({settlementStats.awaiting})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.splitBillTab, splitBillTab === 'settled' && styles.splitBillTabActive]}
+          style={[styles.splitBillTab, splitBillTab === 'settled' && [styles.splitBillTabActive, { backgroundColor: theme.surface }]]}
           onPress={() => onSplitBillTabChange('settled')}
         >
           <Ionicons
             name="checkmark-circle-outline"
             size={20}
-            color={splitBillTab === 'settled' ? '#10B981' : '#64748B'}
+            color={splitBillTab === 'settled' ? (theme.success || '#10B981') : (theme.textSecondary || '#64748B')}
           />
           <Text style={[styles.splitBillTabText, splitBillTab === 'settled' && styles.splitBillTabTextActive]}>
             Settled ({settlementStats.settled})
@@ -118,7 +121,7 @@ export default function SplitBillsSection({
           <Ionicons
             name={splitBillTab === 'awaiting' ? 'time-outline' : 'checkmark-circle-outline'}
             size={64}
-            color="#94A3B8"
+            color={theme.textSecondary || '#94A3B8'}
           />
           <Text style={styles.emptyTitle}>
             {splitBillTab === 'awaiting' ? 'No pending payments' : 'No settled bills'}
@@ -146,10 +149,10 @@ export default function SplitBillsSection({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   splitBillTabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
     borderRadius: 8,
     padding: 2,
     marginBottom: 16,
@@ -164,7 +167,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   splitBillTabActive: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -174,11 +177,11 @@ const styles = StyleSheet.create({
   splitBillTabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginLeft: 8,
   },
   splitBillTabTextActive: {
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
   },
   emptyState: {
     alignItems: 'center',
@@ -188,12 +191,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: theme.textSecondary || '#94A3B8',
     marginTop: 8,
     textAlign: 'center',
   },

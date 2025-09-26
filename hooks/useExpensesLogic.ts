@@ -6,7 +6,7 @@ import { API_BASE_URL } from '@/lib/services/api';
 
 export const useExpensesLogic = () => {
   const [activeTab, setActiveTab] = useState<'expenses' | 'splitBills'>('expenses');
-  const [viewMode, setViewMode] = useState<'list' | 'category'>('category');
+  const [viewMode, setViewMode] = useState<'list' | 'category' | 'participants'>('category');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);

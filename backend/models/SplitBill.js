@@ -471,17 +471,20 @@ splitBillSchema.statics.calculateGroupSettlement = async function(groupId) {
   }).populate('participants.userId', 'name');
 
   const memberBalances = new Map();
+  const memberNames = new Map();
   
   // Calculate net balance for each member
   for (const bill of splitBills) {
     // Creator paid the full amount initially
     const creatorBalance = memberBalances.get(bill.createdBy.toString()) || 0;
     memberBalances.set(bill.createdBy.toString(), creatorBalance + bill.totalAmount);
+    memberNames.set(bill.createdBy.toString(), bill.createdByName || 'Unknown');
 
     // Subtract each participant's share
     for (const participant of bill.participants) {
       const participantBalance = memberBalances.get(participant.userId.toString()) || 0;
       memberBalances.set(participant.userId.toString(), participantBalance - participant.amount);
+      memberNames.set(participant.userId.toString(), participant.userId.name || 'Unknown');
     }
   }
 
@@ -512,9 +515,11 @@ splitBillSchema.statics.calculateGroupSettlement = async function(groupId) {
     const settlementAmount = Math.min(creditorBalance, Math.abs(debtorBalance));
     
     settlements.push({
-      from: debtorId,
-      to: creditorId,
-      amount: settlementAmount
+      fromUserId: debtorId,
+      toUserId: creditorId,
+      amount: settlementAmount,
+      fromUserName: memberNames.get(debtorId) || 'Unknown',
+      toUserName: memberNames.get(creditorId) || 'Unknown'
     });
     
     members[i][1] -= settlementAmount;

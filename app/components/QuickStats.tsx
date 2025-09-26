@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 interface QuickStatsProps {
   realStats: {
@@ -13,20 +14,21 @@ interface QuickStatsProps {
 }
 
 export const QuickStats: React.FC<QuickStatsProps> = ({ realStats }) => {
+  const { theme } = useTheme();
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Quick Stats</Text>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>Quick Stats</Text>
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
-          <LinearGradient colors={['#EF4444', '#F87171']} style={styles.statGradient}>
+          <LinearGradient colors={[theme.error || '#EF4444', theme.error || '#F87171']} style={styles.statGradient}>
             <Ionicons name="trending-up" size={24} color="white" />
-            <Text style={styles.statValue}>₹{realStats.thisMonthTotal.toFixed(2)}</Text>
+            <Text style={styles.statValue}>{theme.currency}{realStats.thisMonthTotal.toFixed(2)}</Text>
             <Text style={styles.statLabel}>This Month</Text>
           </LinearGradient>
         </View>
 
         <View style={styles.statCard}>
-          <LinearGradient colors={['#10B981', '#34D399']} style={styles.statGradient}>
+          <LinearGradient colors={[theme.success || '#10B981', theme.success || '#34D399']} style={styles.statGradient}>
             <Ionicons
               name={realStats.percentageChange >= 0 ? "trending-up" : "trending-down"}
               size={24}
@@ -40,7 +42,7 @@ export const QuickStats: React.FC<QuickStatsProps> = ({ realStats }) => {
         </View>
 
         <View style={styles.statCard}>
-          <LinearGradient colors={['#8B5CF6', '#A78BFA']} style={styles.statGradient}>
+          <LinearGradient colors={[theme.primary || '#8B5CF6', theme.primary || '#A78BFA']} style={styles.statGradient}>
             <Ionicons name="people" size={24} color="white" />
             <Text style={styles.statValue}>{realStats.activeGroups}</Text>
             <Text style={styles.statLabel}>Active Groups</Text>
@@ -48,9 +50,9 @@ export const QuickStats: React.FC<QuickStatsProps> = ({ realStats }) => {
         </View>
 
         <View style={styles.statCard}>
-          <LinearGradient colors={['#F59E0B', '#FBBF24']} style={styles.statGradient}>
+          <LinearGradient colors={[theme.warning || '#F59E0B', theme.warning || '#FBBF24']} style={styles.statGradient}>
             <Ionicons name="wallet" size={24} color="white" />
-            <Text style={styles.statValue}>₹{realStats.remainingBudget.toFixed(2)}</Text>
+            <Text style={styles.statValue}>{theme.currency}{realStats.remainingBudget.toFixed(2)}</Text>
             <Text style={styles.statLabel}>Remaining Budget</Text>
           </LinearGradient>
         </View>

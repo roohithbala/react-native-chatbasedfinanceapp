@@ -74,7 +74,7 @@ export function useExpenseActions() {
   const handleDeleteExpense = (expense: Expense) => {
     Alert.alert(
       'Delete Expense',
-      `Are you sure you want to delete "${expense.description}"?\n\nAmount: ₹${(expense.amount || 0).toFixed(2)}\nCategory: ${expense.category}`,
+      `Are you sure you want to delete "${expense.description}"?\n\nAmount: $${(expense.amount || 0).toFixed(2)}\nCategory: ${expense.category}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

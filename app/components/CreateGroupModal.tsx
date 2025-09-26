@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 
 interface CreateGroupModalProps {
   visible: boolean;
@@ -23,6 +24,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   selectedGroup,
   onSelectGroup,
 }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <Modal
       visible={visible}
@@ -30,7 +33,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       presentationStyle="pageSheet"
     >
       <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
+        <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
           <TouchableOpacity onPress={onClose}>
             <Text style={styles.modalCancel}>Cancel</Text>
           </TouchableOpacity>
@@ -44,11 +47,11 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Group Name</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { backgroundColor: theme.surface }]}
               value={groupName}
               onChangeText={onGroupNameChange}
               placeholder="Enter group name"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={theme.textSecondary || '#94A3B8'}
             />
           </View>
 
@@ -59,6 +62,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                 key={group._id}
                 style={[
                   styles.groupItem,
+                  { backgroundColor: theme.surface },
                   selectedGroup?._id === group._id && styles.selectedGroupItem
                 ]}
                 onPress={() => {
@@ -87,10 +91,10 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.background || '#F8FAFC',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -99,21 +103,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: 'white',
+    borderBottomColor: theme.border || '#E2E8F0',
+    backgroundColor: theme.surface || 'white',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
   },
   modalCancel: {
     fontSize: 16,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   modalSave: {
     fontSize: 16,
-    color: '#2563EB',
+    color: theme.primary || '#2563EB',
     fontWeight: '600',
   },
   modalContent: {
@@ -125,17 +129,17 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    color: '#1E293B',
+    borderColor: theme.border || '#E2E8F0',
+    color: theme.text || '#1E293B',
   },
   groupsList: {
     marginTop: 20,
@@ -143,13 +147,13 @@ const styles = StyleSheet.create({
   groupsListTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     marginBottom: 12,
   },
   groupItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
@@ -161,13 +165,13 @@ const styles = StyleSheet.create({
   },
   selectedGroupItem: {
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: theme.success || '#10B981',
   },
   groupIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.surfaceSecondary || '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -181,16 +185,16 @@ const styles = StyleSheet.create({
   groupTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     marginBottom: 4,
   },
   groupSubtitle: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   checkmark: {
     fontSize: 18,
-    color: '#10B981',
+    color: theme.success || '#10B981',
     fontWeight: 'bold',
   },
 });

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 const emotions = [
   { emoji: '😊', label: 'Happy', percentage: 45, color: '#10B981' },
@@ -9,12 +10,13 @@ const emotions = [
 ];
 
 export const EmotionalAnalysis: React.FC = () => {
+  const { theme } = useTheme();
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Emotional Spending Analysis</Text>
       <View style={styles.emotionContainer}>
         {emotions.map((emotion, index) => (
-          <View key={index} style={styles.emotionCard}>
+          <View key={index} style={[styles.emotionCard, { backgroundColor: theme.surface }]}>
             <Text style={styles.emotionEmoji}>{emotion.emoji}</Text>
             <Text style={styles.emotionLabel}>{emotion.label}</Text>
             <View style={styles.emotionProgressContainer}>

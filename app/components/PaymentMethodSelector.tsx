@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface PaymentMethodSelectorProps {
   selectedMethod: string;
@@ -9,6 +10,8 @@ interface PaymentMethodSelectorProps {
 const paymentMethods = ['Cash', 'Card', 'Digital Wallet', 'Bank Transfer', 'Other'];
 
 export default function PaymentMethodSelector({ selectedMethod, onMethodChange }: PaymentMethodSelectorProps) {
+  const { theme } = useTheme();
+
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>💳 Payment Method</Text>
@@ -22,6 +25,7 @@ export default function PaymentMethodSelector({ selectedMethod, onMethodChange }
             key={method}
             style={[
               styles.methodChip,
+              { backgroundColor: theme.surface },
               selectedMethod === method && styles.methodChipActive,
             ]}
             onPress={() => onMethodChange(method)}

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
 
 interface Expense {
   _id: string;
@@ -16,6 +17,8 @@ interface RecentExpensesProps {
 }
 
 export default function RecentExpenses({ expenses }: RecentExpensesProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -31,7 +34,7 @@ export default function RecentExpenses({ expenses }: RecentExpensesProps) {
               <Ionicons
                 name={getCategoryIcon(expense.category) as any}
                 size={20}
-                color="#6B7280"
+                color={theme.textSecondary || '#6B7280'}
               />
             </View>
             <View style={styles.expenseDetails}>
@@ -43,13 +46,13 @@ export default function RecentExpenses({ expenses }: RecentExpensesProps) {
               </Text>
             </View>
             <Text style={styles.expenseAmount}>
-              -${expense.amount.toFixed(2)}
+              -{theme.currency}{expense.amount.toFixed(2)}
             </Text>
           </View>
         ))
       ) : (
         <View style={styles.emptyState}>
-          <Ionicons name="receipt-outline" size={32} color="#CBD5E1" />
+          <Ionicons name="receipt-outline" size={32} color={theme.textSecondary || '#CBD5E1'} />
           <Text style={styles.emptyStateText}>No recent expenses</Text>
         </View>
       )}
@@ -71,7 +74,7 @@ function getCategoryIcon(category: string): string {
   return icons[category] || 'ellipsis-horizontal';
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   section: {
     marginBottom: 24,
     paddingHorizontal: 20,
@@ -85,17 +88,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
   },
   seeAllButton: {
     fontSize: 14,
-    color: '#2563EB',
+    color: theme.primary || '#2563EB',
     fontWeight: '600',
   },
   expenseItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
@@ -109,7 +112,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.surfaceSecondary || '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -120,17 +123,17 @@ const styles = StyleSheet.create({
   expenseDescription: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     marginBottom: 2,
   },
   expenseDate: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   expenseAmount: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#EF4444',
+    color: theme.error || '#EF4444',
   },
   emptyState: {
     alignItems: 'center',
@@ -138,7 +141,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginTop: 8,
   },
 });

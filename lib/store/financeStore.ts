@@ -284,8 +284,34 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           isLoading: false,
         });
 
-        // Initialize socket listeners for real-time updates
-        get().initializeSocketListeners();
+        // Load all user data after successful login
+        try {
+          console.log('Loading user data after login...');
+          
+          // Load groups first
+          await get().loadGroups();
+          
+          // After loading groups, set the first group as selected if available
+          const groups = get().groups;
+          if (Array.isArray(groups) && groups.length > 0) {
+            set({ selectedGroup: groups[0] });
+          }
+          
+          // Load other data in parallel
+          await Promise.all([
+            get().loadExpenses(),
+            get().loadBudgets(),
+            get().getSplitBills()
+          ]);
+          
+          console.log('All user data loaded successfully after login');
+          
+          // Initialize socket listeners for real-time updates
+          get().initializeSocketListeners();
+        } catch (error) {
+          console.error('Error loading data after login:', error);
+          // Don't throw error, just log it - user can still use the app
+        }
       } else {
         throw new Error('Invalid response from server');
       }
@@ -353,8 +379,34 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         isLoading: false,
       });
 
-      // Initialize socket listeners for real-time updates
-      get().initializeSocketListeners();
+      // Load all user data after successful biometric login
+      try {
+        console.log('Loading user data after biometric login...');
+        
+        // Load groups first
+        await get().loadGroups();
+        
+        // After loading groups, set the first group as selected if available
+        const groups = get().groups;
+        if (Array.isArray(groups) && groups.length > 0) {
+          set({ selectedGroup: groups[0] });
+        }
+        
+        // Load other data in parallel
+        await Promise.all([
+          get().loadExpenses(),
+          get().loadBudgets(),
+          get().getSplitBills()
+        ]);
+        
+        console.log('All user data loaded successfully after biometric login');
+        
+        // Initialize socket listeners for real-time updates
+        get().initializeSocketListeners();
+      } catch (error) {
+        console.error('Error loading data after biometric login:', error);
+        // Don't throw error, just log it - user can still use the app
+      }
 
     } catch (error: any) {
       set({
@@ -438,6 +490,35 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           selectedGroup: Array.isArray(response.user.groups) ? response.user.groups[0] || null : null,
           isLoading: false,
         });
+
+        // Load all user data after successful registration
+        try {
+          console.log('Loading user data after registration...');
+          
+          // Load groups first
+          await get().loadGroups();
+          
+          // After loading groups, set the first group as selected if available
+          const groups = get().groups;
+          if (Array.isArray(groups) && groups.length > 0) {
+            set({ selectedGroup: groups[0] });
+          }
+          
+          // Load other data in parallel
+          await Promise.all([
+            get().loadExpenses(),
+            get().loadBudgets(),
+            get().getSplitBills()
+          ]);
+          
+          console.log('All user data loaded successfully after registration');
+          
+          // Initialize socket listeners for real-time updates
+          get().initializeSocketListeners();
+        } catch (error) {
+          console.error('Error loading data after registration:', error);
+          // Don't throw error, just log it - user can still use the app
+        }
       } else {
         throw new Error('Invalid response from server');
       }

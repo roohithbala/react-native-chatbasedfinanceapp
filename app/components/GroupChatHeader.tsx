@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
 
 interface GroupChatHeaderProps {
   groupName?: string;
@@ -18,6 +19,8 @@ export default function GroupChatHeader({
   connectionStatus,
   onAddMemberPress,
 }: GroupChatHeaderProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.header}>
       <View style={styles.headerContent}>
@@ -25,7 +28,7 @@ export default function GroupChatHeader({
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={20} color="#2563EB" />
+          <Ionicons name="arrow-back" size={20} color={theme.primary} />
         </TouchableOpacity>
 
         <View style={styles.groupInfo}>
@@ -56,10 +59,10 @@ export default function GroupChatHeader({
             style={styles.headerButton}
             onPress={onAddMemberPress}
           >
-            <Ionicons name="person-add" size={20} color="#2563EB" />
+            <Ionicons name="person-add" size={20} color={theme.primary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton}>
-            <Ionicons name="ellipsis-vertical" size={20} color="#2563EB" />
+            <Ionicons name="ellipsis-vertical" size={20} color={theme.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -67,11 +70,11 @@ export default function GroupChatHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: theme.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
@@ -84,11 +87,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: theme.border,
   },
   groupInfo: {
     flex: 1,
@@ -97,11 +100,11 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: theme.text,
   },
   memberCount: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.textSecondary,
   },
   headerActions: {
     flexDirection: 'row',
@@ -110,12 +113,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: theme.border,
   },
   statusRow: {
     flexDirection: 'row',
@@ -133,16 +136,16 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   connectionDotOnline: {
-    backgroundColor: '#10B981',
+    backgroundColor: theme.success,
   },
   connectionDotConnecting: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: theme.warning,
   },
   connectionDotOffline: {
-    backgroundColor: '#EF4444',
+    backgroundColor: theme.error,
   },
   connectionText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: theme.textSecondary,
   },
 });

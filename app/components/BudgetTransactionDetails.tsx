@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Expense } from '@/lib/store/financeStore';
+import { useTheme } from '../context/ThemeContext';
 
 interface BudgetTransactionDetailsProps {
   category: string;
@@ -19,6 +20,7 @@ export const BudgetTransactionDetails: React.FC<BudgetTransactionDetailsProps> =
   categoryColors,
   onClose,
 }) => {
+  const { theme } = useTheme();
   // Group expenses by person (user who created the expense)
   const expensesByPerson = React.useMemo(() => {
     const grouped: Record<string, Expense[]> = {};
@@ -55,7 +57,7 @@ export const BudgetTransactionDetails: React.FC<BudgetTransactionDetailsProps> =
             </LinearGradient>
             <View>
               <Text style={styles.categoryTitle}>{category}</Text>
-              <Text style={styles.totalAmount}>₹{totalCategorySpending.toFixed(2)}</Text>
+              <Text style={styles.totalAmount}>{theme.currency}{totalCategorySpending.toFixed(2)}</Text>
             </View>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -77,12 +79,12 @@ export const BudgetTransactionDetails: React.FC<BudgetTransactionDetailsProps> =
                   <View>
                     <Text style={styles.personName}>{person}</Text>
                     <Text style={styles.personStats}>
-                      {count} transaction{count !== 1 ? 's' : ''} • ₹{total.toFixed(2)}
+                      {count} transaction{count !== 1 ? 's' : ''} • {theme.currency}{total.toFixed(2)}
                     </Text>
                   </View>
                 </View>
                 <View style={styles.personTotal}>
-                  <Text style={styles.personTotalAmount}>₹{total.toFixed(2)}</Text>
+                  <Text style={styles.personTotalAmount}>{theme.currency}{total.toFixed(2)}</Text>
                 </View>
               </View>
 
@@ -110,7 +112,7 @@ export const BudgetTransactionDetails: React.FC<BudgetTransactionDetailsProps> =
                     )}
                   </View>
                   <View style={styles.transactionRight}>
-                    <Text style={styles.transactionAmount}>₹{expense.amount?.toFixed(2)}</Text>
+                    <Text style={styles.transactionAmount}>{theme.currency}{expense.amount?.toFixed(2)}</Text>
                   </View>
                 </View>
               ))}

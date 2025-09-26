@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
 
 interface HomeHeaderProps {
   userName: string;
@@ -10,8 +11,10 @@ interface HomeHeaderProps {
 }
 
 export default function HomeHeader({ userName, onTestConnectivity }: HomeHeaderProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
-    <LinearGradient colors={['#2563EB', '#1D4ED8']} style={styles.header}>
+    <LinearGradient colors={[theme.primary, theme.primaryDark]} style={styles.header}>
       <View style={styles.headerContent}>
         <View>
           <Text style={styles.greeting}>Good {getTimeOfDay()},</Text>
@@ -22,13 +25,13 @@ export default function HomeHeader({ userName, onTestConnectivity }: HomeHeaderP
             style={styles.debugButton}
             onPress={onTestConnectivity}
           >
-            <Ionicons name="wifi" size={20} color="white" />
+            <Ionicons name="wifi" size={20} color={theme.surface} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.profileButton}
             onPress={() => router.push('/(tabs)/profile')}
           >
-            <Ionicons name="person-circle" size={40} color="white" />
+            <Ionicons name="person-circle" size={40} color={theme.surface} />
           </TouchableOpacity>
         </View>
       </View>
@@ -43,7 +46,7 @@ function getTimeOfDay(): string {
   return 'evening';
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   header: {
     paddingTop: 20,
     paddingHorizontal: 20,
@@ -58,21 +61,21 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.surfaceSecondary,
     marginBottom: 4,
   },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
+    color: theme.surface,
   },
   profileButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: theme.surface + '40', // 40% opacity
     borderRadius: 20,
     padding: 4,
   },
   debugButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: theme.primary,
     padding: 8,
     borderRadius: 20,
     justifyContent: 'center',

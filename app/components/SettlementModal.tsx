@@ -29,6 +29,7 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
   onSettlementComplete,
 }) => {
   const { theme } = useTheme();
+  const styles = getStyles(theme);
   const { currentUser } = useFinanceStore();
   const [settlement, setSettlement] = useState<SettlementPlan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,7 +58,7 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
   const handleSettlePayment = async (payment: SettlementPlan) => {
     Alert.alert(
       'Confirm Settlement',
-      `Are you sure you want to settle ₹${payment.amount.toFixed(2)} from ${payment.fromUserName} to ${payment.toUserName}?`,
+      `Are you sure you want to settle ${theme.currency}${payment.amount.toFixed(2)} from ${payment.fromUserName} to ${payment.toUserName}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -68,7 +69,7 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
               // For now, we'll just show a success message
               Alert.alert(
                 'Settlement Recorded',
-                `Payment of ₹${payment.amount.toFixed(2)} from ${payment.fromUserName} to ${payment.toUserName} has been recorded.`,
+                `Payment of ${theme.currency}${payment.amount.toFixed(2)} from ${payment.fromUserName} to ${payment.toUserName} has been recorded.`,
                 [
                   {
                     text: 'OK',
@@ -100,7 +101,7 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
             {' → '}
             <Text style={[styles.userName, { color: theme.text }]}>{payment.toUserName}</Text>
           </Text>
-          <Text style={[styles.amountText, { color: theme.primary }]}>₹{(payment.amount || 0).toFixed(2)}</Text>
+          <Text style={[styles.amountText, { color: theme.primary }]}>{theme.currency}{(payment.amount || 0).toFixed(2)}</Text>
         </View>
 
         {(isCurrentUserFrom || isCurrentUserTo) && (
@@ -126,7 +127,7 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
                 onSuccess={(result) => {
                   Alert.alert(
                     'Payment Successful',
-                    `₹${payment.amount.toFixed(2)} sent to ${payment.toUserName} via Google Pay`,
+                    `${theme.currency}${payment.amount.toFixed(2)} sent to ${payment.toUserName} via Google Pay`,
                     [
                       {
                         text: 'OK',
@@ -198,7 +199,7 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
                 Total transactions: {settlement.length}
               </Text>
               <Text style={[styles.summaryText, { color: theme.textSecondary }]}>
-                Total amount: ₹{settlement.reduce((sum, payment) => sum + (payment.amount || 0), 0).toFixed(2)}
+                Total amount: {theme.currency}{settlement.reduce((sum, payment) => sum + (payment.amount || 0), 0).toFixed(2)}
               </Text>
             </View>
           </ScrollView>
@@ -208,9 +209,10 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: theme.background,
   },
   header: {
     flexDirection: 'row',
@@ -218,10 +220,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+    backgroundColor: theme.surface,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: theme.text,
   },
   closeButton: {
     width: 32,
@@ -229,10 +234,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: theme.surfaceSecondary,
   },
   closeButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: theme.text,
   },
   loadingContainer: {
     flex: 1,
@@ -242,6 +249,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
+    color: theme.textSecondary,
   },
   errorContainer: {
     flex: 1,
@@ -253,15 +261,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
+    color: theme.error,
   },
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
+    backgroundColor: theme.primary,
   },
   retryButtonText: {
     fontWeight: 'bold',
     fontSize: 16,
+    color: theme.surface,
   },
   emptyContainer: {
     flex: 1,
@@ -273,10 +284,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 8,
+    color: theme.text,
   },
   emptySubtext: {
     fontSize: 16,
     textAlign: 'center',
+    color: theme.textSecondary,
   },
   content: {
     flex: 1,
@@ -286,6 +299,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 20,
     lineHeight: 24,
+    color: theme.text,
   },
   settlementList: {
     marginBottom: 20,
@@ -302,6 +316,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    backgroundColor: theme.surface,
   },
   settlementInfo: {
     flex: 1,
@@ -309,13 +324,16 @@ const styles = StyleSheet.create({
   settlementText: {
     fontSize: 16,
     marginBottom: 4,
+    color: theme.text,
   },
   userName: {
     fontWeight: 'bold',
+    color: theme.text,
   },
   amountText: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: theme.primary,
   },
   settleButton: {
     paddingHorizontal: 20,
@@ -325,23 +343,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   settleButtonOutgoing: {
-    // backgroundColor will be set inline
+    backgroundColor: theme.error,
   },
   settleButtonIncoming: {
-    // backgroundColor will be set inline
+    backgroundColor: theme.success,
   },
   settleButtonText: {
     fontWeight: 'bold',
     fontSize: 14,
+    color: theme.surface,
   },
   summaryContainer: {
     padding: 16,
     borderRadius: 12,
     marginTop: 20,
+    backgroundColor: theme.surfaceSecondary,
   },
   summaryText: {
     fontSize: 16,
     marginBottom: 4,
+    color: theme.text,
   },
   paymentOptions: {
     flexDirection: 'row',

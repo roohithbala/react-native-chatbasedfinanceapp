@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useTheme } from '../context/ThemeContext';
 
 interface DatePickerProps {
   date: Date;
@@ -11,6 +12,7 @@ interface DatePickerProps {
 }
 
 export default function DatePickerComponent({ date, onDateChange, showPicker, onTogglePicker }: DatePickerProps) {
+  const { theme } = useTheme();
   const handleDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'ios') {
       onTogglePicker();
@@ -24,7 +26,7 @@ export default function DatePickerComponent({ date, onDateChange, showPicker, on
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>📅 Date</Text>
       <TouchableOpacity
-        style={styles.dateButton}
+        style={[styles.dateButton, { backgroundColor: theme.surface }]}
         onPress={onTogglePicker}
       >
         <Text style={styles.dateText}>

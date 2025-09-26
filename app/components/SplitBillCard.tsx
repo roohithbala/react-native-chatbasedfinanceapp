@@ -5,6 +5,7 @@ import { SplitBill, SplitBillParticipant } from '@/lib/store/financeStore';
 import { PaymentStatusCard } from './PaymentStatusCard';
 import { SettlementModal } from './SettlementModal';
 import GooglePayButton from './GooglePayButton';
+import { useTheme } from '../context/ThemeContext';
 
 interface SplitBillCardProps {
   bill: SplitBill;
@@ -16,6 +17,8 @@ interface SplitBillCardProps {
 export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, groupId }: SplitBillCardProps) {
   const [showPaymentStatus, setShowPaymentStatus] = useState(false);
   const [showSettlement, setShowSettlement] = useState(false);
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const userShare = bill.participants.find(p => p.userId === currentUserId);
 
   const handlePaymentUpdate = () => {
@@ -27,44 +30,42 @@ export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, group
 
   return (
     <>
-      <View style={styles.billCard}>
+      <View style={[styles.billCard, { backgroundColor: theme.surface, borderLeftColor: theme.primary || '#8B5CF6' }]}>
         <View style={styles.billHeader}>
-          <View style={styles.billIcon}>
-            <Ionicons name="people" size={20} color="#8B5CF6" />
+          <View style={[styles.billIcon, { backgroundColor: theme.surfaceSecondary || '#F3E8FF' }]}>
+            <Ionicons name="people" size={20} color={theme.primary || "#8B5CF6"} />
           </View>
           <View style={styles.billDetails}>
-            <Text style={styles.billDescription}>{bill.description}</Text>
-            <Text style={styles.billParticipants}>
+            <Text style={[styles.billDescription, { color: theme.text }]}>{bill.description}</Text>
+            <Text style={[styles.billParticipants, { color: theme.primary || '#8B5CF6' }]}>
               {bill.participants.length} participants • {bill.category}
             </Text>
             <Text style={[
               styles.billStatus,
-              userShare?.isPaid ? styles.statusPaid : styles.statusPending
+              userShare?.isPaid ? { color: theme.success || '#10B981' } : { color: theme.error || '#EF4444' }
             ]}>
               {userShare?.isPaid ? '✓ Paid' : '• Pending'}
             </Text>
-            <Text style={styles.billDate}>
+            <Text style={[styles.billDate, { color: theme.textSecondary || '#94A3B8' }]}>
               {new Date(bill.createdAt).toLocaleDateString()}
             </Text>
           </View>
           <View style={styles.billAmounts}>
-            <Text style={styles.billTotal}>
-              ₹{(bill.totalAmount || 0).toFixed(2)}
-            </Text>
+            <Text style={[styles.billTotal, { color: theme.text }]}>{theme.currency}{(bill.totalAmount || 0).toFixed(2)}</Text>
             <Text style={[
               styles.billShare,
-              userShare?.isPaid && styles.sharePaid
+              userShare?.isPaid ? { color: theme.success || '#10B981' } : { color: theme.error || '#EF4444' }
             ]}>
-              Your share: ₹{(userShare?.amount || 0).toFixed(2)}
+              Your share: {theme.currency}{(userShare?.amount || 0).toFixed(2)}
             </Text>
             {!userShare?.isPaid && (
               <View style={styles.paymentButtons}>
                 {onMarkAsPaid && (
                   <TouchableOpacity
-                    style={styles.markAsPaidButton}
+                    style={[styles.markAsPaidButton, { backgroundColor: theme.primary || '#8B5CF6' }]}
                     onPress={() => onMarkAsPaid(bill._id)}
                   >
-                    <Text style={styles.markAsPaidText}>Mark as Paid</Text>
+                    <Text style={[styles.markAsPaidText, { color: theme.surface || 'white' }]}>Mark as Paid</Text>
                   </TouchableOpacity>
                 )}
 
@@ -72,6 +73,9 @@ export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, group
                   amount={userShare?.amount || 0}
                   description={`Payment for ${bill.description}`}
                   splitBillId={bill._id}
+                  recipientId={bill.createdBy._id}
+                  recipientName={bill.createdBy.name}
+                  groupId={groupId}
                   onSuccess={handlePaymentUpdate}
                   buttonText="Pay with GPay"
                   style={styles.googlePayButton}
@@ -83,20 +87,20 @@ export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, group
 
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, { backgroundColor: theme.surfaceSecondary || '#F8FAFC', borderTopColor: theme.border || '#F1F5F9' }]}
             onPress={() => setShowPaymentStatus(true)}
           >
-            <Ionicons name="stats-chart" size={16} color="#007AFF" />
-            <Text style={styles.actionButtonText}>Payment Status</Text>
+            <Ionicons name="stats-chart" size={16} color={theme.primary || "#007AFF"} />
+            <Text style={[styles.actionButtonText, { color: theme.text }]}>Payment Status</Text>
           </TouchableOpacity>
 
           {groupId && (
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: theme.surfaceSecondary || '#F8FAFC' }]}
               onPress={() => setShowSettlement(true)}
             >
-              <Ionicons name="swap-horizontal" size={16} color="#10B981" />
-              <Text style={styles.actionButtonText}>Settlement</Text>
+              <Ionicons name="swap-horizontal" size={16} color={theme.success || "#10B981"} />
+              <Text style={[styles.actionButtonText, { color: theme.text }]}>Settlement</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -122,14 +126,14 @@ export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, group
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   billCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#8B5CF6',
+    borderLeftColor: theme.primary,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -144,7 +148,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -155,12 +159,12 @@ const styles = StyleSheet.create({
   billDescription: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 4,
   },
   billParticipants: {
     fontSize: 14,
-    color: '#8B5CF6',
+    color: theme.primary,
     marginBottom: 2,
   },
   billStatus: {
@@ -168,14 +172,14 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   statusPending: {
-    color: '#EF4444',
+    color: theme.error,
   },
   statusPaid: {
-    color: '#10B981',
+    color: theme.success,
   },
   billDate: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: theme.textSecondary,
   },
   billAmounts: {
     alignItems: 'flex-end',
@@ -183,25 +187,25 @@ const styles = StyleSheet.create({
   billTotal: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text,
     marginBottom: 4,
   },
   billShare: {
     fontSize: 14,
-    color: '#EF4444',
+    color: theme.error,
     fontWeight: '600',
   },
   sharePaid: {
-    color: '#10B981',
+    color: theme.success,
   },
   markAsPaidButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: theme.primary,
     padding: 6,
     borderRadius: 12,
     marginTop: 4,
   },
   markAsPaidText: {
-    color: 'white',
+    color: theme.surface,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
@@ -218,12 +222,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: theme.border,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -235,6 +239,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 4,
+    color: theme.text,
   },
   googlePayButton: {
     marginTop: 16,

@@ -7,6 +7,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { useFinanceStore } from '@/lib/store/financeStore';
+import { useTheme } from '../context/ThemeContext';
 
 interface ExpensesHeaderProps {
   activeTab: 'expenses' | 'splitBills';
@@ -30,6 +33,13 @@ export default function ExpensesHeader({
   settlementStats,
   onReload
 }: ExpensesHeaderProps) {
+  const { theme } = useTheme();
+  const { groups, selectedGroup, selectGroup } = useFinanceStore();
+  const styles = getStyles(theme);
+
+  const handleGroupSelect = (group: any) => {
+    selectGroup(group);
+  };
   return (
     <LinearGradient colors={['#10B981', '#059669']} style={styles.header}>
       <View style={styles.headerTop}>
@@ -40,6 +50,34 @@ export default function ExpensesHeader({
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Group Selector - only show if there are groups */}
+      {groups && groups.length > 0 && (
+        <View style={styles.groupSelector}>
+          <Text style={styles.groupSelectorLabel}>Viewing:</Text>
+          <View style={styles.groupSelectorContainer}>
+            <TouchableOpacity
+              style={[styles.groupOption, !selectedGroup && styles.groupOptionActive]}
+              onPress={() => handleGroupSelect(null)}
+            >
+              <Text style={[styles.groupOptionText, !selectedGroup && styles.groupOptionTextActive]}>
+                All Expenses
+              </Text>
+            </TouchableOpacity>
+            {groups.map((group) => (
+              <TouchableOpacity
+                key={group._id}
+                style={[styles.groupOption, selectedGroup?._id === group._id && styles.groupOptionActive]}
+                onPress={() => handleGroupSelect(group)}
+              >
+                <Text style={[styles.groupOptionText, selectedGroup?._id === group._id && styles.groupOptionTextActive]}>
+                  {group.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Main Tab Navigation */}
       <View style={styles.mainTabContainer}>
@@ -76,24 +114,24 @@ export default function ExpensesHeader({
         <View style={styles.tagsContainer}>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>This Month</Text>
-            <Text style={styles.statValue}>₹{(totalExpenses || 0).toFixed(2)}</Text>
+            <Text style={styles.statValue}>{theme.currency}{(totalExpenses || 0).toFixed(2)}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Shared Bills</Text>
-            <Text style={styles.statValue}>₹{(totalSplitBills || 0).toFixed(2)}</Text>
+            <Text style={styles.statValue}>{theme.currency}{(totalSplitBills || 0).toFixed(2)}</Text>
           </View>
         </View>
       ) : (
         <View style={styles.tagsContainer}>
-          <View style={styles.statBox}>
+          <TouchableOpacity style={styles.statBox} onPress={() => router.push('/you-owe')}>
             <Text style={styles.statLabel}>I Owe</Text>
             <Text style={styles.statValue}>{settlementStats.awaiting}</Text>
-            <Text style={styles.statSubValue}>₹{(settlementStats.totalAwaiting || 0).toFixed(2)}</Text>
-          </View>
+            <Text style={styles.statSubValue}>{theme.currency}{(settlementStats.totalAwaiting || 0).toFixed(2)}</Text>
+          </TouchableOpacity>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>I Paid</Text>
             <Text style={styles.statValue}>{settlementStats.settled}</Text>
-            <Text style={styles.statSubValue}>₹{(settlementStats.totalSettled || 0).toFixed(2)}</Text>
+            <Text style={styles.statSubValue}>{theme.currency}{(settlementStats.totalSettled || 0).toFixed(2)}</Text>
           </View>
         </View>
       )}
@@ -101,7 +139,7 @@ export default function ExpensesHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   header: {
     paddingTop: 20,
     paddingHorizontal: 20,
@@ -124,6 +162,40 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  groupSelector: {
+    marginBottom: 16,
+  },
+  groupSelectorLabel: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 8,
+  },
+  groupSelectorContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  groupOption: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  groupOptionActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'white',
+  },
+  groupOptionText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '500',
+  },
+  groupOptionTextActive: {
+    color: 'white',
+    fontWeight: '600',
   },
   mainTabContainer: {
     flexDirection: 'row',

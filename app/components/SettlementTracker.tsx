@@ -5,10 +5,12 @@ import SplitBillCard from './SplitBillCard';
 import SettlementHeader from './SettlementHeader';
 import SettlementTabs from './SettlementTabs';
 import SettlementEmptyState from './SettlementEmptyState';
+import { useTheme } from '../context/ThemeContext';
 
 export default function SettlementTracker() {
   const [activeTab, setActiveTab] = useState<'awaiting' | 'settled'>('awaiting');
   const { splitBills, currentUser, markSplitBillAsPaid } = useFinanceStore();
+  const { theme } = useTheme();
 
   // Filter bills based on settlement status
   const filteredBills = useMemo(() => {
@@ -66,7 +68,7 @@ export default function SettlementTracker() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SettlementHeader stats={settlementStats} />
       <SettlementTabs
         activeTab={activeTab}
@@ -76,7 +78,7 @@ export default function SettlementTracker() {
       />
 
       {/* Bills List */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.content, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         {filteredBills.length === 0 ? (
           <SettlementEmptyState activeTab={activeTab} />
         ) : (
@@ -97,7 +99,6 @@ export default function SettlementTracker() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   content: {
     flex: 1,

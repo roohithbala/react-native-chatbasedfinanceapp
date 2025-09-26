@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 interface GroupHeaderProps {
   userName: string;
@@ -15,6 +16,7 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
   totalExpenses,
   onCreateGroup,
 }) => {
+  const { theme } = useTheme();
   return (
     <LinearGradient
       colors={['#2563EB', '#1D4ED8']}
@@ -39,7 +41,7 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
         </View>
 
         <TouchableOpacity
-          style={styles.createButton}
+          style={[styles.createButton, { backgroundColor: theme.surface }]}
           onPress={onCreateGroup}
         >
           <Text style={styles.createButtonText}>Create Group</Text>

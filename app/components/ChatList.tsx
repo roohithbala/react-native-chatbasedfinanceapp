@@ -3,6 +3,7 @@ import { View, Text, FlatList, ActivityIndicator, StyleSheet } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { RefreshControl } from 'react-native';
 import { ChatItem } from './ChatItem';
+import { useTheme } from '../context/ThemeContext';
 
 interface User {
   _id: string;
@@ -64,6 +65,8 @@ export const ChatList: React.FC<ChatListProps> = ({
   emptyMessage,
   emptySubMessage,
 }) => {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const getItemType = () => {
     switch (type) {
       case 'users': return 'user';
@@ -91,7 +94,7 @@ export const ChatList: React.FC<ChatListProps> = ({
     if (isSearching) {
       return (
         <View style={styles.searchingContainer}>
-          <ActivityIndicator size="small" color="#2563EB" />
+          <ActivityIndicator size="small" color={theme.primary || '#2563EB'} />
           <Text style={styles.searchingText}>Searching...</Text>
         </View>
       );
@@ -106,7 +109,7 @@ export const ChatList: React.FC<ChatListProps> = ({
             'chatbubble-outline'
           }
           size={48}
-          color="#CBD5E1"
+          color={theme.textSecondary || '#CBD5E1'}
         />
         <Text style={styles.emptyText}>
           {emptyMessage ||
@@ -136,7 +139,7 @@ export const ChatList: React.FC<ChatListProps> = ({
       ListHeaderComponent={
         isSearching ? (
           <View style={styles.searchingContainer}>
-            <ActivityIndicator size="small" color="#2563EB" />
+            <ActivityIndicator size="small" color={theme.primary || '#2563EB'} />
             <Text style={styles.searchingText}>Searching...</Text>
           </View>
         ) : null
@@ -146,7 +149,7 @@ export const ChatList: React.FC<ChatListProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   listContainer: {
     flexGrow: 1,
     paddingBottom: 20,
@@ -161,14 +164,14 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -177,12 +180,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
   },
   searchingText: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
 });
 

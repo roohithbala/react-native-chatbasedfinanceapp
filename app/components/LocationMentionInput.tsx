@@ -10,6 +10,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { locationsAPI, Location } from '@/lib/services/locationsAPI';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -45,6 +46,8 @@ export default function LocationMentionInput({
   const [cursorPosition, setCursorPosition] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
   const inputRef = useRef<TextInput>(null);
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
 
   useEffect(() => {
     const handleLocationSuggestions = async () => {
@@ -156,13 +159,13 @@ export default function LocationMentionInput({
 
   const renderSuggestion = ({ item }: { item: LocationSuggestion }) => (
     <TouchableOpacity
-      style={styles.suggestionItem}
+      style={[styles.suggestionItem, { borderBottomColor: theme.border }]}
       onPress={() => handleSuggestionPress(item)}
     >
       <View style={styles.suggestionContent}>
-        <Text style={styles.suggestionName}>{item.name}</Text>
-        <Text style={styles.suggestionAddress}>{item.address}</Text>
-        <Text style={styles.suggestionCategory}>{item.category}</Text>
+        <Text style={[styles.suggestionName, { color: theme.text }]}>{item.name}</Text>
+        <Text style={[styles.suggestionAddress, { color: theme.textSecondary }]}>{item.address}</Text>
+        <Text style={[styles.suggestionCategory, { color: theme.textSecondary }]}>{item.category}</Text>
       </View>
       <View style={styles.suggestionIcon}>
         <Text style={styles.locationEmoji}>
@@ -190,18 +193,19 @@ export default function LocationMentionInput({
     <View style={styles.container}>
       <TextInput
         ref={inputRef}
-        style={[styles.input, style]}
+        style={[styles.input, style, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
         value={value}
         onChangeText={handleTextChange}
         onSelectionChange={handleSelectionChange}
         placeholder={placeholder}
+        placeholderTextColor={theme.textSecondary}
         multiline
         autoCapitalize="sentences"
         autoCorrect={true}
       />
 
       {showSuggestions && suggestions.length > 0 && (
-        <View style={styles.suggestionsContainer}>
+        <View style={[styles.suggestionsContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <FlatList
             data={suggestions}
             renderItem={renderSuggestion}
@@ -216,34 +220,34 @@ export default function LocationMentionInput({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     position: 'relative',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.border,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     minHeight: 40,
     maxHeight: 120,
-    backgroundColor: '#fff',
+    backgroundColor: theme.surface,
   },
   suggestionsContainer: {
     position: 'absolute',
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.border,
     borderTopWidth: 0,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
     maxHeight: 200,
     zIndex: 1000,
-    shadowColor: '#000',
+    shadowColor: theme.shadow,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -260,7 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: theme.border,
   },
   suggestionContent: {
     flex: 1,
@@ -268,16 +272,16 @@ const styles = StyleSheet.create({
   suggestionName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.text,
   },
   suggestionAddress: {
     fontSize: 14,
-    color: '#666',
+    color: theme.textSecondary,
     marginTop: 2,
   },
   suggestionCategory: {
     fontSize: 12,
-    color: '#999',
+    color: theme.textTertiary,
     marginTop: 2,
     textTransform: 'capitalize',
   },
