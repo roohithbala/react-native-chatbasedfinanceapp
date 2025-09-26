@@ -9,8 +9,10 @@ import LoadingIndicator from '@/app/components/LoadingIndicator';
 import { FloatingActionButton } from '@/app/components/FloatingActionButton';
 import { useExpensesLogic } from '@/hooks/useExpensesLogic';
 import { useExpensesCalculations } from '@/hooks/useExpensesCalculations';
+import { useTheme } from '../context/ThemeContext';
 
 export default function ExpensesScreen() {
+  const { theme } = useTheme();
   const {
     // State
     activeTab,
@@ -51,7 +53,7 @@ export default function ExpensesScreen() {
   } = useExpensesCalculations(expenses, splitBills, selectedGroup, currentUser);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ExpensesHeader
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -107,6 +109,5 @@ export default function ExpensesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
 });

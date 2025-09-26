@@ -42,6 +42,12 @@ const configureDatabase = async () => {
 
 const createInitialData = async () => {
   try {
+    // First, ensure all existing users have upiId
+    await User.updateMany(
+      { upiId: { $exists: false } },
+      { $set: { upiId: 'default@paytm' } }
+    );
+
     const userCount = await User.countDocuments();
 
     if (userCount === 0) {
@@ -51,6 +57,7 @@ const createInitialData = async () => {
         username: 'demo_user',
         email: 'demo@example.com',
         password: 'demo123',
+        upiId: 'demo@paytm',
         isActive: true
       });
 

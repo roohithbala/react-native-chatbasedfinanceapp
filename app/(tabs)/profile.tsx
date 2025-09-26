@@ -50,7 +50,7 @@ export default function ProfileScreen() {
     isLoading 
   } = useFinanceStore();
 
-  const { themeMode, setThemeMode } = useTheme();
+  const { themeMode, setThemeMode, theme } = useTheme();
 
   useEffect(() => {
     if (currentUser?.preferences?.biometric !== undefined) {
@@ -182,16 +182,16 @@ export default function ProfileScreen() {
 
   if (!currentUser) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.centerContent}>
-          <Text style={styles.errorText}>Please log in to access profile</Text>
+          <Text style={[styles.errorText, { color: theme.error }]}>Please log in to access profile</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ProfileHeader
         currentUser={currentUser}
         totalExpenses={totalExpenses}
@@ -199,7 +199,7 @@ export default function ProfileScreen() {
         groupsCount={(groups || []).length}
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.content, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         <GroupsSection
           groups={groups}
           selectedGroup={selectedGroup}
@@ -250,7 +250,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   centerContent: {
     flex: 1,
@@ -260,7 +259,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#EF4444',
     textAlign: 'center',
   },
   content: {

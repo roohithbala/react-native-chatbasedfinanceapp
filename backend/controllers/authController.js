@@ -137,7 +137,7 @@ const getCurrentUser = async (userId) => {
 
 // Update user profile
 const updateProfile = async (userId, updateData) => {
-  const { name, avatar, preferences, email, username } = updateData;
+  const { name, avatar, preferences, email, username, upiId } = updateData;
 
   const user = await User.findById(userId);
   if (!user) {
@@ -145,33 +145,56 @@ const updateProfile = async (userId, updateData) => {
   }
 
   // Validate profile update data
-  const validation = validateProfileUpdate({ email, username }, user);
+  const validation = validateProfileUpdate({ email, username, upiId }, user);
   if (!validation.isValid) {
     throw new Error(validation.errors[0]);
   }
 
   // Check if username is being changed and validate uniqueness
-  if (username && username !== user.username) {
-    const existingUser = await User.findOne({ username });
-    if (existingUser && existingUser._id.toString() !== user._id.toString()) {
-      throw new Error('Username already taken');
+  if (username !== undefined && username !== user.username) {
+    if (!username || username.trim() === '') {
+      throw new Error('Username cannot be empty');
     }
-    user.username = username;
+    const existingUser = await User.findOne({ username: username.trim() });
+    if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+      throw new Error(`Username "${username.trim()}" is already taken by another user`);
+    }
+    user.username = username.trim();
   }
 
   // Check if email is being changed and validate uniqueness
-  if (email && email !== user.email) {
-    const existingUser = await User.findOne({ email });
-    if (existingUser && existingUser._id.toString() !== user._id.toString()) {
-      throw new Error('Email already registered');
+  if (email !== undefined && email !== user.email) {
+    if (!email || email.trim() === '') {
+      throw new Error('Email cannot be empty');
     }
-    user.email = email;
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+      throw new Error(`Email "${email.trim()}" is already registered to another account`);
+    }
+    user.email = email.trim().toLowerCase();
+  }
+
+  // Check if upiId is being changed and validate uniqueness
+  if (upiId !== undefined && upiId !== user.upiId) {
+    if (!upiId || upiId.trim() === '') {
+      throw new Error('UPI ID cannot be empty');
+    }
+    const existingUser = await User.findOne({ upiId: upiId.trim() });
+    if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+      throw new Error(`UPI ID "${upiId.trim()}" is already registered to another account`);
+    }
+    user.upiId = upiId.trim();
+  }
+
+  // Ensure upiId is always set (required field)
+  if (!user.upiId) {
+    throw new Error('UPI ID is required');
   }
 
   // Update other fields
-  if (name) user.name = name;
-  if (avatar) user.avatar = avatar;
-  if (preferences) user.preferences = { ...user.preferences, ...preferences };
+  if (name !== undefined) user.name = name ? name.trim() : user.name;
+  if (avatar !== undefined) user.avatar = avatar || user.avatar;
+  if (preferences !== undefined) user.preferences = { ...user.preferences, ...preferences };
 
   await user.save();
 

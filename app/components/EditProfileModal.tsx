@@ -7,29 +7,37 @@ import {
   TouchableOpacity,
   Modal,
   SafeAreaView,
-  Alert,
   ActivityIndicator,
+  Alert,
+  Switch,
+  ScrollView,
 } from 'react-native';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { authAPI } from '@/lib/services/api';
+import { useTheme } from '../context/ThemeContext';
 
 interface EditProfileModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-const EditProfileModal = ({ visible, onClose }: EditProfileModalProps) => {
+const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onClose }) => {
   const { currentUser, updateProfile } = useFinanceStore();
+  const { theme } = useTheme();
   const [name, setName] = useState(currentUser?.name || '');
   const [username, setUsername] = useState(currentUser?.username || '');
   const [email, setEmail] = useState(currentUser?.email || '');
+  const [upiId, setUpiId] = useState(currentUser?.upiId || '');
   const [loading, setLoading] = useState(false);
   const [avatar, setAvatar] = useState(currentUser?.avatar || '👤');
   const [currency, setCurrency] = useState(currentUser?.preferences?.currency || 'INR');
+  const [notifications, setNotifications] = useState(currentUser?.preferences?.notifications ?? true);
+  const [biometric, setBiometric] = useState(currentUser?.preferences?.biometric ?? false);
+  const [darkMode, setDarkMode] = useState(currentUser?.preferences?.darkMode ?? false);
 
   const handleSave = async () => {
-    if (!name.trim() || !email.trim() || !username.trim()) {
-      Alert.alert('Error', 'Name, email and username are required');
+    if (!name.trim() || !email.trim() || !username.trim() || !upiId.trim()) {
+      Alert.alert('Error', 'Name, email, username and UPI ID are required');
       return;
     }
 
@@ -40,16 +48,30 @@ const EditProfileModal = ({ visible, onClose }: EditProfileModalProps) => {
       return;
     }
 
+    // Validate UPI ID format
+    const upiRegex = /^[a-zA-Z0-9.-]+@[a-zA-Z0-9.-]+$/;
+    if (!upiId.trim()) {
+      Alert.alert('Error', 'UPI ID is required');
+      return;
+    } else if (!upiRegex.test(upiId)) {
+      Alert.alert('Error', 'Please enter a valid UPI ID (e.g., user@paytm)');
+      return;
+    }
+
     setLoading(true);
     try {
       const profileData = {
         name: name.trim(),
         email: email.trim(),
         username: username.trim(),
-        avatar,
+        upiId: upiId.trim(),
+        avatar: avatar.trim(),
         preferences: {
           ...currentUser?.preferences,
-          currency,
+          notifications,
+          biometric,
+          darkMode,
+          currency: currency.trim(),
         },
       };
       await authAPI.updateProfile(profileData);
@@ -70,14 +92,14 @@ const EditProfileModal = ({ visible, onClose }: EditProfileModalProps) => {
       animationType="slide"
       presentationStyle="pageSheet"
     >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
           <TouchableOpacity onPress={onClose} disabled={loading}>
-            <Text style={[styles.headerButton, loading && styles.disabledText]}>Cancel</Text>
+            <Text style={[styles.headerButton, { color: theme.textSecondary }, loading && styles.disabledText]}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Edit Profile</Text>
           <TouchableOpacity onPress={handleSave} disabled={loading}>
-            <Text style={[styles.headerButton, styles.saveButton, loading && styles.disabledText]}>
+            <Text style={[styles.headerButton, styles.saveButton, { color: theme.primary }, loading && styles.disabledText]}>
               {loading ? 'Saving...' : 'Save'}
             </Text>
           </TouchableOpacity>
@@ -85,84 +107,163 @@ const EditProfileModal = ({ visible, onClose }: EditProfileModalProps) => {
 
         <View style={styles.content}>
           {loading && (
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#2563EB" />
+            <View style={[styles.loadingOverlay, { backgroundColor: theme.modalOverlay }]}>
+              <ActivityIndicator size="large" color={theme.primary} />
             </View>
           )}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Name</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Your name"
-              placeholderTextColor="#94A3B8"
-              editable={!loading}
-            />
-          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text }]}>Name</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.inputBackground, 
+                  borderColor: theme.inputBorder, 
+                  color: theme.text 
+                }]}
+                value={name}
+                onChangeText={setName}
+                placeholder="Your name"
+                placeholderTextColor={theme.inputPlaceholder}
+                editable={!loading}
+              />
+            </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Username</Text>
-            <TextInput
-              style={styles.input}
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Your username"
-              placeholderTextColor="#94A3B8"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-            <Text style={styles.helpText}>
-              Username must be at least 3 characters and can only contain letters, numbers, and underscores
-            </Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Your email"
-              placeholderTextColor="#94A3B8"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Avatar</Text>
-            <View style={styles.avatarInput}>
-              <Text style={styles.avatarEmoji}>{avatar}</Text>
-              <Text style={styles.avatarHelp}>
-                Use an emoji as your avatar
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text }]}>Username</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.inputBackground, 
+                  borderColor: theme.inputBorder, 
+                  color: theme.text 
+                }]}
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Your username"
+                placeholderTextColor={theme.inputPlaceholder}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+              <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+                Username must be at least 3 characters and can only contain letters, numbers, and underscores
               </Text>
             </View>
-            <TextInput
-              style={[styles.input, styles.emojiInput]}
-              value={avatar}
-              onChangeText={setAvatar}
-              maxLength={2}
-              editable={!loading}
-            />
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Preferred Currency</Text>
-            <TextInput
-              style={styles.input}
-              value={currency}
-              onChangeText={setCurrency}
-              placeholder="INR"
-              placeholderTextColor="#94A3B8"
-              maxLength={3}
-              autoCapitalize="characters"
-              editable={!loading}
-            />
-          </View>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text }]}>Email</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.inputBackground, 
+                  borderColor: theme.inputBorder, 
+                  color: theme.text 
+                }]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Your email"
+                placeholderTextColor={theme.inputPlaceholder}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text }]}>UPI ID</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.inputBackground, 
+                  borderColor: theme.inputBorder, 
+                  color: theme.text 
+                }]}
+                value={upiId}
+                onChangeText={setUpiId}
+                placeholder="user@paytm"
+                placeholderTextColor={theme.inputPlaceholder}
+                autoCapitalize="none"
+                editable={!loading}
+              />
+              <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+                Your UPI ID for payments (e.g., user@paytm, user@ybl)
+              </Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text }]}>Avatar</Text>
+              <View style={styles.avatarInput}>
+                <Text style={styles.avatarEmoji}>{avatar}</Text>
+                <Text style={[styles.avatarHelp, { color: theme.textSecondary }]}>
+                  Use an emoji as your avatar
+                </Text>
+              </View>
+              <TextInput
+                style={[styles.input, styles.emojiInput, { 
+                  backgroundColor: theme.inputBackground, 
+                  borderColor: theme.inputBorder, 
+                  color: theme.text 
+                }]}
+                value={avatar}
+                onChangeText={setAvatar}
+                maxLength={2}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text }]}>Preferred Currency</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.inputBackground, 
+                  borderColor: theme.inputBorder, 
+                  color: theme.text 
+                }]}
+                value={currency}
+                onChangeText={setCurrency}
+                placeholder="INR"
+                placeholderTextColor={theme.inputPlaceholder}
+                maxLength={3}
+                autoCapitalize="characters"
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text }]}>Preferences</Text>
+              
+              <View style={styles.switchRow}>
+                <Text style={[styles.switchLabel, { color: theme.textSecondary }]}>Push Notifications</Text>
+                <Switch
+                  value={notifications}
+                  onValueChange={setNotifications}
+                  trackColor={{ false: theme.inputBorder, true: theme.primary }}
+                  thumbColor={notifications ? theme.surface : theme.textSecondary}
+                  disabled={loading}
+                />
+              </View>
+
+              <View style={styles.switchRow}>
+                <Text style={[styles.switchLabel, { color: theme.textSecondary }]}>Biometric Authentication</Text>
+                <Switch
+                  value={biometric}
+                  onValueChange={setBiometric}
+                  trackColor={{ false: theme.inputBorder, true: theme.primary }}
+                  thumbColor={biometric ? theme.surface : theme.textSecondary}
+                  disabled={loading}
+                />
+              </View>
+
+              <View style={styles.switchRow}>
+                <Text style={[styles.switchLabel, { color: theme.textSecondary }]}>Dark Mode</Text>
+                <Switch
+                  value={darkMode}
+                  onValueChange={setDarkMode}
+                  trackColor={{ false: theme.inputBorder, true: theme.primary }}
+                  thumbColor={darkMode ? theme.surface : theme.textSecondary}
+                  disabled={loading}
+                />
+              </View>
+            </View>
+          </ScrollView>
         </View>
       </SafeAreaView>
     </Modal>
@@ -172,7 +273,6 @@ const EditProfileModal = ({ visible, onClose }: EditProfileModalProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC'
   },
   header: {
     flexDirection: 'row',
@@ -180,21 +280,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0'
   },
   headerButton: {
     fontSize: 16,
-    color: '#64748B'
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B'
   },
   saveButton: {
-    color: '#2563EB',
     fontWeight: '600'
   },
   disabledText: {
@@ -205,7 +300,6 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1
@@ -216,21 +310,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
     marginBottom: 8
   },
   input: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    color: '#1E293B'
   },
   helpText: {
     fontSize: 12,
-    color: '#64748B',
     marginTop: 4
   },
   avatarInput: {
@@ -244,12 +333,22 @@ const styles = StyleSheet.create({
   },
   avatarHelp: {
     fontSize: 14,
-    color: '#64748B'
   },
   emojiInput: {
     fontSize: 24,
     textAlign: 'center'
-  }
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  switchLabel: {
+    fontSize: 16,
+    flex: 1,
+  },
 });
 
 export default EditProfileModal;

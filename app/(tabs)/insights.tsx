@@ -10,8 +10,10 @@ import { BudgetUtilization } from '../components/BudgetUtilization';
 import { QuickStats } from '../components/QuickStats';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useInsightsCalculations } from '@/hooks/useInsightsCalculations';
+import { useTheme } from '../context/ThemeContext';
 
 export default function InsightsScreen() {
+  const { theme } = useTheme();
   const {
     expenses,
     budgets,
@@ -30,10 +32,10 @@ export default function InsightsScreen() {
   } = useInsightsCalculations(expenses, budgets, groups);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <InsightsHeader />
 
-      <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1, padding: 20, backgroundColor: theme.background }} showsVerticalScrollIndicator={false}>
         <SpendingTrendChart data={spendingTrend} />
 
         <CategoryBreakdownChart data={categorySpending} />

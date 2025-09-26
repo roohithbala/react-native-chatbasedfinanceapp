@@ -48,20 +48,29 @@ const validateLoginData = (data) => {
 
 // Validate profile update data
 const validateProfileUpdate = (data, currentUser) => {
-  const { username, email } = data;
+  const { username, email, upiId } = data;
   const errors = [];
 
   // Check username
-  if (username && username !== currentUser.username) {
+  if (username !== undefined && username !== currentUser.username) {
     if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)) {
       errors.push('Username must be at least 3 characters and can only contain letters, numbers, and underscores');
     }
   }
 
   // Check email
-  if (email && email !== currentUser.email) {
+  if (email !== undefined && email !== currentUser.email) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.push('Invalid email format');
+    }
+  }
+
+  // Check UPI ID
+  if (upiId !== undefined && upiId !== currentUser.upiId) {
+    if (!upiId || upiId.trim() === '') {
+      errors.push('UPI ID is required');
+    } else if (!/^[a-zA-Z0-9.-]+@[a-zA-Z0-9.-]+$/.test(upiId)) {
+      errors.push('Invalid UPI ID format. UPI ID should be in format: username@bankname');
     }
   }
 
@@ -104,6 +113,7 @@ const formatUserResponse = (user, includeGroups = false) => {
     name: user.name,
     email: user.email,
     username: user.username,
+    upiId: user.upiId,
     avatar: user.avatar,
     preferences: user.preferences
   };

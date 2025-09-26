@@ -30,6 +30,7 @@ export interface User {
   name: string;
   username: string;
   email: string;
+  upiId: string;
   avatar: string;
   preferences?: {
     notifications: boolean;

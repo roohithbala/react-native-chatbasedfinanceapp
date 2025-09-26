@@ -13,6 +13,7 @@ import { View as ThemedView } from './ThemedComponents';
 import { PaymentsAPI, SettlementPlan } from '@/lib/services/paymentsAPI';
 import { useFinanceStore } from '../../lib/store/financeStore';
 import GooglePayButton from './GooglePayButton';
+import { useTheme } from '../context/ThemeContext';
 
 interface SettlementModalProps {
   visible: boolean;
@@ -27,6 +28,7 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
   onClose,
   onSettlementComplete,
 }) => {
+  const { theme } = useTheme();
   const { currentUser } = useFinanceStore();
   const [settlement, setSettlement] = useState<SettlementPlan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -91,14 +93,14 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
     const isCurrentUserTo = payment.toUserId === currentUser?._id;
 
     return (
-      <View key={index} style={styles.settlementItem}>
+      <View key={index} style={[styles.settlementItem, { backgroundColor: theme.surface }]}>
         <View style={styles.settlementInfo}>
           <Text style={styles.settlementText}>
-            <Text style={styles.userName}>{payment.fromUserName}</Text>
+            <Text style={[styles.userName, { color: theme.text }]}>{payment.fromUserName}</Text>
             {' → '}
-            <Text style={styles.userName}>{payment.toUserName}</Text>
+            <Text style={[styles.userName, { color: theme.text }]}>{payment.toUserName}</Text>
           </Text>
-          <Text style={styles.amountText}>₹{(payment.amount || 0).toFixed(2)}</Text>
+          <Text style={[styles.amountText, { color: theme.primary }]}>₹{(payment.amount || 0).toFixed(2)}</Text>
         </View>
 
         {(isCurrentUserFrom || isCurrentUserTo) && (
@@ -107,10 +109,11 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
               style={[
                 styles.settleButton,
                 styles.cashButton,
+                { backgroundColor: theme.success },
               ]}
               onPress={() => handleSettlePayment(payment)}
             >
-              <Text style={styles.settleButtonText}>Pay Cash</Text>
+              <Text style={[styles.settleButtonText, { color: theme.surface }]}>Pay Cash</Text>
             </TouchableOpacity>
 
             {isCurrentUserFrom && (
@@ -155,34 +158,34 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Group Settlement</Text>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.closeButtonText}>✕</Text>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+          <Text style={[styles.title, { color: theme.text }]}>Group Settlement</Text>
+          <TouchableOpacity style={[styles.closeButton, { backgroundColor: theme.surfaceSecondary }]} onPress={onClose}>
+            <Text style={[styles.closeButtonText, { color: theme.textSecondary }]}>✕</Text>
           </TouchableOpacity>
         </View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" />
-            <Text style={styles.loadingText}>Calculating optimal settlement...</Text>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Calculating optimal settlement...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={loadSettlement}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+            <TouchableOpacity style={[styles.retryButton, { backgroundColor: theme.primary }]} onPress={loadSettlement}>
+              <Text style={[styles.retryButtonText, { color: theme.surface }]}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : settlement.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No settlements needed!</Text>
-            <Text style={styles.emptySubtext}>All debts are settled.</Text>
+            <Text style={[styles.emptyText, { color: theme.success }]}>No settlements needed!</Text>
+            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>All debts are settled.</Text>
           </View>
         ) : (
           <ScrollView style={styles.content}>
-            <Text style={styles.description}>
+            <Text style={[styles.description, { color: theme.textSecondary }]}>
               Here are the optimal payments to settle all debts in the group:
             </Text>
 
@@ -190,11 +193,11 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
               {settlement.map((payment, index) => renderSettlementItem(payment, index))}
             </View>
 
-            <View style={styles.summaryContainer}>
-              <Text style={styles.summaryText}>
+            <View style={[styles.summaryContainer, { backgroundColor: theme.surface }]}>
+              <Text style={[styles.summaryText, { color: theme.textSecondary }]}>
                 Total transactions: {settlement.length}
               </Text>
-              <Text style={styles.summaryText}>
+              <Text style={[styles.summaryText, { color: theme.textSecondary }]}>
                 Total amount: ₹{settlement.reduce((sum, payment) => sum + (payment.amount || 0), 0).toFixed(2)}
               </Text>
             </View>
@@ -208,33 +211,27 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1E293B',
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
     fontSize: 18,
-    color: '#64748B',
     fontWeight: 'bold',
   },
   loadingContainer: {
@@ -245,7 +242,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#64748B',
   },
   errorContainer: {
     flex: 1,
@@ -255,18 +251,15 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#EF4444',
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#007AFF',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -279,12 +272,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#10B981',
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 16,
-    color: '#64748B',
     textAlign: 'center',
   },
   content: {
@@ -293,7 +284,6 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 16,
-    color: '#64748B',
     marginBottom: 20,
     lineHeight: 24,
   },
@@ -304,7 +294,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
     padding: 16,
     marginBottom: 12,
     borderRadius: 12,
@@ -323,12 +312,10 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontWeight: 'bold',
-    color: '#1E293B',
   },
   amountText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2563EB',
   },
   settleButton: {
     paddingHorizontal: 20,
@@ -338,25 +325,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   settleButtonOutgoing: {
-    backgroundColor: '#EF4444',
+    // backgroundColor will be set inline
   },
   settleButtonIncoming: {
-    backgroundColor: '#10B981',
+    // backgroundColor will be set inline
   },
   settleButtonText: {
-    color: 'white',
     fontWeight: 'bold',
     fontSize: 14,
   },
   summaryContainer: {
-    backgroundColor: 'white',
     padding: 16,
     borderRadius: 12,
     marginTop: 20,
   },
   summaryText: {
     fontSize: 16,
-    color: '#64748B',
     marginBottom: 4,
   },
   paymentOptions: {
@@ -365,7 +349,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cashButton: {
-    backgroundColor: '#10B981',
     flex: 1,
   },
   googlePayButton: {

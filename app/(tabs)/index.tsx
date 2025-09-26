@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useFinanceStore } from '@/lib/store/financeStore';
+import { useTheme } from '../context/ThemeContext';
 import HomeHeader from '../components/HomeHeader';
 import HomeQuickStats from '../components/HomeQuickStats';
 import QuickActions from '../components/QuickActions';
@@ -33,6 +34,7 @@ export default function HomeScreen() {
     error,
     testConnectivity
   } = useFinanceStore();
+  const { theme } = useTheme();
 
   useEffect(() => {
     // Only load data if user is authenticated and we don't have data yet
@@ -128,7 +130,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
         style={styles.scrollView}
         refreshControl={
@@ -191,7 +193,6 @@ function getCategoryIcon(category: string): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   centerContent: {
     flex: 1,

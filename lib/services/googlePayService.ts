@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { initStripe, presentPaymentSheet, confirmPaymentSheetPayment } from '@stripe/stripe-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Google Pay configuration
 const GOOGLE_PAY_CONFIG = {
@@ -28,6 +29,21 @@ export interface GooglePayResult {
 
 class GooglePayService {
   private isInitialized = false;
+
+  private async getAuthHeaders(): Promise<{ [key: string]: string }> {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      return {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+      return {
+        'Content-Type': 'application/json',
+      };
+    }
+  }
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
@@ -59,13 +75,12 @@ class GooglePayService {
 
   async createPaymentIntent(paymentData: GooglePayPaymentData): Promise<string> {
     try {
+      const headers = await this.getAuthHeaders();
+      
       // This should call your backend to create a payment intent
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/payments/create-payment-intent`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add auth headers here
-        },
+        headers,
         body: JSON.stringify({
           amount: paymentData.amount,
           currency: paymentData.currency,
@@ -110,12 +125,10 @@ class GooglePayService {
       const transactionId = `gpay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // Call backend to record the transaction
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/payments/google-pay`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add auth headers here
-        },
+        headers,
         body: JSON.stringify({
           transactionId,
           amount: paymentData.amount,
@@ -146,12 +159,10 @@ class GooglePayService {
 
   async refundPayment(transactionId: string, amount?: number): Promise<GooglePayResult> {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/payments/google-pay/refund`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add auth headers here
-        },
+        headers,
         body: JSON.stringify({
           transactionId,
           amount,

@@ -10,8 +10,10 @@ import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { useBudgetData } from '@/hooks/useBudgetData';
 import { useBudgetActions } from '@/hooks/useBudgetActions';
+import { useTheme } from '../context/ThemeContext';
 
 export default function BudgetScreen() {
+  const { theme } = useTheme();
   const {
     budgets,
     expenses,
@@ -68,7 +70,7 @@ export default function BudgetScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <BudgetHeader />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -78,7 +80,7 @@ export default function BudgetScreen() {
         />
 
         <View style={styles.categoriesSection}>
-          <Text style={styles.sectionTitle}>Category Budgets</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Category Budgets</Text>
 
           <BudgetList
             categories={categories}
@@ -123,7 +125,6 @@ export default function BudgetScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   scrollView: {
     flex: 1,
@@ -134,7 +135,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
     marginBottom: 16,
   },
 });

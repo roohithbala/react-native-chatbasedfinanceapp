@@ -8,8 +8,10 @@ import { ChatsTabContent } from '../components/ChatsTabContent';
 import { JoinGroupModal } from '../components/JoinGroupModal';
 import ChatMenu from '../components/ChatMenu';
 import { useChatsLogic } from '@/hooks/useChatsLogic';
+import { useTheme } from '../context/ThemeContext';
 
 export default function ChatsScreen() {
+  const { theme } = useTheme();
   const {
     activeTab,
     setActiveTab,
@@ -47,16 +49,16 @@ export default function ChatsScreen() {
 
   if (!currentUser) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.emptyContainer}>
-          <Text style={styles.errorText}>Please log in to access chats</Text>
+          <Text style={[styles.errorText, { color: theme.error }]}>Please log in to access chats</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.headerContainer}>
         <ChatHeader
           activeTab={activeTab}
@@ -83,8 +85,8 @@ export default function ChatsScreen() {
       <View style={styles.contentContainer}>
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563EB" />
-            <Text style={styles.loadingText}>Loading chats...</Text>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading chats...</Text>
           </View>
         ) : searchQuery.trim() && activeTab === 'chats' ? (
           <ChatsTabContent
@@ -148,7 +150,6 @@ export default function ChatsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   headerContainer: {
     // Header has its own styling
@@ -167,7 +168,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#64748B',
   },
   contentContainer: {
     flex: 1,
@@ -179,7 +179,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#EF4444',
     textAlign: 'center',
   },
 });
