@@ -49,7 +49,7 @@ const messageSchema = new mongoose.Schema({
   }],
   type: {
     type: String,
-    enum: ['text', 'image', 'file', 'system', 'command'],
+    enum: ['text', 'image', 'video', 'audio', 'document', 'system', 'command'],
     default: 'text'
   },
   // For financial commands and AI features
@@ -94,9 +94,15 @@ const messageSchema = new mongoose.Schema({
   mediaUrl: String,
   mediaType: {
     type: String,
-    enum: ['image', 'document', 'audio', null]
+    enum: ['image', 'video', 'audio', 'document', null]
   },
   mediaSize: Number,
+  mediaDuration: Number, // For audio/video in seconds
+  mediaWidth: Number, // For images/videos
+  mediaHeight: Number, // For images/videos
+  thumbnailUrl: String, // For videos and large images
+  fileName: String, // Original file name
+  mimeType: String, // MIME type of the file
   // For message formatting
   mentions: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -168,7 +174,7 @@ messageSchema.methods.isSystemMessage = function() {
 };
 
 messageSchema.methods.isMediaMessage = function() {
-  return this.type === 'image' || this.type === 'file';
+  return ['image', 'video', 'audio', 'document'].includes(this.type);
 };
 
 messageSchema.methods.markAsDelivered = async function() {

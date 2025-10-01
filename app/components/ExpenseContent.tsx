@@ -5,6 +5,7 @@ import ExpenseList from './ExpenseList';
 import GroupExpenseStats from './GroupExpenseStats';
 import SplitBillsSection from './SplitBillsSection';
 import { Expense } from '@/lib/store/financeStore';
+import { useTheme } from '../context/ThemeContext';
 
 interface ExpenseContentProps {
   activeTab: 'expenses' | 'splitBills';
@@ -35,6 +36,7 @@ export default function ExpenseContent({
   onSplitBillTabChange,
   onMarkAsPaid,
 }: ExpenseContentProps) {
+  const { theme } = useTheme();
   return (
     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
       {activeTab === 'expenses' ? (
@@ -55,7 +57,7 @@ export default function ExpenseContent({
 
           {selectedGroup && (
             <>
-              <Text style={styles.sectionTitle}>📊 Group Stats</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>📊 Group Stats</Text>
               <GroupExpenseStats groupId={selectedGroup._id} />
             </>
           )}
@@ -72,7 +74,7 @@ export default function ExpenseContent({
 
           {selectedGroup && (
             <>
-              <Text style={styles.sectionTitle}>📊 Group Stats</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>📊 Group Stats</Text>
               <GroupExpenseStats groupId={selectedGroup._id} />
             </>
           )}
@@ -90,7 +92,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
     marginBottom: 16,
     marginTop: 8,
   },

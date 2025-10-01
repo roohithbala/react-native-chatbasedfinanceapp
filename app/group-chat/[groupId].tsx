@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, StatusBar, Platform, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import TypingIndicator from '../components/TypingIndicator';
 import SplitBillModal from '../components/SplitBillModal';
 import AddMemberModal from '../components/AddMemberModal';
 import GroupManagementModal from '../components/GroupManagementModal';
+import MessageInput from '../components/MessageInput';
 import PaymentsAPI from '@/lib/services/paymentsAPI';
 import { CommandParser } from '@/lib/components/CommandParser';
 import { Message } from '@/app/types/chat';
@@ -108,6 +109,16 @@ export default function GroupChatScreen() {
     setMessage('');
   };
 
+  const handleMediaSelect = async (media: {
+    uri: string;
+    type: 'image' | 'video' | 'audio' | 'document';
+    fileName?: string;
+    fileSize?: number;
+    mimeType?: string;
+  }) => {
+    await sendMessageFromHook('', media);
+  };
+
   const renderMessage = (msg: Message, index: number) => {
     if (!msg || !msg.user) {
       console.warn('Invalid message object:', msg);
@@ -157,6 +168,20 @@ export default function GroupChatScreen() {
         onViewSplitBillDetails={(splitBillId: string) => {
           console.log('View split bill details:', splitBillId);
           // TODO: Implement view details functionality
+        }}
+        // Multimedia props
+        mediaUrl={msg.mediaUrl}
+        mediaType={msg.mediaType}
+        mediaSize={msg.mediaSize}
+        mediaDuration={msg.mediaDuration}
+        mediaWidth={msg.mediaWidth}
+        mediaHeight={msg.mediaHeight}
+        thumbnailUrl={msg.thumbnailUrl}
+        fileName={msg.fileName}
+        mimeType={msg.mimeType}
+        onMediaPress={(mediaUrl: string, mediaType: string) => {
+          console.log('Media pressed:', mediaUrl, mediaType);
+          // TODO: Implement media viewer
         }}
       />
     );
@@ -224,10 +249,10 @@ export default function GroupChatScreen() {
               <TouchableOpacity style={styles.headerButton} onPress={() => router.push(`/group-stats?groupId=${validGroupId}&groupName=${encodeURIComponent(groupName || activeGroup?.name || 'Group Chat')}`)}>
                 <Ionicons name="stats-chart" size={20} color="white" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.headerButton}>
+              <TouchableOpacity style={styles.headerButton} onPress={() => router.push(`/voice-call/${validGroupId}?type=group`)}>
                 <Ionicons name="call" size={20} color="white" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.headerButton}>
+              <TouchableOpacity style={styles.headerButton} onPress={() => router.push(`/video-call/${validGroupId}?type=group`)}>
                 <Ionicons name="videocam" size={20} color="white" />
               </TouchableOpacity>
               <TouchableOpacity
@@ -240,96 +265,70 @@ export default function GroupChatScreen() {
           </View>
         </LinearGradient>
 
-        {/* Messages */}
-        <ScrollView
-          ref={scrollViewRef}
+        <KeyboardAvoidingView
           style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-          keyboardShouldPersistTaps="handled"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <Text style={[styles.loadingText, { color: theme.textSecondary || '#6B7280' }]}>Loading messages...</Text>
-            </View>
-          ) : messages.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="chatbubble-ellipses" size={64} color="#CBD5E1" style={styles.emptyIcon} />
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>No messages yet</Text>
-              <Text style={[styles.emptySubtitle, { color: theme.textSecondary || '#64748B' }]}>Start the conversation!</Text>
-            </View>
-          ) : (
-            messages.map((msg, index) => renderMessage(msg, index))
-          )}
-        </ScrollView>
-
-        {/* Mentions List */}
-        <MentionsList
-          showMentions={showMentions}
-          mentionResults={mentionResults}
-          onMentionPress={insertMention}
-        />
-
-        {/* Typing Indicators */}
-        <TypingIndicator typingUsers={typingUsers} />
-
-        {/* Input */}
-        <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderTopColor: theme.border || '#E2E8F0' }]}>
-          <View style={[styles.inputWrapper, { backgroundColor: theme.surfaceSecondary || '#F8FAFC', borderColor: theme.border || '#E2E8F0' }]}>
-            <TouchableOpacity style={styles.attachButton}>
-              <Ionicons name="add-circle" size={24} color={theme.primary || "#6366F1"} />
-            </TouchableOpacity>
-
-            <TextInput
-              style={[styles.input, { color: theme.text }]}
-              value={message}
-              onChangeText={handleMessageChange}
-              placeholder="Type a message..."
-              placeholderTextColor={theme.textSecondary || "#94A3B8"}
-              multiline
-              maxLength={1000}
-            />
-
-            <TouchableOpacity
-              style={styles.splitBillButton}
-              onPress={() => {
-                console.log('GroupChat - Opening split bill modal');
-                console.log('GroupChat - validGroupId:', validGroupId);
-                console.log('GroupChat - activeGroup:', activeGroup ? {
-                  id: activeGroup._id,
-                  name: activeGroup.name,
-                  memberCount: activeGroup.members?.length,
-                  members: activeGroup.members?.map((m: any) => ({
-                    userId: m.userId?._id,
-                    name: m.userId?.name,
-                    isActive: m.isActive
-                  }))
-                } : 'null');
-                console.log('GroupChat - currentUser:', currentUser ? {
-                  id: currentUser._id,
-                  name: currentUser.name
-                } : 'null');
-                setShowSplitBillModal(true);
-              }}
-            >
-              <Ionicons name="cash" size={20} color={theme.primary || "#6366F1"} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              [styles.sendButton, { backgroundColor: theme.primary || '#6366F1', shadowColor: theme.primary || '#6366F1' }],
-              !message.trim() && [styles.sendButtonDisabled, { backgroundColor: theme.surfaceSecondary || '#E2E8F0' }],
-            ]}
-            onPress={handleSendMessage}
-            disabled={!message.trim()}
+          {/* Messages */}
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.messagesScrollView}
+            contentContainerStyle={styles.messagesContent}
+            keyboardShouldPersistTaps="handled"
           >
-            <Ionicons
-              name="send"
-              size={20}
-              color={message.trim() ? theme.surface || 'white' : '#CBD5E1'}
-            />
-          </TouchableOpacity>
-        </View>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <Text style={[styles.loadingText, { color: theme.textSecondary || '#6B7280' }]}>Loading messages...</Text>
+              </View>
+            ) : messages.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="chatbubble-ellipses" size={64} color="#CBD5E1" style={styles.emptyIcon} />
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>No messages yet</Text>
+                <Text style={[styles.emptySubtitle, { color: theme.textSecondary || '#64748B' }]}>Start the conversation!</Text>
+              </View>
+            ) : (
+              messages.map((msg, index) => renderMessage(msg, index))
+            )}
+          </ScrollView>
+
+          {/* Mentions List */}
+          <MentionsList
+            showMentions={showMentions}
+            mentionResults={mentionResults}
+            onMentionPress={insertMention}
+          />
+
+          {/* Typing Indicators */}
+          <TypingIndicator typingUsers={typingUsers} />
+
+          {/* Input */}
+          <MessageInput
+            message={message}
+            onMessageChange={handleMessageChange}
+            onSendPress={handleSendMessage}
+            onSplitBillPress={() => {
+              console.log('GroupChat - Opening split bill modal');
+              console.log('GroupChat - validGroupId:', validGroupId);
+              console.log('GroupChat - activeGroup:', activeGroup ? {
+                id: activeGroup._id,
+                name: activeGroup.name,
+                memberCount: activeGroup.members?.length,
+                members: activeGroup.members?.map((m: any) => ({
+                  userId: m.userId?._id,
+                  name: m.userId?.name,
+                  isActive: m.isActive
+                }))
+              } : 'null');
+              console.log('GroupChat - currentUser:', currentUser ? {
+                id: currentUser._id,
+                name: currentUser.name
+              } : 'null');
+              setShowSplitBillModal(true);
+            }}
+            onMediaSelect={handleMediaSelect}
+          />
+        </KeyboardAvoidingView>
 
         {/* Split Bill Modal */}
         <SplitBillModal
@@ -515,6 +514,9 @@ const getStyles = (theme: any) => StyleSheet.create({
   messagesContainer: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  messagesScrollView: {
+    flex: 1,
   },
   messagesContent: {
     paddingVertical: 16,

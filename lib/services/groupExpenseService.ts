@@ -50,8 +50,8 @@ class GroupExpenseService {
       const expenses = Array.isArray(expensesResponse.data?.data?.expenses) 
         ? expensesResponse.data.data.expenses 
         : [];
-      const splitBills = Array.isArray(splitBillsResponse.data?.data?.splitBills) 
-        ? splitBillsResponse.data.data.splitBills 
+      const splitBills = Array.isArray(splitBillsResponse.data?.splitBills) 
+        ? splitBillsResponse.data.splitBills 
         : [];
       
       return expenses.map((expense: GroupExpense) => {
@@ -80,7 +80,7 @@ class GroupExpenseService {
       ]);
       
       const expense = expenseResponse.data?.data?.expense || expenseResponse.data?.data;
-      const splitBill = splitBillResponse.data?.data?.splitBill || splitBillResponse.data?.data;
+      const splitBill = splitBillResponse.data?.splitBill || splitBillResponse.data?.data?.splitBill || splitBillResponse.data?.data;
       
       return {
         ...expense,
@@ -253,8 +253,10 @@ class GroupExpenseService {
         const splitBillResponse = await typedApi.get(`/split-bills`, {
           params: { groupId, limit: 100 }
         });
-        splitBills = Array.isArray(splitBillResponse.data) ? splitBillResponse.data : 
-                    (splitBillResponse.data?.bills || []);
+        // The API returns { splitBills: [...], totalPages: ..., currentPage: ..., total: ... }
+        splitBills = Array.isArray(splitBillResponse.data?.splitBills) 
+          ? splitBillResponse.data.splitBills 
+          : (splitBillResponse.data?.bills || []);
       } catch (error) {
         console.log('No split bills found for group:', error);
       }

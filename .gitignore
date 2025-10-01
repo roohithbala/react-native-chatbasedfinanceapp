@@ -33,3 +33,34 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# media files (uploaded/generated content)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wmv
+*.mp3
+*.wav
+*.m4a
+*.aac
+*.flac
+*.pdf
+*.doc
+*.docx
+*.txt
+*.rtf
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.zip
+*.rar
+*.7z

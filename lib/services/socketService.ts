@@ -20,7 +20,7 @@ class SocketService {
       }
 
       console.log('🔌 Initializing socket connection...');
-      const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.40.155.172:3001/api';
+      const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.255.29.172:8081/api';
       const SOCKET_URL = EXPO_PUBLIC_API_URL.replace('/api', '');
 
       console.log('🔌 Connecting to socket server:', SOCKET_URL);
@@ -457,6 +457,79 @@ class SocketService {
   joinUserRoom(userId: string) {
     if (this.socket && this.isConnected) {
       this.socket.emit('join-user-room', userId);
+    }
+  }
+
+  // Call-related methods
+  sendCallOffer(data: { callId: string; participants: string[]; type: 'voice' | 'video'; offer: any }) {
+    if (!this.socket || !this.isConnected) {
+      throw new Error('Socket not connected');
+    }
+    this.socket.emit('call-offer', data);
+  }
+
+  sendCallAnswer(data: { callId: string; answer: any }) {
+    if (!this.socket || !this.isConnected) {
+      throw new Error('Socket not connected');
+    }
+    this.socket.emit('call-answer', data);
+  }
+
+  sendIceCandidate(data: { callId: string; candidate: any; participants?: string[] }) {
+    if (!this.socket || !this.isConnected) {
+      throw new Error('Socket not connected');
+    }
+    this.socket.emit('ice-candidate', data);
+  }
+
+  sendCallEnd(data: { callId: string; participants?: string[] }) {
+    if (!this.socket || !this.isConnected) {
+      throw new Error('Socket not connected');
+    }
+    this.socket.emit('call-end', data);
+  }
+
+  sendAddParticipant(data: { callId: string; participantId: string }) {
+    if (!this.socket || !this.isConnected) {
+      throw new Error('Socket not connected');
+    }
+    this.socket.emit('add-participant', data);
+  }
+
+  // Call event listeners
+  onCallOffer(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('call-offer', callback);
+    }
+  }
+
+  onCallAnswer(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('call-answer', callback);
+    }
+  }
+
+  onIceCandidate(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('ice-candidate', callback);
+    }
+  }
+
+  onCallEnd(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('call-end', callback);
+    }
+  }
+
+  onParticipantJoined(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('participant-joined', callback);
+    }
+  }
+
+  onParticipantLeft(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('participant-left', callback);
     }
   }
 }

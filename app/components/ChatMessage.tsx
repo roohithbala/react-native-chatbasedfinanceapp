@@ -1,8 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { format } from 'date-fns';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import SplitBillMessage from './SplitBillMessage';
 import { useTheme } from '../context/ThemeContext';
+import { MediaViewer } from './MediaViewer';
+import { MessageContent } from './MessageContent';
+import { MultimediaMessage } from './MultimediaMessage';
+import { MessageFooter } from './MessageFooter';
+import { MessageBubble } from './MessageBubble';
 
 interface LocationMention {
   locationId: string;
@@ -21,11 +25,22 @@ interface ChatMessageProps {
   senderName?: string;
   locationMentions?: LocationMention[];
   onLocationMentionPress?: (location: LocationMention) => void;
-  type?: 'text' | 'image' | 'file' | 'system' | 'command' | 'split_bill';
+  type?: 'text' | 'image' | 'video' | 'audio' | 'document' | 'system' | 'command' | 'split_bill';
   splitBillData?: any;
   currentUserId?: string;
   onPayBill?: (splitBillId: string) => void;
   onViewSplitBillDetails?: (splitBillId: string) => void;
+  // Multimedia fields
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video' | 'audio' | 'document';
+  mediaSize?: number;
+  mediaDuration?: number;
+  mediaWidth?: number;
+  mediaHeight?: number;
+  thumbnailUrl?: string;
+  fileName?: string;
+  mimeType?: string;
+  onMediaPress?: (mediaUrl: string, mediaType: string) => void;
 }
 
 export default function ChatMessage({
@@ -40,96 +55,25 @@ export default function ChatMessage({
   splitBillData,
   currentUserId,
   onPayBill,
-  onViewSplitBillDetails
+  onViewSplitBillDetails,
+  // Multimedia props
+  mediaUrl,
+  mediaType,
+  mediaSize,
+  mediaDuration,
+  mediaWidth,
+  mediaHeight,
+  thumbnailUrl,
+  fileName,
+  mimeType,
+  onMediaPress
 }: ChatMessageProps) {
   const { theme } = useTheme();
   const styles = getStyles(theme);
-  const renderMessageText = () => {
-    if (locationMentions.length === 0) {
-      return (
-        <Text style={[
-          styles.messageText,
-          isOwnMessage ? styles.ownMessageText : styles.otherMessageText
-        ]}>
-          {text}
-        </Text>
-      );
-    }
+  const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
 
-    // Create a map of location mentions for quick lookup
-    const mentionMap = new Map();
-    locationMentions.forEach(mention => {
-      mentionMap.set(`@${mention.locationName}`, mention);
-    });
-
-    // Split text by location mentions and render accordingly
-    const parts = [];
-    let remainingText = text;
-    let key = 0;
-
-    // Find all @mentions in the text
-    const mentionRegex = /(@\w+)/g;
-    let match;
-
-    while ((match = mentionRegex.exec(text)) !== null) {
-      const mentionText = match[0];
-      const mention = mentionMap.get(mentionText);
-
-      if (mention) {
-        // Add text before the mention
-        const beforeText = text.substring(0, match.index);
-        if (beforeText) {
-          parts.push(
-            <Text key={key++} style={[
-              styles.messageText,
-              isOwnMessage ? styles.ownMessageText : styles.otherMessageText
-            ]}>
-              {beforeText}
-            </Text>
-          );
-        }
-
-        // Add the location mention
-        parts.push(
-          <TouchableOpacity
-            key={key++}
-            onPress={() => onLocationMentionPress?.(mention)}
-            style={styles.locationMention}
-          >
-            <Text style={[
-              styles.locationMentionText,
-              isOwnMessage ? styles.ownLocationMentionText : styles.otherLocationMentionText
-            ]}>
-              📍 {mention.locationName}
-            </Text>
-          </TouchableOpacity>
-        );
-
-        // Update remaining text
-        remainingText = text.substring(match.index + match[0].length);
-      }
-    }
-
-    // Add remaining text
-    if (remainingText) {
-      parts.push(
-        <Text key={key++} style={[
-          styles.messageText,
-          isOwnMessage ? styles.ownMessageText : styles.otherMessageText
-        ]}>
-          {remainingText}
-        </Text>
-      );
-    }
-
-    return parts.length > 0 ? parts : (
-      <Text style={[
-        styles.messageText,
-        isOwnMessage ? styles.ownMessageText : styles.otherMessageText
-      ]}>
-        {text}
-      </Text>
-    );
+  const handleMediaPress = () => {
+    setMediaViewerVisible(true);
   };
 
   return (
@@ -137,10 +81,8 @@ export default function ChatMessage({
       {!isOwnMessage && senderName && (
         <Text style={styles.senderName}>{senderName}</Text>
       )}
-      <View style={[
-        styles.bubble,
-        isOwnMessage ? styles.ownBubble : [styles.otherBubble, { backgroundColor: theme.surface }]
-      ]}>
+
+      <MessageBubble isOwnMessage={isOwnMessage} theme={theme}>
         {type === 'split_bill' && splitBillData && currentUserId ? (
           <SplitBillMessage
             splitBillData={splitBillData}
@@ -149,22 +91,51 @@ export default function ChatMessage({
             onViewDetails={onViewSplitBillDetails}
           />
         ) : (
-          renderMessageText()
+          <View>
+            <MultimediaMessage
+              mediaUrl={mediaUrl}
+              mediaType={mediaType}
+              mediaSize={mediaSize}
+              mediaDuration={mediaDuration}
+              mediaWidth={mediaWidth}
+              mediaHeight={mediaHeight}
+              thumbnailUrl={thumbnailUrl}
+              fileName={fileName}
+              text={text}
+              isOwnMessage={isOwnMessage}
+              onMediaPress={handleMediaPress}
+              theme={theme}
+            />
+            {(!mediaUrl || !mediaType) && text && text.trim() && (
+              <MessageContent
+                text={text}
+                locationMentions={locationMentions}
+                onLocationMentionPress={onLocationMentionPress}
+                isOwnMessage={isOwnMessage}
+                theme={theme}
+              />
+            )}
+          </View>
         )}
-        <View style={styles.messageFooter}>
-          <Text style={styles.timestamp}>
-            {format(new Date(createdAt), 'HH:mm')}
-          </Text>
-          {isOwnMessage && status && (
-            <Text style={[
-              styles.status,
-              status === 'read' && styles.statusRead
-            ]}>
-              {status === 'sent' ? '✓' : status === 'delivered' ? '✓✓' : '✓✓'}
-            </Text>
-          )}
-        </View>
-      </View>
+
+        <MessageFooter
+          createdAt={createdAt}
+          status={status}
+          isOwnMessage={isOwnMessage}
+          theme={theme}
+        />
+      </MessageBubble>
+
+      <MediaViewer
+        visible={mediaViewerVisible}
+        mediaUrl={mediaUrl || null}
+        mediaType={mediaType || null}
+        fileName={fileName}
+        onClose={() => setMediaViewerVisible(false)}
+        onDownload={(url, type, fileName) => {
+          console.log('Downloaded:', fileName);
+        }}
+      />
     </View>
   );
 }
@@ -185,74 +156,5 @@ const getStyles = (theme: any) => StyleSheet.create({
     color: theme.textSecondary || '#6B7280',
     marginBottom: 2,
     marginLeft: 12,
-  },
-  bubble: {
-    maxWidth: '80%',
-    padding: 12,
-    borderRadius: 16,
-  },
-  ownBubble: {
-    backgroundColor: theme.primary || '#EFF6FF',
-    borderTopRightRadius: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  otherBubble: {
-    backgroundColor: theme.surface || 'white',
-    borderTopLeftRadius: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 20,
-  },
-  ownMessageText: {
-    color: theme.surface || '#FFFFFF',
-  },
-  otherMessageText: {
-    color: theme.text || '#000000',
-  },
-  messageFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  timestamp: {
-    fontSize: 11,
-    color: theme.textSecondary || '#667781',
-    marginRight: 4,
-  },
-  status: {
-    fontSize: 11,
-    color: theme.textSecondary || '#667781',
-  },
-  statusRead: {
-    color: theme.primary || '#2563EB',
-  },
-  locationMention: {
-    backgroundColor: theme.primary ? `${theme.primary}20` : 'rgba(37, 99, 235, 0.1)',
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    marginHorizontal: 2,
-  },
-  locationMentionText: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '600',
-  },
-  ownLocationMentionText: {
-    color: theme.primary || '#2563EB',
-  },
-  otherLocationMentionText: {
-    color: theme.success || '#059669',
   },
 });

@@ -73,16 +73,23 @@ export interface Message {
   user: User;
   groupId: string;
   createdAt: string;
-  type: 'text' | 'image' | 'file' | 'system' | 'command' | 'split_bill';
+  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'system' | 'command' | 'split_bill';
   status: 'sent' | 'delivered' | 'read' | 'error';
   readBy: ReadReceipt[];
   commandType?: 'split' | 'expense' | 'budget' | 'predict' | 'summary';
   commandData?: CommandData;
   systemData?: SystemData;
   splitBillData?: SplitBillData;
+  // Multimedia fields
   mediaUrl?: string;
-  mediaType?: 'image' | 'document' | 'audio';
+  mediaType?: 'image' | 'video' | 'audio' | 'document';
   mediaSize?: number;
+  mediaDuration?: number;
+  mediaWidth?: number;
+  mediaHeight?: number;
+  thumbnailUrl?: string;
+  fileName?: string;
+  mimeType?: string;
   mentions?: string[];
   reactions?: Reaction[];
   locationMentions?: LocationMention[];

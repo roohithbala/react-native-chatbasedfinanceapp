@@ -228,10 +228,10 @@ Create `.env` file in the root directory:
 EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key_here
 
 # Backend API URL
-EXPO_PUBLIC_API_URL=http://10.247.4.172:3001/api
+EXPO_PUBLIC_API_URL=http://10.255.29.172:3001/api
 
 # Frontend URL for CORS
-EXPO_PUBLIC_FRONTEND_URL=http://10.247.4.172:8081
+EXPO_PUBLIC_FRONTEND_URL=http://10.255.29.172:8081
 ```
 
 Create `.env` file in the `backend` directory:
@@ -239,7 +239,7 @@ Create `.env` file in the `backend` directory:
 ```env
 MONGODB_URI=mongodb://localhost:27017/chatbasedfinance
 JWT_SECRET=your_super_secret_jwt_key_here
-FRONTEND_URL=http://10.247.4.172:8081
+FRONTEND_URL=http://10.255.29.172:8081
 NODE_ENV=development
 PORT=3001
 ```

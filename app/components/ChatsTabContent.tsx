@@ -114,3 +114,5 @@ export const ChatsTabContent: React.FC<ChatsTabContentProps> = ({
     />
   );
 };
+
+export default ChatsTabContent;

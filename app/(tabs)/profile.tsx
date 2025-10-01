@@ -206,6 +206,7 @@ export default function ProfileScreen() {
           selectedGroup={selectedGroup}
           onSelectGroup={selectGroup}
           onShareInvite={handleShareInvite}
+          onJoinGroup={() => setShowJoinModal(true)}
         />
 
         <AccountSection onMenuAction={handleMenuAction} />

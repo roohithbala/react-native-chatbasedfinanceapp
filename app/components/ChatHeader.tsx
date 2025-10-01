@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -48,7 +48,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
 const styles = StyleSheet.create({
   header: {
-    paddingTop: 20,
+    paddingTop: Platform.OS === 'ios' ? 0 : (StatusBar.currentHeight || 0) + 10,
     paddingHorizontal: 20,
     paddingBottom: 24,
     borderBottomLeftRadius: 20,

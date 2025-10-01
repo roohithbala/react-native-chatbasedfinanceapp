@@ -166,21 +166,17 @@ export const useMenuActions = () => {
           break;
 
         case 'splitBill':
-          router.push({
-            pathname: '/split-bill',
-            params: {
-              chatId: selectedChat._id,
-              chatType: activeTab,
-              participantName: selectedChat.user?.name || selectedChat.name
-            }
-          });
+          // Navigate to expenses tab for split bill functionality
+          router.push('/expenses');
           break;
 
         case 'viewProfile':
           if (activeTab === 'chats') {
-            router.push(`/profile/${selectedChat._id}`);
+            // Navigate to profile tab instead of specific user profile
+            router.push('/profile');
           } else {
-            router.push(`/group-info/${selectedChat._id}`);
+            // Navigate to group chat screen for group info
+            router.push(`/group-chat/${selectedChat._id}`);
           }
           break;
       }

@@ -35,15 +35,35 @@ export const useBudgetData = () => {
     Other: ['#6B7280', '#9CA3AF'],
   };
 
-  const getSpentAmount = (category: string) => {
+  const getSpentAmount = (category: string, includeGroupExpenses: boolean = true) => {
     if (!expenses || !Array.isArray(expenses)) {
       return 0;
     }
 
-    // Track expenses across all groups for the user (not just selected group)
+    // Filter expenses by category and optionally by personal vs group
     const filteredExpenses = expenses.filter(expense =>
       expense && typeof expense === 'object' &&
-      expense.category === category
+      expense.category === category &&
+      (includeGroupExpenses || !expense.groupId) // Include group expenses if requested
+    );
+
+    return filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  };
+
+  const getPersonalSpentAmount = (category: string) => {
+    return getSpentAmount(category, false); // Only personal expenses
+  };
+
+  const getGroupSpentAmount = (category: string) => {
+    if (!expenses || !Array.isArray(expenses)) {
+      return 0;
+    }
+
+    // Only group expenses for this category
+    const filteredExpenses = expenses.filter(expense =>
+      expense && typeof expense === 'object' &&
+      expense.category === category &&
+      expense.groupId // Only group expenses
     );
 
     return filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
@@ -85,6 +105,38 @@ export const useBudgetData = () => {
     }
   }, [loadExpenses, loadBudgets]);
 
+  const resetMonthlySpending = useCallback(async () => {
+    try {
+      // This would typically call an API to reset spending data
+      // For now, we'll just reload the data
+      await loadData();
+      console.log('Monthly spending reset completed');
+    } catch (error) {
+      console.error('Error resetting monthly spending:', error);
+    }
+  }, [loadData]);
+
+  const getMonthlySpentAmount = (category: string) => {
+    if (!expenses || !Array.isArray(expenses)) {
+      return 0;
+    }
+
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+
+    // Filter expenses by category and current month
+    const filteredExpenses = expenses.filter(expense => {
+      if (!expense || typeof expense !== 'object' || expense.category !== category) {
+        return false;
+      }
+
+      const expenseDate = new Date(expense.createdAt);
+      return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
+    });
+
+    return filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  };
+
   return {
     budgets,
     expenses,
@@ -97,8 +149,12 @@ export const useBudgetData = () => {
     totalBudget,
     totalSpent,
     getSpentAmount,
+    getPersonalSpentAmount,
+    getGroupSpentAmount,
+    getMonthlySpentAmount,
     getProgressPercentage,
     getProgressColor,
     loadData,
+    resetMonthlySpending,
   };
 };

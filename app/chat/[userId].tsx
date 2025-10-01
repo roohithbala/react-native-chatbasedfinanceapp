@@ -16,10 +16,11 @@ import {
   ScrollView,
   StatusBar,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import { LinearGradient } from 'expo-linear-gradient';
+import SplitBillModal from '../components/SplitBillModal';
 import { directMessagesAPI } from '@/lib/services/api';
 import { useFinanceStore } from '../../lib/store/financeStore';
 import { CommandParser } from '../../lib/components/CommandParser';
@@ -60,12 +61,16 @@ export default function ChatDetailScreen() {
   } | null>(null);
 
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
-  const [splitBillData, setSplitBillData] = useState({
-    description: '',
-    amount: '',
-    category: 'Food'
-  });
-  const [isSplitMode, setIsSplitMode] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<{
+    uri: string;
+    type: 'image' | 'video' | 'audio' | 'document';
+    fileName?: string;
+    fileSize?: number;
+    mimeType?: string;
+  } | null>(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Message[]>([]);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -256,14 +261,186 @@ export default function ChatDetailScreen() {
   };
 
   const startSplitBill = () => {
-    setIsSplitMode(true);
-    setNewMessage('@split ');
-    setSplitBillData({
-      description: '',
-      amount: '',
-      category: 'Food'
-    });
     setShowSplitBillModal(true);
+  };
+
+  const handleMediaSelect = (media: {
+    uri: string;
+    type: 'image' | 'video' | 'audio' | 'document';
+    fileName?: string;
+    fileSize?: number;
+    mimeType?: string;
+  }) => {
+    setSelectedMedia(media);
+  };
+
+  const handleMediaSend = async () => {
+    if (!selectedMedia) return;
+
+    try {
+      // Create FormData for the file
+      const formData = new FormData();
+      formData.append(selectedMedia.type, {
+        uri: selectedMedia.uri,
+        type: selectedMedia.mimeType || `application/octet-stream`,
+        name: selectedMedia.fileName || `file-${Date.now()}`,
+      } as any);
+
+      let uploadResponse;
+      switch (selectedMedia.type) {
+        case 'image':
+          uploadResponse = await directMessagesAPI.uploadImage(userId, formData);
+          break;
+        case 'video':
+          uploadResponse = await directMessagesAPI.uploadVideo(userId, formData);
+          break;
+        case 'audio':
+          uploadResponse = await directMessagesAPI.uploadAudio(userId, formData);
+          break;
+        case 'document':
+          uploadResponse = await directMessagesAPI.uploadDocument(userId, formData);
+          break;
+        default:
+          throw new Error('Unsupported media type');
+      }
+
+      if (uploadResponse && uploadResponse.status === 'success') {
+        // Add the uploaded message to the chat
+        const uploadedMessage = uploadResponse.data.message;
+        setMessages(prev => [...prev, uploadedMessage]);
+        setSelectedMedia(null); // Clear selected media after successful upload
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error: any) {
+      console.error('Error sending media:', error);
+      Alert.alert('Error', error.message || 'Failed to send media');
+    }
+  };
+
+  const handleMediaCancel = () => {
+    setSelectedMedia(null);
+  };
+
+  const handleSearchMessages = () => {
+    setShowSearchModal(true);
+  };
+
+  const performSearch = (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const filteredMessages = messages.filter(message =>
+      message.text.toLowerCase().includes(query.toLowerCase())
+    );
+    setSearchResults(filteredMessages);
+  };
+
+  const handleSearchQueryChange = (query: string) => {
+    setSearchQuery(query);
+    performSearch(query);
+  };
+
+  const scrollToMessage = (messageId: string) => {
+    const messageIndex = messages.findIndex(msg => msg._id === messageId);
+    if (messageIndex !== -1) {
+      flatListRef.current?.scrollToIndex({
+        index: messageIndex,
+        animated: true,
+        viewPosition: 0.5
+      });
+    }
+    setShowSearchModal(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleClearChat = async () => {
+    try {
+      // Call API to clear chat messages
+      await directMessagesAPI.clearChat(userId);
+      
+      // Clear local messages state
+      setMessages([]);
+      
+      Alert.alert('Success', 'Chat cleared successfully!');
+    } catch (error: any) {
+      console.error('Error clearing chat:', error);
+      Alert.alert('Error', error.message || 'Failed to clear chat');
+    }
+  };
+
+  const handleBlockUser = async () => {
+    try {
+      // Call API to block user
+      await directMessagesAPI.blockUser(userId);
+      
+      Alert.alert('Success', `${otherUser?.name || 'User'} has been blocked.`);
+      
+      // Navigate back to chats list
+      router.back();
+    } catch (error: any) {
+      console.error('Error blocking user:', error);
+      Alert.alert('Error', error.message || 'Failed to block user');
+    }
+  };
+
+  const handleHamburgerMenu = () => {
+    Alert.alert(
+      'Chat Options',
+      `Chat with ${otherUser?.name || 'this user'}`,
+      [
+        {
+          text: 'View Profile',
+          onPress: () => {
+            router.push(`/profile/${userId}`);
+          }
+        },
+        {
+          text: 'Search Messages',
+          onPress: handleSearchMessages,
+        },
+        {
+          text: 'Clear Chat',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Clear Chat',
+              'Are you sure you want to clear all messages in this chat?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Clear',
+                  style: 'destructive',
+                  onPress: handleClearChat,
+                }
+              ]
+            );
+          }
+        },
+        {
+          text: 'Block User',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Block User',
+              `Are you sure you want to block ${otherUser?.name || 'this user'}?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Block',
+                  style: 'destructive',
+                  onPress: handleBlockUser,
+                }
+              ]
+            );
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   const handleSend = async () => {
@@ -297,97 +474,6 @@ export default function ChatDetailScreen() {
     } catch (error: any) {
       console.error('Error sending message:', error);
       Alert.alert('Error', error.message || 'Failed to send message');
-    }
-  };
-
-  const handleSplitBillSubmit = async () => {
-    if (!splitBillData.description.trim() || !splitBillData.amount.trim()) {
-      Alert.alert('Error', 'Please enter description and amount');
-      return;
-    }
-
-    const amount = parseFloat(splitBillData.amount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
-      return;
-    }
-
-    if (!currentUser?._id || !userId) {
-      Alert.alert('Error', 'User information not available');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      // Calculate amount per person (split between current user and other user)
-      const amountPerPerson = amount / 2;
-
-      // Create participants array
-      const participants = [
-        {
-          userId: currentUser._id,
-          amount: amountPerPerson
-        },
-        {
-          userId: userId,
-          amount: amountPerPerson
-        }
-      ];
-
-      // Create the split bill (without groupId for direct chat)
-      const splitBillPayload = {
-        description: splitBillData.description.trim(),
-        totalAmount: amount,
-        participants: participants,
-        splitType: 'equal' as const,
-        category: splitBillData.category || 'Other',
-        currency: 'INR'
-      };
-
-      console.log('Creating direct split bill with payload:', splitBillPayload);
-      const result = await useFinanceStore.getState().createSplitBill(splitBillPayload);
-
-      // Create individual expenses for each participant
-      for (const participant of participants) {
-        const expenseData = {
-          description: `${splitBillData.description.trim()} (Split with ${otherUser?.name || 'Friend'})`,
-          amount: participant.amount,
-          category: splitBillData.category || 'Other',
-          userId: participant.userId
-          // No groupId for direct chat
-        };
-
-        try {
-          await useFinanceStore.getState().addExpense(expenseData);
-          console.log(`Created expense for participant ${participant.userId}:`, expenseData);
-        } catch (expenseError) {
-          console.error(`Failed to create expense for participant ${participant.userId}:`, expenseError);
-          // Continue with other participants even if one fails
-        }
-      }
-
-      // Send confirmation message
-      const confirmationMessage = `✅ Split bill created!\n📝 ${splitBillData.description.trim()}\n💰 Total: $${amount.toFixed(2)}\n🤝 Each pays: $${amountPerPerson.toFixed(2)}\n👥 Split with: ${otherUser?.name || 'Friend'}\n💾 Data saved to database`;
-
-      const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage);
-      setMessages(prev => [...prev, sent]);
-
-      // Reset modal state
-      setShowSplitBillModal(false);
-      setSplitBillData({
-        description: '',
-        amount: '',
-        category: 'Food'
-      });
-      setIsSplitMode(false);
-
-      Alert.alert('Success', 'Split bill created successfully and expenses added to database!');
-    } catch (error: any) {
-      console.error('Error creating split bill:', error);
-      Alert.alert('Error', error.message || 'Failed to create split bill');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -470,13 +556,13 @@ export default function ChatDetailScreen() {
           )}
 
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.headerButton}>
+            <TouchableOpacity style={styles.headerButton} onPress={() => router.push(`/voice-call/${userId}?type=personal`)}>
               <Ionicons name="call" size={20} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton}>
+            <TouchableOpacity style={styles.headerButton} onPress={() => router.push(`/video-call/${userId}?type=personal`)}>
               <Ionicons name="videocam" size={20} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton}>
+            <TouchableOpacity style={styles.headerButton} onPress={handleHamburgerMenu}>
               <Ionicons name="ellipsis-vertical" size={20} color="white" />
             </TouchableOpacity>
           </View>
@@ -485,7 +571,7 @@ export default function ChatDetailScreen() {
 
       <KeyboardAvoidingView
         style={styles.content}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <FlatList
@@ -514,102 +600,89 @@ export default function ChatDetailScreen() {
           onMessageChange={setNewMessage}
           onSendPress={handleSend}
           onSplitBillPress={startSplitBill}
+          onMediaSelect={handleMediaSelect}
+          selectedMedia={selectedMedia}
+          onMediaSend={handleMediaSend}
+          onMediaCancel={handleMediaCancel}
         />
       </KeyboardAvoidingView>
 
       {/* Split Bill Modal */}
-      <Modal
+      <SplitBillModal
         visible={showSplitBillModal}
+        onClose={() => setShowSplitBillModal(false)}
+        groupId={null}
+        groupMembers={[{
+          userId: userId,
+          name: otherUser?.name || 'Friend',
+          username: otherUser?.username || 'friend'
+        }]}
+      />
+
+      {/* Search Modal */}
+      <Modal
+        visible={showSearchModal}
         animationType="slide"
-        presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'overFullScreen'}
-        transparent={false}
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSearchModal(false)}
       >
-        <LinearGradient
-          colors={['#6366F1', '#8B5CF6']}
-          style={styles.modalContainer}
-        >
-          <SafeAreaView style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+          <View style={styles.searchHeader}>
+            <TouchableOpacity
+              style={styles.searchBackButton}
+              onPress={() => setShowSearchModal(false)}
+            >
+              <Ionicons name="arrow-back" size={24} color={theme.text} />
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.searchInput, { color: theme.text, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+              placeholder="Search messages..."
+              placeholderTextColor={theme.textSecondary}
+              value={searchQuery}
+              onChangeText={handleSearchQueryChange}
+              autoFocus
+            />
+          </View>
+
+          <FlatList
+            data={searchResults}
+            keyExtractor={(item) => item._id}
+            renderItem={({ item }) => (
               <TouchableOpacity
-                onPress={() => {
-                  setShowSplitBillModal(false);
-                  setIsSplitMode(false);
-                }}
-                style={styles.modalCloseButton}
+                style={[styles.searchResultItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                onPress={() => scrollToMessage(item._id)}
               >
-                <Ionicons name="close" size={24} color="white" />
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>💰 Split Bill</Text>
-              <TouchableOpacity
-                onPress={handleSplitBillSubmit}
-                style={styles.modalSaveButton}
-              >
-                <Text style={styles.modalSaveText}>Send</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-              <View style={styles.modalCard}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>📝 Description</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={splitBillData.description}
-                    onChangeText={(text) => setSplitBillData(prev => ({ ...prev, description: text }))}
-                    placeholder="What are you splitting?"
-                    placeholderTextColor={theme.textSecondary}
-                    maxLength={100}
-                  />
+                <View style={styles.searchResultContent}>
+                  <Text style={[styles.searchResultText, { color: theme.text }]}>
+                    {item.text}
+                  </Text>
+                  <Text style={[styles.searchResultTime, { color: theme.textSecondary }]}>
+                    {format(new Date(item.createdAt), 'MMM dd, HH:mm')}
+                  </Text>
                 </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>💰 Amount</Text>
-                  <View style={styles.amountInputContainer}>
-                    <Text style={styles.currencySymbol}>{theme.currency}</Text>
-                    <TextInput
-                      style={styles.amountInput}
-                      value={splitBillData.amount}
-                      onChangeText={(text) => {
-                        const cleaned = text.replace(/[^0-9.]/g, '');
-                        const parts = cleaned.split('.');
-                        if (parts.length > 2) return;
-                        if (parts[1] && parts[1].length > 2) return;
-                        setSplitBillData(prev => ({ ...prev, amount: cleaned }));
-                      }}
-                      placeholder="0.00"
-                      placeholderTextColor={theme.textSecondary}
-                      keyboardType="decimal-pad"
-                      maxLength={10}
-                    />
-                  </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              searchQuery.trim() ? (
+                <View style={styles.searchEmptyContainer}>
+                  <Ionicons name="search-outline" size={48} color={theme.textSecondary} />
+                  <Text style={[styles.searchEmptyText, { color: theme.textSecondary }]}>
+                    No messages found for &quot;{searchQuery}&quot;
+                  </Text>
                 </View>
-
-                {splitBillData.amount && (
-                  <View style={styles.splitPreview}>
-                    <View style={styles.previewHeader}>
-                      <Ionicons name="receipt" size={20} color={theme.primary} />
-                      <Text style={styles.previewTitle}>Split Preview</Text>
-                    </View>
-                    <View style={styles.previewContent}>
-                      <View style={styles.previewRow}>
-                        <Text style={styles.previewLabel}>Total Amount:</Text>
-                        <Text style={styles.previewValue}>{theme.currency}{parseFloat(splitBillData.amount) || 0}</Text>
-                      </View>
-                      <View style={styles.previewRow}>
-                        <Text style={styles.previewLabel}>Each Person Pays:</Text>
-                        <Text style={styles.previewValue}>{theme.currency}{((parseFloat(splitBillData.amount) || 0) / 2).toFixed(2)}</Text>
-                      </View>
-                      <View style={styles.previewRow}>
-                        <Text style={styles.previewLabel}>Split With:</Text>
-                        <Text style={styles.previewValue}>{otherUser?.name || 'Friend'}</Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-              </View>
-            </ScrollView>
-          </SafeAreaView>
-        </LinearGradient>
+              ) : (
+                <View style={styles.searchEmptyContainer}>
+                  <Ionicons name="chatbubble-outline" size={48} color={theme.textSecondary} />
+                  <Text style={[styles.searchEmptyText, { color: theme.textSecondary }]}>
+                    Enter a search term to find messages
+                  </Text>
+                </View>
+              )
+            }
+            contentContainerStyle={styles.searchResultsList}
+          />
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -985,5 +1058,64 @@ const getStyles = (theme: any) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: theme.text,
+  },
+  searchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: theme.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  searchBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.surfaceSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    borderWidth: 1,
+  },
+  searchResultsList: {
+    padding: 16,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  searchResultContent: {
+    flex: 1,
+  },
+  searchResultText: {
+    fontSize: 16,
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  searchResultTime: {
+    fontSize: 12,
+  },
+  searchEmptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  searchEmptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

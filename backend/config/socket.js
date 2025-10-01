@@ -9,10 +9,8 @@ const configureSocket = (server) => {
   const io = socketIo(server, {
     cors: {
       origin: [
-        'http://10.40.155.172:8081',
-        'http://10.40.155.172:3001',
+        'http://10.255.29.172:8081',
         'http://localhost:8081',
-        'http://localhost:3001',
         process.env.FRONTEND_URL
       ].filter(Boolean),
       methods: ["GET", "POST"],
@@ -64,6 +62,96 @@ const configureSocket = (server) => {
 
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.user?._id);
+    });
+
+    // Call-related events
+    socket.on('call-offer', (data) => {
+      console.log('📞 Call offer from user:', socket.user._id, 'to participants:', data.participants);
+
+      // Send offer to all participants except the caller
+      data.participants.forEach(participantId => {
+        if (participantId !== socket.user._id) {
+          socket.to(`user-${participantId}`).emit('call-offer', {
+            callId: data.callId,
+            callerId: socket.user._id,
+            callerName: socket.user.name || 'Unknown',
+            participants: data.participants,
+            type: data.type,
+            offer: data.offer
+          });
+        }
+      });
+    });
+
+    socket.on('call-answer', (data) => {
+      console.log('📞 Call answer from user:', socket.user._id, 'for call:', data.callId);
+
+      // Send answer back to the caller
+      socket.to(`user-${data.callerId}`).emit('call-answer', {
+        callId: data.callId,
+        answer: data.answer,
+        from: socket.user._id
+      });
+    });
+
+    socket.on('ice-candidate', (data) => {
+      console.log('🧊 ICE candidate from user:', socket.user._id, 'for call:', data.callId);
+
+      // Send ICE candidate to other participants
+      data.participants?.forEach(participantId => {
+        if (participantId !== socket.user._id) {
+          socket.to(`user-${participantId}`).emit('ice-candidate', {
+            callId: data.callId,
+            candidate: data.candidate,
+            from: socket.user._id
+          });
+        }
+      });
+    });
+
+    socket.on('call-end', (data) => {
+      console.log('📞 Call end from user:', socket.user._id, 'for call:', data.callId);
+
+      // Notify all participants that the call has ended
+      data.participants?.forEach(participantId => {
+        socket.to(`user-${participantId}`).emit('call-end', {
+          callId: data.callId,
+          endedBy: socket.user._id
+        });
+      });
+    });
+
+    socket.on('add-participant', (data) => {
+      console.log('👥 Add participant request from user:', socket.user._id, 'adding:', data.participantId);
+
+      // Notify the new participant to join the call
+      socket.to(`user-${data.participantId}`).emit('call-offer', {
+        callId: data.callId,
+        callerId: socket.user._id,
+        callerName: socket.user.name || 'Unknown',
+        participants: data.participants,
+        type: data.type,
+        isRejoin: true
+      });
+
+      // Notify existing participants about the new participant
+      data.participants?.forEach(participantId => {
+        if (participantId !== socket.user._id && participantId !== data.participantId) {
+          socket.to(`user-${participantId}`).emit('participant-joined', {
+            callId: data.callId,
+            participant: {
+              userId: data.participantId,
+              name: 'New Participant'
+            }
+          });
+        }
+      });
+    });
+
+    // Join user-specific room for calls and notifications
+    socket.on('join-user-room', (userId) => {
+      socket.join(`user-${userId}`);
+      console.log(`User ${socket.user?._id} joined user room ${userId}`);
     });
 
     // Typing indicators

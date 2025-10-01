@@ -25,6 +25,8 @@ export default function BudgetScreen() {
     totalBudget,
     totalSpent,
     getSpentAmount,
+    getPersonalSpentAmount,
+    getGroupSpentAmount,
     getProgressPercentage,
     getProgressColor,
     loadData,
@@ -88,6 +90,8 @@ export default function BudgetScreen() {
             categoryIcons={categoryIcons}
             categoryColors={categoryColors}
             getSpentAmount={getSpentAmount}
+            getPersonalSpentAmount={getPersonalSpentAmount}
+            getGroupSpentAmount={getGroupSpentAmount}
             getProgressPercentage={getProgressPercentage}
             getProgressColor={getProgressColor}
             onAddPress={() => setShowAddModal(true)}

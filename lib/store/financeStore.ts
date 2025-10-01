@@ -46,7 +46,7 @@ export interface Expense {
   description: string;
   amount: number;
   category: string;
-  userId: string;
+  userId: string | User;
   groupId?: string;
   createdAt: Date;
   tags?: string[];
@@ -918,8 +918,31 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
       return response;
     } catch (error: any) {
+      let errorMessage = 'Failed to get split bills';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+        // Clear auth state on 401
+        set({
+          isAuthenticated: false,
+          authToken: null,
+          currentUser: null,
+          groups: [],
+          expenses: [],
+          splitBills: [],
+          budgets: {},
+          messages: {},
+          predictions: [],
+          insights: [],
+        });
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       set({ 
-        error: error.response?.data?.message || error.message || 'Failed to get split bills',
+        error: errorMessage,
         splitBills: [], // Ensure array is always initialized
         isLoading: false 
       });
@@ -955,6 +978,24 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         });
         // Don't throw error for permission issues
         return { splitBills: [], totalPages: 0, currentPage: 1, total: 0 };
+      } else if (error.response?.status === 401) {
+        const errorMessage = 'Authentication failed. Please log in again.';
+        // Clear auth state on 401
+        set({
+          isAuthenticated: false,
+          authToken: null,
+          currentUser: null,
+          groups: [],
+          expenses: [],
+          splitBills: [],
+          budgets: {},
+          messages: {},
+          predictions: [],
+          insights: [],
+          error: errorMessage,
+          isLoading: false
+        });
+        throw new Error(errorMessage);
       }
       
       // For other errors, set error state and throw
@@ -1089,6 +1130,21 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
       if (error.message === 'Network Error') {
         errorMessage = 'Network error: Please check your internet connection and try again';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+        // Clear auth state on 401
+        set({
+          isAuthenticated: false,
+          authToken: null,
+          currentUser: null,
+          groups: [],
+          expenses: [],
+          splitBills: [],
+          budgets: {},
+          messages: {},
+          predictions: [],
+          insights: [],
+        });
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
@@ -1142,6 +1198,21 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       
       if (error.message === 'Network Error' || error.name === 'NetworkError' || !error.response) {
         errorMessage = 'Unable to connect to server. Please check your internet connection and ensure the server is running.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+        // Clear auth state on 401
+        set({
+          isAuthenticated: false,
+          authToken: null,
+          currentUser: null,
+          groups: [],
+          expenses: [],
+          splitBills: [],
+          budgets: {},
+          messages: {},
+          predictions: [],
+          insights: [],
+        });
       } else if (error.response?.status === 404) {
         errorMessage = 'Groups service not found. Please check server configuration.';
       } else if (error.response?.status >= 500) {
@@ -1279,8 +1350,33 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         }));
       }
     } catch (error: any) {
+      let errorMessage = 'Failed to load messages';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+        // Clear auth state on 401
+        set({
+          isAuthenticated: false,
+          authToken: null,
+          currentUser: null,
+          groups: [],
+          expenses: [],
+          splitBills: [],
+          budgets: {},
+          messages: {},
+          predictions: [],
+          insights: [],
+          error: errorMessage,
+          isLoading: false
+        });
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       set({ 
-        error: error.response?.data?.message || error.message || 'Failed to load messages',
+        error: errorMessage,
         isLoading: false 
       });
       throw error;
@@ -1309,8 +1405,33 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         }));
       }
     } catch (error: any) {
+      let errorMessage = 'Failed to send message';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+        // Clear auth state on 401
+        set({
+          isAuthenticated: false,
+          authToken: null,
+          currentUser: null,
+          groups: [],
+          expenses: [],
+          splitBills: [],
+          budgets: {},
+          messages: {},
+          predictions: [],
+          insights: [],
+          error: errorMessage,
+          isLoading: false
+        });
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       set({ 
-        error: error.response?.data?.message || error.message || 'Failed to send message',
+        error: errorMessage,
         isLoading: false 
       });
       throw error;

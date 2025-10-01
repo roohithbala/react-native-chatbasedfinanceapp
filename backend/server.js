@@ -51,7 +51,7 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.42.112.172:8081'}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.255.29.172:8081'}`);
 }).on('error', (err) => {
   console.error('❌ Failed to start server:', err.message);
   process.exit(1);

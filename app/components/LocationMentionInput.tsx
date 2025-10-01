@@ -193,15 +193,21 @@ export default function LocationMentionInput({
     <View style={styles.container}>
       <TextInput
         ref={inputRef}
-        style={[styles.input, style, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+        style={[styles.input, style]}
         value={value}
         onChangeText={handleTextChange}
         onSelectionChange={handleSelectionChange}
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
         multiline
+        scrollEnabled={true}
         autoCapitalize="sentences"
         autoCorrect={true}
+        keyboardType="default"
+        returnKeyType="default"
+        blurOnSubmit={false}
+        editable={true}
+        selectTextOnFocus={false}
       />
 
       {showSuggestions && suggestions.length > 0 && (
@@ -225,14 +231,15 @@ const getStyles = (theme: any) => StyleSheet.create({
     position: 'relative',
   },
   input: {
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 8,
-    padding: 12,
+    borderWidth: 0,
+    borderRadius: 0,
+    padding: 0,
     fontSize: 16,
-    minHeight: 40,
-    maxHeight: 120,
-    backgroundColor: theme.surface,
+    minHeight: 20,
+    maxHeight: 100, // Allow input to grow vertically
+    backgroundColor: 'transparent',
+    color: theme.text,
+    textAlignVertical: 'top', // Align text to top for multiline
   },
   suggestionsContainer: {
     position: 'absolute',

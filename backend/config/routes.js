@@ -11,6 +11,8 @@ const directMessageRoutes = require('../routes/direct-messages');
 const locationRoutes = require('../routes/locations');
 const paymentRoutes = require('../routes/payments');
 const relationshipRoutes = require('../routes/relationships');
+const uploadRoutes = require('../routes/uploads');
+const callRoutes = require('../routes/calls');
 
 const configureRoutes = (app, io) => {
   // Mount routes
@@ -41,6 +43,11 @@ const configureRoutes = (app, io) => {
   app.use('/api/locations', locationRoutes);
   app.use('/api/payments', paymentRoutes);
   app.use('/api/relationships', relationshipRoutes);
+  app.use('/api/uploads', (req, res, next) => {
+    req.io = io;
+    next();
+  }, uploadRoutes);
+  app.use('/api/calls', callRoutes);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {

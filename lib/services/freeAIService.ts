@@ -55,7 +55,7 @@ class FreeAIService {
   async analyzeSpending(expenses: any[], budgets: any = {}): Promise<SpendingAnalysis> {
     try {
       // Prepare expense data for analysis
-      const expenseSummary = expenses.reduce((acc, expense) => {
+      const expenseSummary: Record<string, { total: number; count: number; items: any[] }> = expenses.reduce((acc, expense) => {
         const category = expense.category || 'Other';
         if (!acc[category]) {
           acc[category] = { total: 0, count: 0, items: [] };
@@ -68,9 +68,9 @@ class FreeAIService {
           date: expense.createdAt,
         });
         return acc;
-      }, {});
+      }, {} as Record<string, { total: number; count: number; items: any[] }>);
 
-      const totalSpending = Object.values(expenseSummary).reduce((sum: number, cat: any) => sum + cat.total, 0);
+      const totalSpending = Object.values(expenseSummary).reduce((sum: number, cat) => sum + cat.total, 0);
       const categories = Object.keys(expenseSummary);
 
       const prompt = `

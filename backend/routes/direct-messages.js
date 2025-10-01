@@ -154,6 +154,26 @@ router.put('/:userId/read', auth, async (req, res) => {
   }
 });
 
+// Clear chat history with a specific user
+router.delete('/:userId/clear', auth, async (req, res) => {
+  try {
+    const result = await DirectMessage.deleteMany({
+      $or: [
+        { sender: req.user._id, receiver: req.params.userId },
+        { sender: req.params.userId, receiver: req.user._id }
+      ]
+    });
+
+    res.json({ 
+      message: 'Chat cleared successfully',
+      deletedCount: result.deletedCount 
+    });
+  } catch (error) {
+    console.error('Error clearing chat:', error);
+    res.status(500).json({ message: 'Error clearing chat' });
+  }
+});
+
 // Search users
 router.get('/search/users', auth, async (req, res) => {
   try {

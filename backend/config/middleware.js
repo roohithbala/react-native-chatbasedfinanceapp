@@ -8,10 +8,8 @@ const configureMiddleware = (app) => {
   app.use(helmet());
   app.use(cors({
     origin: [
-      'http://10.40.155.172:8081',
-      'http://10.40.155.172:3001',
+      'http://10.255.29.172:8081',
       'http://localhost:8081',
-      'http://localhost:3001',
       process.env.FRONTEND_URL
     ].filter(Boolean),
     credentials: true,
@@ -46,6 +44,9 @@ const configureMiddleware = (app) => {
   // Body parsing middleware
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
+
+  // Serve static files from uploads directory
+  app.use('/uploads', express.static('uploads'));
 
   return app;
 };

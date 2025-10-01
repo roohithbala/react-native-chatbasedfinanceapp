@@ -9,6 +9,8 @@ interface BudgetListProps {
   categoryIcons: Record<string, string>;
   categoryColors: Record<string, [ColorValue, ColorValue]>;
   getSpentAmount: (category: string) => number;
+  getPersonalSpentAmount?: (category: string) => number;
+  getGroupSpentAmount?: (category: string) => number;
   getProgressPercentage: (spent: number, limit: number) => number;
   getProgressColor: (percentage: number) => string;
   onAddPress: () => void;
@@ -22,6 +24,8 @@ export const BudgetList: React.FC<BudgetListProps> = ({
   categoryIcons,
   categoryColors,
   getSpentAmount,
+  getPersonalSpentAmount,
+  getGroupSpentAmount,
   getProgressPercentage,
   getProgressColor,
   onAddPress,
@@ -44,11 +48,10 @@ export const BudgetList: React.FC<BudgetListProps> = ({
         const progressPercentage = getProgressPercentage(spentAmount, budgetLimit);
         const progressColor = getProgressColor(progressPercentage);
 
-        // Filter expenses for this category (personal expenses only)
+        // Filter ALL expenses for this category (both personal and group)
         const categoryExpenses = expenses.filter(expense =>
           expense && typeof expense === 'object' &&
-          expense.category === cat &&
-          !expense.groupId
+          expense.category === cat
         );
 
         return (

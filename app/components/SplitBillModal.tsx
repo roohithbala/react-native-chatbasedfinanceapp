@@ -39,6 +39,7 @@ export default function SplitBillModal({
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Food');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function SplitBillModal({
       setSelectedMembers(new Set());
       setAmount('');
       setDescription('');
+      setCategory('Food');
     }
   }, [visible]);
 
@@ -124,7 +126,7 @@ export default function SplitBillModal({
         groupId,
         participants: allParticipants,
         splitType: 'equal' as const,
-        category: 'Other',
+        category,
         currency: 'INR',
       };
 
@@ -192,6 +194,29 @@ export default function SplitBillModal({
                 keyboardType="decimal-pad"
               />
             </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Category</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryContainer}>
+              {['Food', 'Transport', 'Entertainment', 'Shopping', 'Bills', 'Other'].map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.categoryChip,
+                    category === cat && styles.categoryChipSelected,
+                  ]}
+                  onPress={() => setCategory(cat)}
+                >
+                  <Text style={[
+                    styles.categoryChipText,
+                    category === cat && styles.categoryChipTextSelected,
+                  ]}>
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
 
           <View style={styles.membersSection}>
@@ -358,5 +383,29 @@ const getStyles = (theme: any) => StyleSheet.create({
     color: theme.surface || '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.border || '#E5E7EB',
+    backgroundColor: theme.surface || '#FFFFFF',
+    marginRight: 8,
+  },
+  categoryChipSelected: {
+    borderColor: theme.primary || '#2563EB',
+    backgroundColor: theme.primary || '#2563EB',
+  },
+  categoryChipText: {
+    fontSize: 14,
+    color: theme.text || '#1F2937',
+  },
+  categoryChipTextSelected: {
+    color: theme.surface || '#FFFFFF',
   },
 });

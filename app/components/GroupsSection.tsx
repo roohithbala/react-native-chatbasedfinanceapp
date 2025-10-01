@@ -9,6 +9,7 @@ interface GroupsSectionProps {
   selectedGroup: any;
   onSelectGroup: (group: any) => void;
   onShareInvite: (groupId: string) => void;
+  onJoinGroup?: () => void;
 }
 
 export const GroupsSection: React.FC<GroupsSectionProps> = ({
@@ -16,6 +17,7 @@ export const GroupsSection: React.FC<GroupsSectionProps> = ({
   selectedGroup,
   onSelectGroup,
   onShareInvite,
+  onJoinGroup,
 }) => {
   const { theme } = useTheme();
   const styles = getStyles(theme);
@@ -55,11 +57,11 @@ export const GroupsSection: React.FC<GroupsSectionProps> = ({
         </TouchableOpacity>
       ))}
       <TouchableOpacity
-        style={styles.createGroupButton}
-        onPress={() => router.push('/create-group')}
+        style={styles.joinGroupButton}
+        onPress={onJoinGroup}
       >
-        <Ionicons name="add" size={20} color={theme.primary} />
-        <Text style={styles.createGroupText}>Create New Group</Text>
+        <Ionicons name="enter" size={20} color={theme.primary} />
+        <Text style={styles.joinGroupText}>Join Group</Text>
       </TouchableOpacity>
     </View>
   );
@@ -141,6 +143,23 @@ const getStyles = (theme: any) => StyleSheet.create({
     borderStyle: 'dashed',
   },
   createGroupText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.primary,
+    marginLeft: 8,
+  },
+  joinGroupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.surfaceSecondary,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: theme.border,
+    borderStyle: 'dashed',
+  },
+  joinGroupText: {
     fontSize: 16,
     fontWeight: '600',
     color: theme.primary,

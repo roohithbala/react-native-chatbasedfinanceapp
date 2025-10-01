@@ -326,9 +326,15 @@ export const useGroupChat = () => {
     }
   };
 
-  const sendMessage = async (messageText?: string) => {
+  const sendMessage = async (messageText?: string, mediaData?: {
+    uri: string;
+    type: 'image' | 'video' | 'audio' | 'document';
+    fileName?: string;
+    fileSize?: number;
+    mimeType?: string;
+  }) => {
     const textToSend = messageText || message;
-    if (!textToSend.trim() || !currentUser || !groupId) return;
+    if ((!textToSend.trim() && !mediaData) || !currentUser || !groupId) return;
 
     const trimmedMessage = textToSend.trim();
 
@@ -340,7 +346,7 @@ export const useGroupChat = () => {
     try {
       // Create the message object immediately for local state
       const tempMessageId = `temp-${Date.now()}-${Math.random()}`;
-      const messageToAdd = {
+      const messageToAdd: Message = {
         _id: tempMessageId,
         text: trimmedMessage,
         createdAt: new Date().toISOString(),
@@ -350,11 +356,19 @@ export const useGroupChat = () => {
           username: currentUser.username || 'unknown',
           avatar: currentUser.avatar || currentUser.name?.charAt(0).toUpperCase()
         },
-        type: 'text' as const,
+        type: mediaData ? mediaData.type : 'text',
         status: 'sent' as const,
         readBy: [] as { userId: string; readAt: Date }[],
         groupId: groupId,
-        isTemp: true
+        isTemp: true,
+        // Add multimedia fields if present
+        ...(mediaData && {
+          mediaUrl: '', // Will be set by server
+          mediaType: mediaData.type,
+          mediaSize: mediaData.fileSize,
+          fileName: mediaData.fileName,
+          mimeType: mediaData.mimeType,
+        })
       };
 
       // Immediately add message to local state (WhatsApp-like behavior)
@@ -365,31 +379,93 @@ export const useGroupChat = () => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
 
-      // Check if the message is a command
-      const commandData = CommandParser.parse(trimmedMessage);
-      if (commandData && commandData.type !== 'unknown') {
-        await processCommand(commandData, trimmedMessage);
-      } else {
-        // Send regular message
-        const response = await chatAPI.sendMessage(groupId, {
-          text: trimmedMessage,
-          type: 'text',
-          status: 'sent'
-        });
+      if (mediaData) {
+        // Handle multimedia upload
+        try {
+          let uploadResponse;
+          switch (mediaData.type) {
+            case 'image':
+              uploadResponse = await chatAPI.uploadImage(groupId, {
+                uri: mediaData.uri,
+                type: mediaData.mimeType,
+                name: mediaData.fileName,
+              }, trimmedMessage);
+              break;
+            case 'video':
+              uploadResponse = await chatAPI.uploadVideo(groupId, {
+                uri: mediaData.uri,
+                type: mediaData.mimeType,
+                name: mediaData.fileName,
+              }, trimmedMessage);
+              break;
+            case 'audio':
+              uploadResponse = await chatAPI.uploadAudio(groupId, {
+                uri: mediaData.uri,
+                type: mediaData.mimeType,
+                name: mediaData.fileName,
+              }, trimmedMessage);
+              break;
+            case 'document':
+              uploadResponse = await chatAPI.uploadDocument(groupId, {
+                uri: mediaData.uri,
+                type: mediaData.mimeType,
+                name: mediaData.fileName,
+              }, trimmedMessage);
+              break;
+            default:
+              throw new Error('Unsupported media type');
+          }
 
-        if (response && response.status === 'success') {
-          // Update the temporary message with the real one, avoiding duplicates
-          setMessages(prev => prev.map(msg =>
-            msg._id === tempMessageId ? { ...response.data.message, isTemp: false } : msg
-          ).filter((msg, index, arr) => 
-            // Remove any duplicates by _id, keeping the first occurrence
-            arr.findIndex(m => m._id === msg._id) === index
-          ));
-        } else {
+          if (uploadResponse && uploadResponse.status === 'success') {
+            // Update the temporary message with the real one
+            setMessages(prev => prev.map(msg =>
+              msg._id === tempMessageId ? { ...uploadResponse.data.message, isTemp: false } : msg
+            ).filter((msg, index, arr) => 
+              // Remove any duplicates by _id, keeping the first occurrence
+              arr.findIndex(m => m._id === msg._id) === index
+            ));
+          } else {
+            // Mark message as error
+            setMessages(prev => prev.map(msg =>
+              msg._id === tempMessageId ? { ...msg, status: 'error' as const, isTemp: false } : msg
+            ));
+          }
+        } catch (uploadError: any) {
+          console.error('Error uploading media:', uploadError);
           // Mark message as error
           setMessages(prev => prev.map(msg =>
             msg._id === tempMessageId ? { ...msg, status: 'error' as const, isTemp: false } : msg
           ));
+          Alert.alert('Upload Error', uploadError.message || 'Failed to upload media');
+        }
+      } else {
+        // Handle text message
+        // Check if the message is a command
+        const commandData = CommandParser.parse(trimmedMessage);
+        if (commandData && commandData.type !== 'unknown') {
+          await processCommand(commandData, trimmedMessage);
+        } else {
+          // Send regular text message
+          const response = await chatAPI.sendMessage(groupId, {
+            text: trimmedMessage,
+            type: 'text',
+            status: 'sent'
+          });
+
+          if (response && response.status === 'success') {
+            // Update the temporary message with the real one, avoiding duplicates
+            setMessages(prev => prev.map(msg =>
+              msg._id === tempMessageId ? { ...response.data.message, isTemp: false } : msg
+            ).filter((msg, index, arr) => 
+              // Remove any duplicates by _id, keeping the first occurrence
+              arr.findIndex(m => m._id === msg._id) === index
+            ));
+          } else {
+            // Mark message as error
+            setMessages(prev => prev.map(msg =>
+              msg._id === tempMessageId ? { ...msg, status: 'error' as const, isTemp: false } : msg
+            ));
+          }
         }
       }
     } catch (error: any) {

@@ -8,7 +8,7 @@ export default function GroupInfoSection() {
       <View style={styles.infoItem}>
         <Ionicons name="people" size={20} color="#64748B" />
         <Text style={styles.infoText}>
-          You'll be the admin of this group
+          You&apos;ll be the admin of this group
         </Text>
       </View>
       <View style={styles.infoItem}>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useFinanceStore } from '@/lib/store/financeStore';
+import { useTheme } from '../context/ThemeContext';
 
 interface GroupJoinScreenProps {
   onClose?: () => void;
@@ -10,6 +11,8 @@ const GroupJoinScreen: React.FC<GroupJoinScreenProps> = ({ onClose }) => {
   const [inviteCode, setInviteCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const joinGroupByCode = useFinanceStore(state => state.joinGroupByCode);
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
 
   const handleJoinGroup = async () => {
     if (!inviteCode.trim()) {
@@ -29,22 +32,22 @@ const GroupJoinScreen: React.FC<GroupJoinScreenProps> = ({ onClose }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Join a Group</Text>
-      <Text style={styles.subtitle}>Enter the invite code to join a group</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>Join a Group</Text>
+      <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Enter the invite code to join a group</Text>
       
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
         value={inviteCode}
         onChangeText={setInviteCode}
         placeholder="Enter invite code"
-        placeholderTextColor="#666"
+        placeholderTextColor={theme.textSecondary}
         autoCapitalize="none"
         autoCorrect={false}
       />
 
       <TouchableOpacity 
-        style={[styles.button, isLoading && styles.buttonDisabled]} 
+        style={[styles.button, { backgroundColor: theme.primary }, isLoading && styles.buttonDisabled]} 
         onPress={handleJoinGroup}
         disabled={isLoading}
       >
@@ -55,18 +58,18 @@ const GroupJoinScreen: React.FC<GroupJoinScreenProps> = ({ onClose }) => {
 
       {onClose && (
         <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-          <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={[styles.cancelText, { color: theme.textSecondary }]}>Cancel</Text>
         </TouchableOpacity>
       )}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
+    flex: 1,
     padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    backgroundColor: theme.background,
   },
   title: {
     fontSize: 24,
@@ -76,20 +79,17 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 20,
     textAlign: 'center',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
     borderRadius: 8,
     padding: 15,
     marginBottom: 20,
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#007AFF',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -108,7 +108,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelText: {
-    color: '#666',
     fontSize: 16,
   },
 });

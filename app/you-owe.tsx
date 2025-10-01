@@ -156,7 +156,7 @@ export default function YouOweScreen() {
             <Ionicons name="checkmark-circle" size={64} color={theme.success} />
             <Text style={[styles.emptyTitle, { color: theme.text }]}>All Settled Up!</Text>
             <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-              You don't owe any money to anyone right now.
+              You don&apos;t owe any money to anyone right now.
             </Text>
           </View>
         ) : (

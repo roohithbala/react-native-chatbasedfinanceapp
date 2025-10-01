@@ -56,6 +56,7 @@ export const ChatItem: React.FC<ChatItemProps> = ({
   onAddMembers,
 }) => {
   const { theme } = useTheme();
+  const styles = getStyles(theme);
   const isMuted = mutedChats.has(item._id);
   const isBlocked = blockedUsers.has(item._id);
   const isArchived = archivedChats.has(item._id);
@@ -198,12 +199,12 @@ export const ChatItem: React.FC<ChatItemProps> = ({
   return null;
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: 'white',
+    backgroundColor: theme.surface,
     marginHorizontal: 16,
     marginVertical: 2,
     borderRadius: 12,
@@ -220,18 +221,18 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.surfaceSecondary || '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   groupAvatar: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.primary || '#2563EB',
   },
   avatarText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.text || '#374151',
   },
   chatInfo: {
     flex: 1,
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
   chatName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     flex: 1,
   },
   chatActions: {
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
   menuButton: {
     padding: 4,
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
   },
   chatMeta: {
     flexDirection: 'row',
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
   },
   memberCount: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginRight: 8,
   },
   groupActions: {
@@ -280,19 +281,19 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     padding: 6,
     borderRadius: 12,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.surfaceSecondary || '#EFF6FF',
   },
   chatTime: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   groupDescription: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   userUsername: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   chatPreview: {
     flexDirection: 'row',
@@ -302,11 +303,11 @@ const styles = StyleSheet.create({
   lastMessage: {
     flex: 1,
     fontSize: 14,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginRight: 8,
   },
   unreadBadge: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.primary || '#2563EB',
     borderRadius: 12,
     minWidth: 24,
     height: 24,

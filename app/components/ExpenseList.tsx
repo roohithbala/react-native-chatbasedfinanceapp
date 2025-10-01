@@ -67,8 +67,10 @@ export default function ExpenseList({
     const grouped = expenses.reduce((acc, expense) => {
       // For now, we'll group by userId (assuming expenses have userId of the payer)
       // In a real app, you might want to show both payers and participants
-      const participantId = expense.userId || 'Unknown';
-      const participantName = expense.userId === currentUser?._id ? 'You' : 'Other User';
+      const participantId: string = typeof expense.userId === 'object' && expense.userId?._id
+        ? expense.userId._id
+        : (expense.userId as string) || 'Unknown';
+      const participantName = participantId === currentUser?._id ? 'You' : 'Other User';
 
       if (!acc[participantId]) {
         acc[participantId] = {
@@ -139,6 +141,19 @@ export default function ExpenseList({
                         <Text style={styles.expenseLocation}>📍 {expense.location}</Text>
                       )}
                     </View>
+                    <View style={styles.expenseMeta}>
+                      <Text style={styles.expenseCategory}>{expense.category}</Text>
+                      <View style={styles.contextIndicator}>
+                        <Ionicons
+                          name={expense.groupId ? "people" : "person"}
+                          size={12}
+                          color={expense.groupId ? theme.primary || '#8B5CF6' : theme.textSecondary || '#64748B'}
+                        />
+                        <Text style={[styles.contextText, { color: expense.groupId ? theme.primary || '#8B5CF6' : theme.textSecondary || '#64748B' }]}>
+                          {expense.groupId ? 'Group' : 'Personal'}
+                        </Text>
+                      </View>
+                    </View>
                     {expense.tags && expense.tags.length > 0 && (
                       <View style={styles.tagsContainer}>
                         {expense.tags.slice(0, 3).map((tag, index) => (
@@ -195,7 +210,16 @@ export default function ExpenseList({
                       <Text style={styles.expenseDate}>
                         {new Date(expense.createdAt).toLocaleDateString()}
                       </Text>
-                      <Text style={styles.expenseCategory}>{expense.category}</Text>
+                      <View style={styles.contextIndicator}>
+                        <Ionicons
+                          name={expense.groupId ? "people" : "person"}
+                          size={12}
+                          color={expense.groupId ? theme.primary || '#8B5CF6' : theme.textSecondary || '#64748B'}
+                        />
+                        <Text style={[styles.contextText, { color: expense.groupId ? theme.primary || '#8B5CF6' : theme.textSecondary || '#64748B' }]}>
+                          {expense.groupId ? 'Group' : 'Personal'}
+                        </Text>
+                      </View>
                     </View>
                     {expense.location && (
                       <Text style={styles.expenseLocation}>📍 {expense.location}</Text>
@@ -250,9 +274,21 @@ export default function ExpenseList({
               <View style={styles.expenseDetails}>
                 <Text style={styles.expenseDescription}>{expense.description}</Text>
                 <Text style={styles.expenseCategory}>{expense.category}</Text>
-                <Text style={styles.expenseDate}>
-                  {new Date(expense.createdAt).toLocaleDateString()}
-                </Text>
+                <View style={styles.expenseMeta}>
+                  <Text style={styles.expenseDate}>
+                    {new Date(expense.createdAt).toLocaleDateString()}
+                  </Text>
+                  <View style={styles.contextIndicator}>
+                    <Ionicons
+                      name={expense.groupId ? "people" : "person"}
+                      size={12}
+                      color={expense.groupId ? theme.primary || '#8B5CF6' : theme.textSecondary || '#64748B'}
+                    />
+                    <Text style={[styles.contextText, { color: expense.groupId ? theme.primary || '#8B5CF6' : theme.textSecondary || '#64748B' }]}>
+                      {expense.groupId ? 'Group' : 'Personal'}
+                    </Text>
+                  </View>
+                </View>
                 {expense.location && (
                   <Text style={styles.expenseLocation}>📍 {expense.location}</Text>
                 )}
@@ -422,5 +458,15 @@ const getStyles = (theme: any) => StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
+  },
+  contextIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  contextText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
   },
 });

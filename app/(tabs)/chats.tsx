@@ -152,13 +152,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-    // Header has its own styling
+    // Header component handles its own padding and safe area
   },
   searchContainer: {
-    // Search bar has its own styling
+    marginTop: 10,
+    paddingHorizontal: 20,
   },
   tabsContainer: {
-    // Tabs have their own styling
+    marginTop: 10,
+    paddingHorizontal: 20,
   },
   loadingContainer: {
     flex: 1,

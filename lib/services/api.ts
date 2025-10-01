@@ -2,14 +2,14 @@ import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'ax
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Chat API
-import { ChatResponse, Message, MessageResponse, MessagesResponse } from '@/app/types/chat';
-import { isMessageResponse, isMessagesResponse } from '@/app/utils/typeGuards';
+import { ChatResponse, Message, MessageResponse, MessagesResponse } from '../../app/types/chat';
+import { isMessageResponse, isMessagesResponse } from '../../app/utils/typeGuards';
 
 // API Configuration
 const getApiBaseUrl = () => {
   // Try to get the server IP from environment or use localhost as fallback
-  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.42.112.172';
-  const serverPort = process.env.EXPO_PUBLIC_SERVER_PORT || '3001';
+  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.255.29.172';
+  const serverPort = process.env.EXPO_PUBLIC_BACKEND_PORT || '3001';
   
   if (__DEV__) {
     return `http://${serverIP}:${serverPort}/api`;
@@ -21,8 +21,8 @@ const getApiBaseUrl = () => {
 export const API_BASE_URL = getApiBaseUrl();
 
 console.log('API Base URL:', API_BASE_URL);
-console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.42.112.172');
-console.log('Server Port:', process.env.EXPO_PUBLIC_SERVER_PORT || '3001');
+console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.255.29.172');
+console.log('Server Port:', process.env.EXPO_PUBLIC_BACKEND_PORT || '3001');
 
 // Network connectivity check
 export const checkServerConnectivity = async (): Promise<boolean> => {
@@ -49,7 +49,8 @@ export const checkServerConnectivity = async (): Promise<boolean> => {
 // Auto-detect server IP (useful for development)
 export const detectServerIP = async (): Promise<string | null> => {
   const commonIPs = [
-    '10.42.112.172', // Current configured IP
+    '10.255.29.172', // New configured IP
+    '10.42.112.172', // Previous configured IP
     '10.40.155.172', // Previous configured IP
     '192.168.1.100',
     '192.168.1.101',
@@ -1047,6 +1048,103 @@ export const chatAPI = {
       console.error('Error adding reaction:', error);
       throw error;
     }
+  },
+
+  // Multimedia upload functions
+  uploadImage: async (groupId: string, imageFile: any, caption?: string): Promise<any> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      if (caption) {
+        formData.append('caption', caption);
+      }
+
+      const response = await api.post(`/uploads/image/${groupId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
+  },
+
+  uploadVideo: async (groupId: string, videoFile: any, caption?: string): Promise<any> => {
+    try {
+      const formData = new FormData();
+      formData.append('video', videoFile);
+      if (caption) {
+        formData.append('caption', caption);
+      }
+
+      const response = await api.post(`/uploads/video/${groupId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading video:', error);
+      throw error;
+    }
+  },
+
+  uploadAudio: async (groupId: string, audioFile: any, caption?: string): Promise<any> => {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioFile);
+      if (caption) {
+        formData.append('caption', caption);
+      }
+
+      const response = await api.post(`/uploads/audio/${groupId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading audio:', error);
+      throw error;
+    }
+  },
+
+  uploadDocument: async (groupId: string, documentFile: any, caption?: string): Promise<any> => {
+    try {
+      const formData = new FormData();
+      formData.append('document', documentFile);
+      if (caption) {
+        formData.append('caption', caption);
+      }
+
+      const response = await api.post(`/uploads/document/${groupId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      throw error;
+    }
   }
 };
 
@@ -1288,6 +1386,133 @@ export const directMessagesAPI = {
       return response.data;
     } catch (error) {
       console.error('Error marking messages as read:', error);
+      throw error;
+    }
+  },
+
+  clearChat: async (userId: string) => {
+    try {
+      const response = await api.delete(`/direct-messages/${userId}/clear`);
+      if (!response.data) {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      throw error;
+    }
+  },
+
+  blockUser: async (userId: string) => {
+    try {
+      const response = await api.post(`/relationships/block/${userId}`);
+      if (!response.data) {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      throw error;
+    }
+  },
+
+  // Multimedia upload functions for direct messages
+  uploadImage: async (userId: string, imageFile: any, caption?: string): Promise<any> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      if (caption) {
+        formData.append('caption', caption);
+      }
+      formData.append('recipientId', userId);
+
+      const response = await api.post(`/uploads/image/direct/${userId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading image to direct message:', error);
+      throw error;
+    }
+  },
+
+  uploadVideo: async (userId: string, videoFile: any, caption?: string): Promise<any> => {
+    try {
+      const formData = new FormData();
+      formData.append('video', videoFile);
+      if (caption) {
+        formData.append('caption', caption);
+      }
+      formData.append('recipientId', userId);
+
+      const response = await api.post(`/uploads/video/direct/${userId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading video to direct message:', error);
+      throw error;
+    }
+  },
+
+  uploadAudio: async (userId: string, audioFile: any, caption?: string): Promise<any> => {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioFile);
+      if (caption) {
+        formData.append('caption', caption);
+      }
+      formData.append('recipientId', userId);
+
+      const response = await api.post(`/uploads/audio/direct/${userId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading audio to direct message:', error);
+      throw error;
+    }
+  },
+
+  uploadDocument: async (userId: string, documentFile: any, caption?: string): Promise<any> => {
+    try {
+      const formData = new FormData();
+      formData.append('document', documentFile);
+      if (caption) {
+        formData.append('caption', caption);
+      }
+      formData.append('recipientId', userId);
+
+      const response = await api.post(`/uploads/document/direct/${userId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error('Invalid response format from server');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading document to direct message:', error);
       throw error;
     }
   },

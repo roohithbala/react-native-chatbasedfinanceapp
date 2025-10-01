@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Expense } from '@/lib/store/financeStore';
+import { Expense, User } from '@/lib/store/financeStore';
 import { useTheme } from '../context/ThemeContext';
 
 interface BudgetTransactionDetailsProps {
@@ -21,12 +21,16 @@ export const BudgetTransactionDetails: React.FC<BudgetTransactionDetailsProps> =
   onClose,
 }) => {
   const { theme } = useTheme();
+  const styles = getStyles(theme);
   // Group expenses by person (user who created the expense)
   const expensesByPerson = React.useMemo(() => {
     const grouped: Record<string, Expense[]> = {};
 
     expenses.forEach(expense => {
-      const personName = expense.userId || 'Unknown';
+      // Handle userId as either string or User object
+      const personName = typeof expense.userId === 'object' && expense.userId && 'name' in expense.userId
+        ? (expense.userId as User).name
+        : (typeof expense.userId === 'string' ? expense.userId : 'Unknown');
       if (!grouped[personName]) {
         grouped[personName] = [];
       }
@@ -134,7 +138,7 @@ export const BudgetTransactionDetails: React.FC<BudgetTransactionDetailsProps> =
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,
@@ -147,7 +151,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   container: {
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     borderRadius: 20,
     width: '90%',
     maxHeight: '80%',
@@ -163,7 +167,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: theme.surfaceSecondary || '#F1F5F9',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -184,11 +188,11 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
   },
   totalAmount: {
     fontSize: 16,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginTop: 2,
   },
   closeButton: {
@@ -206,7 +210,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
     borderRadius: 12,
     marginBottom: 12,
   },
@@ -219,7 +223,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.primary || '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -232,11 +236,11 @@ const styles = StyleSheet.create({
   personName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
   },
   personStats: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginTop: 2,
   },
   personTotal: {
@@ -245,7 +249,7 @@ const styles = StyleSheet.create({
   personTotalAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
   },
   transactionItem: {
     flexDirection: 'row',
@@ -253,11 +257,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'white',
+    backgroundColor: theme.surface || 'white',
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: theme.surfaceSecondary || '#F1F5F9',
   },
   transactionLeft: {
     flex: 1,
@@ -265,7 +269,7 @@ const styles = StyleSheet.create({
   transactionDescription: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1E293B',
+    color: theme.text || '#1E293B',
     marginBottom: 4,
   },
   transactionMeta: {
@@ -275,11 +279,11 @@ const styles = StyleSheet.create({
   },
   transactionDate: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
   },
   transactionLocation: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginLeft: 8,
   },
   tagsContainer: {
@@ -288,8 +292,8 @@ const styles = StyleSheet.create({
   },
   tag: {
     fontSize: 10,
-    color: '#8B5CF6',
-    backgroundColor: '#F3E8FF',
+    color: theme.primary || '#8B5CF6',
+    backgroundColor: theme.surfaceSecondary || '#F3E8FF',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -300,7 +304,7 @@ const styles = StyleSheet.create({
   transactionAmount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#EF4444',
+    color: theme.error || '#EF4444',
   },
   emptyState: {
     alignItems: 'center',
@@ -309,12 +313,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.textSecondary || '#64748B',
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: theme.textSecondary || '#94A3B8',
     marginTop: 8,
     textAlign: 'center',
   },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, ScrollView } from 'react-native';
 import { View, Card } from '@/app/components/ThemedComponents';
 import { BarChart, PieChart } from 'react-native-chart-kit';
 import GroupExpenseService from '@/lib/services/groupExpenseService';
@@ -97,7 +97,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Card style={styles.card}>
         <Text style={styles.title}>Overview</Text>
         <View style={styles.stats}>
@@ -153,7 +153,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
           </View>
         )}
       </Card>
-    </View>
+    </ScrollView>
   );
 };
 

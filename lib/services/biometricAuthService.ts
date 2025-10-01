@@ -152,8 +152,10 @@ class BiometricAuthService {
         };
       } else {
         let error = 'Authentication failed';
-        if (result.error) {
-          switch (result.error) {
+        // Cast result to any to access error property that may not be in type definitions
+        const resultWithError = result as any;
+        if (resultWithError.error) {
+          switch (resultWithError.error) {
             case 'user_cancel':
               error = 'Authentication cancelled';
               break;
@@ -170,7 +172,7 @@ class BiometricAuthService {
               error = 'Biometric authentication not available';
               break;
             default:
-              error = `Authentication failed: ${result.error}`;
+              error = `Authentication failed: ${resultWithError.error}`;
           }
         }
         return { success: false, error };
