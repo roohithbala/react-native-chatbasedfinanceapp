@@ -53,39 +53,39 @@ export interface ThemeColors {
 }
 
 const lightTheme: ThemeColors = {
-  background: '#F8FAFC',
+  background: '#F0F9FF',
   surface: '#FFFFFF',
-  surfaceSecondary: '#F1F5F9',
+  surfaceSecondary: '#F1F9FE',
   card: '#FFFFFF',
 
-  text: '#1E293B',
-  textSecondary: '#64748B',
-  textTertiary: '#94A3B8',
+  text: '#0F172A',
+  textSecondary: '#334155',
+  textTertiary: '#64748B',
 
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
-  primaryDark: '#1D4ED8',
+  primary: '#0D9488',
+  primaryLight: '#14B8A6',
+  primaryDark: '#0F766E',
 
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  info: '#3B82F6',
+  success: '#059669',
+  warning: '#D97706',
+  error: '#DC2626',
+  info: '#0891B2',
 
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
+  border: '#CBD5E1',
+  borderLight: '#E2E8F0',
 
-  shadow: 'rgba(0, 0, 0, 0.1)',
+  shadow: 'rgba(13, 148, 136, 0.1)',
 
   tabBarBackground: '#FFFFFF',
-  tabBarActive: '#2563EB',
+  tabBarActive: '#0D9488',
   tabBarInactive: '#64748B',
 
   inputBackground: '#FFFFFF',
-  inputBorder: '#E2E8F0',
+  inputBorder: '#CBD5E1',
   inputPlaceholder: '#94A3B8',
 
   modalBackground: '#FFFFFF',
-  modalOverlay: 'rgba(0, 0, 0, 0.5)',
+  modalOverlay: 'rgba(15, 23, 42, 0.6)',
 
   currency: '₹',
 };
@@ -100,22 +100,22 @@ const darkTheme: ThemeColors = {
   textSecondary: '#CBD5E1',
   textTertiary: '#64748B',
 
-  primary: '#3B82F6',
-  primaryLight: '#60A5FA',
-  primaryDark: '#2563EB',
+  primary: '#14B8A6',
+  primaryLight: '#2DD4BF',
+  primaryDark: '#0D9488',
 
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
-  info: '#3B82F6',
+  info: '#06B6D4',
 
   border: '#334155',
   borderLight: '#475569',
 
-  shadow: 'rgba(0, 0, 0, 0.3)',
+  shadow: 'rgba(20, 184, 166, 0.2)',
 
   tabBarBackground: '#1E293B',
-  tabBarActive: '#3B82F6',
+  tabBarActive: '#14B8A6',
   tabBarInactive: '#64748B',
 
   inputBackground: '#334155',
@@ -123,7 +123,7 @@ const darkTheme: ThemeColors = {
   inputPlaceholder: '#64748B',
 
   modalBackground: '#1E293B',
-  modalOverlay: 'rgba(0, 0, 0, 0.7)',
+  modalOverlay: 'rgba(15, 23, 42, 0.8)',
 
   currency: '₹',
 };

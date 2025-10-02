@@ -28,12 +28,6 @@ export default function SplitBillMessage({
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [paymentStatus, setPaymentStatus] = React.useState<'pending' | 'paid' | 'rejected'>('pending');
 
-  // Safety check for splitBillData
-  if (!splitBillData || !splitBillData.participants || !Array.isArray(splitBillData.participants)) {
-    console.error('Invalid splitBillData:', splitBillData);
-    return null;
-  }
-
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -48,6 +42,12 @@ export default function SplitBillMessage({
       }),
     ]).start();
   }, []);
+
+  // Safety check for splitBillData
+  if (!splitBillData || !splitBillData.participants || !Array.isArray(splitBillData.participants)) {
+    console.error('Invalid splitBillData:', splitBillData);
+    return null;
+  }
 
   const userParticipant = splitBillData.participants.find(p => {
     // Handle both string and object userId formats

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 interface ChatHeaderProps {
   activeTab: 'chats' | 'groups';
@@ -16,8 +17,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onJoinGroup,
   onNewChat,
 }) => {
+  const { theme } = useTheme();
+
   return (
-    <LinearGradient colors={['#2563EB', '#1D4ED8']} style={styles.header}>
+    <LinearGradient colors={[theme.primary, theme.primaryDark]} style={styles.header}>
       <View style={styles.headerContent}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Chats</Text>

@@ -60,11 +60,23 @@ const createSplitBill = async (userId, splitBillData) => {
     }
   }
 
+  // Ensure creator is included in participants
+  let finalParticipants = [...participants];
+  const creatorIncluded = participants.some(p => p.userId.toString() === userId.toString());
+  
+  if (!creatorIncluded) {
+    // Add creator to participants with 0 amount (they've "paid" by creating the bill)
+    finalParticipants.push({
+      userId: userId,
+      amount: 0
+    });
+  }
+
   const splitBill = new SplitBill({
     description,
     totalAmount,
     groupId: groupIdObject,
-    participants: participants.map(p => {
+    participants: finalParticipants.map(p => {
       try {
         const participantData = {
           userId: new mongoose.Types.ObjectId(p.userId),
@@ -116,10 +128,6 @@ const markPaymentAsPaid = async (splitBillId, userId) => {
   );
 
   if (!participant) {
-    // Check if user is the creator - creators might not be in participants array for legacy data
-    if (splitBill.createdBy.toString() === userId.toString()) {
-      throw new Error('You have already paid as the bill creator, or this bill was created incorrectly');
-    }
     throw new Error('You are not a participant in this bill');
   }
 

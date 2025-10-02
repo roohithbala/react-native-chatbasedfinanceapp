@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 interface FloatingActionButtonProps {
   onPress: () => void;
@@ -13,9 +14,11 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   icon = 'add',
   size = 24,
 }) => {
+  const { theme } = useTheme();
+
   return (
     <TouchableOpacity
-      style={styles.fab}
+      style={[styles.fab, { backgroundColor: theme.primary }]}
       onPress={onPress}
       activeOpacity={0.8}
     >
@@ -32,7 +35,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

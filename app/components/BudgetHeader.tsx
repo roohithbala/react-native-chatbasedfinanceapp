@@ -2,12 +2,14 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '../../lib/store/financeStore';
+import { useTheme } from '../context/ThemeContext';
 
 export const BudgetHeader: React.FC = () => {
+  const { theme } = useTheme();
   const { currentUser } = useFinanceStore();
 
   return (
-    <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.header}>
+    <LinearGradient colors={[theme.primary, theme.primaryDark]} style={styles.header}>
       <Text style={styles.headerTitle}>Your Budget</Text>
       <Text style={styles.userInfo}>
         {currentUser ? `User: ${currentUser.name}` : 'Guest User'}

@@ -284,16 +284,16 @@ const getStyles = (theme: any) => StyleSheet.create({
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: theme.error ? `${theme.error}15` : '#FEF2F2',
     borderRadius: 8,
     padding: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: theme.error ? `${theme.error}30` : '#FECACA',
   },
   errorText: {
     fontSize: 14,
-    color: '#DC2626',
+    color: theme.error || '#DC2626',
     marginLeft: 8,
     flex: 1,
   },
@@ -329,7 +329,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: theme.error ? `${theme.error}15` : '#FEF2F2',
   },
   inputWrapper: {
     flexDirection: 'row',
