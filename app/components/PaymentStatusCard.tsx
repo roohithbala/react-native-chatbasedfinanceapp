@@ -42,9 +42,15 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
       const response = await PaymentsAPI.getPaymentSummary(splitBillId);
       console.log('Payment summary response:', response);
       
-      if (response && response.summary) {
-        setSummary(response.summary);
-        setDebts(response.debts || []);
+      // Handle the backend response format: { status: 'success', data: { splitBill, summary, debts } }
+      const responseData = response as any; // Type assertion to bypass cached type issues
+      if (responseData && responseData.data && responseData.data.summary) {
+        setSummary(responseData.data.summary);
+        setDebts(responseData.data.debts || []);
+      } else if (responseData && responseData.summary) {
+        // Fallback for direct format
+        setSummary(responseData.summary);
+        setDebts(responseData.debts || []);
       } else {
         console.error('Invalid response structure:', response);
         setError('Invalid response from server');

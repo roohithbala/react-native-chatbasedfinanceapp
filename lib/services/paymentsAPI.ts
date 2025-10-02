@@ -87,9 +87,12 @@ export class PaymentsAPI {
   }
 
   static async getPaymentSummary(splitBillId: string): Promise<{
-    splitBill: any;
-    summary: PaymentSummary;
-    debts: Debt[];
+    status: string;
+    data: {
+      splitBill: any;
+      summary: PaymentSummary;
+      debts: Debt[];
+    };
   }> {
     try {
       const response = await api.get(`/payments/${splitBillId}/summary`);
