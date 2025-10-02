@@ -11,6 +11,7 @@ interface SplitBillMessageProps {
   onPayBill?: (splitBillId: string) => void;
   onViewDetails?: (splitBillId: string) => void;
   onPaymentSuccess?: () => void;
+  onRejectBill?: (splitBillId: string) => void;
 }
 
 export default function SplitBillMessage({
@@ -18,13 +19,20 @@ export default function SplitBillMessage({
   currentUserId,
   onPayBill,
   onViewDetails,
-  onPaymentSuccess
+  onPaymentSuccess,
+  onRejectBill
 }: SplitBillMessageProps) {
   const { theme } = useTheme();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(-20)).current;
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [paymentStatus, setPaymentStatus] = React.useState<'pending' | 'paid' | 'rejected'>('pending');
+
+  // Safety check for splitBillData
+  if (!splitBillData || !splitBillData.participants || !Array.isArray(splitBillData.participants)) {
+    console.error('Invalid splitBillData:', splitBillData);
+    return null;
+  }
 
   React.useEffect(() => {
     Animated.parallel([
@@ -47,7 +55,7 @@ export default function SplitBillMessage({
     return participantUserId === currentUserId;
   });
   const isPaid = userParticipant?.isPaid || false;
-  const userShare = userParticipant?.amount || 0;
+  const userShare = Number(userParticipant?.amount) || 0;
 
   React.useEffect(() => {
     // Initialize payment status based on current data
@@ -57,6 +65,11 @@ export default function SplitBillMessage({
   }, [userParticipant?.isPaid]);
 
   const handlePayBill = async () => {
+    if (!splitBillData.splitBillId) {
+      Alert.alert('Error', 'Invalid split bill data');
+      return;
+    }
+
     if (onPayBill && splitBillData.splitBillId) {
       onPayBill(splitBillData.splitBillId);
       return;
@@ -179,6 +192,11 @@ export default function SplitBillMessage({
       if (onPaymentSuccess) {
         onPaymentSuccess();
       }
+
+      // Call reject callback to notify parent component
+      if (onRejectBill) {
+        onRejectBill(splitBillData.splitBillId);
+      }
     } catch (error: any) {
       console.error('Reject bill error:', error);
       Alert.alert('Error', error.message || 'Failed to reject bill');
@@ -211,7 +229,7 @@ export default function SplitBillMessage({
         <View style={styles.notificationContent}>
           <Text style={styles.notificationTitle}>Split Bill Request</Text>
           <Text style={styles.notificationSubtitle}>
-            {splitBillData.participants.length} people • ₹{splitBillData.totalAmount.toFixed(2)}
+            {splitBillData.participants.length} people • ₹{(Number(splitBillData.totalAmount) || 0).toFixed(2)}
           </Text>
         </View>
         <View style={styles.notificationBadge}>
@@ -221,12 +239,12 @@ export default function SplitBillMessage({
 
       {/* Bill Details */}
       <View style={styles.billDetails}>
-        <Text style={styles.description}>{splitBillData.description}</Text>
+        <Text style={styles.description}>{splitBillData.description || 'Split Bill'}</Text>
 
         <View style={styles.amountSection}>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Total Amount</Text>
-            <Text style={styles.totalAmount}>₹{splitBillData.totalAmount.toFixed(2)}</Text>
+            <Text style={styles.totalAmount}>₹{(Number(splitBillData.totalAmount) || 0).toFixed(2)}</Text>
           </View>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Your Share</Text>
@@ -253,9 +271,9 @@ export default function SplitBillMessage({
               })
               .slice(0, 3)
               .map((participant, index) => (
-                <View key={participant.userId} style={styles.participantChip}>
-                  <Text style={styles.participantName}>{participant.name}</Text>
-                  {participant.isPaid && (
+                <View key={participant?.userId || index} style={styles.participantChip}>
+                  <Text style={styles.participantName}>{participant?.name || 'Unknown'}</Text>
+                  {participant?.isPaid && (
                     <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                   )}
                 </View>

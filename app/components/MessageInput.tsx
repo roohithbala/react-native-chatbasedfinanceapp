@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert, Platform, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, Platform, Text, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import LocationMentionInput from './LocationMentionInput';
 import { useTheme } from '../context/ThemeContext';
 
 interface MessageInputProps {
@@ -27,6 +26,8 @@ interface MessageInputProps {
   } | null;
   onMediaSend?: () => void;
   onMediaCancel?: () => void;
+  isSending?: boolean;
+  error?: string | null;
 }
 
 export default function MessageInput({
@@ -38,6 +39,8 @@ export default function MessageInput({
   selectedMedia,
   onMediaSend,
   onMediaCancel,
+  isSending = false,
+  error = null,
 }: MessageInputProps) {
   const { theme } = useTheme();
   const styles = getStyles(theme);
@@ -186,7 +189,13 @@ export default function MessageInput({
     );
   };
   return (
-    <View style={styles.inputContainer}>
+    <View style={styles.inputContainer} pointerEvents="auto">
+      {error && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={16} color="#EF4444" />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
       {selectedMedia && (
         <View style={styles.mediaPreview}>
           <View style={styles.mediaPreviewContent}>
@@ -211,7 +220,7 @@ export default function MessageInput({
           </View>
         </View>
       )}
-      <View style={styles.inputWrapper}>
+      <View style={styles.inputWrapper} pointerEvents="auto">
         <TouchableOpacity
           style={styles.moneyIcon}
           onPress={onSplitBillPress}
@@ -227,27 +236,37 @@ export default function MessageInput({
           </TouchableOpacity>
         )}
         <View style={styles.textInputContainer}>
-          <LocationMentionInput
-            style={styles.textInput}
+          <TextInput
+            style={[styles.textInput, { pointerEvents: 'auto' }]}
             value={message}
             onChangeText={onMessageChange}
-            placeholder="Type @ to mention someone or a location..."
-            onLocationMention={(location) => {
-              console.log('Location mentioned:', location);
-              // Handle location mention - could show location preview or navigate to map
-            }}
+            placeholder="Type a message..."
+            placeholderTextColor={theme.textSecondary}
+            multiline
+            editable={true}
+            autoCapitalize="sentences"
+            autoCorrect={true}
+            keyboardType="default"
+            returnKeyType="send"
+            blurOnSubmit={false}
+            pointerEvents="auto"
+            maxLength={1000}
           />
         </View>
         <TouchableOpacity
-          style={[styles.sendButton, (!message.trim() && !selectedMedia) && styles.sendButtonDisabled]}
+          style={[styles.sendButton, (!message.trim() && !selectedMedia) || isSending ? styles.sendButtonDisabled : null]}
           onPress={selectedMedia ? onMediaSend : onSendPress}
-          disabled={!message.trim() && !selectedMedia}
+          disabled={(!message.trim() && !selectedMedia) || isSending}
         >
-          <Ionicons
-            name="send"
-            size={20}
-            color={(message.trim() || selectedMedia) ? theme.surface : '#9CA3AF'}
-          />
+          {isSending ? (
+            <ActivityIndicator size="small" color={theme.surface} />
+          ) : (
+            <Ionicons
+              name="send"
+              size={20}
+              color={(message.trim() || selectedMedia) && !isSending ? theme.surface : '#9CA3AF'}
+            />
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -261,6 +280,22 @@ const getStyles = (theme: any) => StyleSheet.create({
     borderTopColor: theme.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#DC2626',
+    marginLeft: 8,
+    flex: 1,
   },
   mediaPreview: {
     backgroundColor: theme.surfaceSecondary,
@@ -307,13 +342,13 @@ const getStyles = (theme: any) => StyleSheet.create({
     maxHeight: 120, // Allow input to grow up to 120px
     borderWidth: 1,
     borderColor: theme.border,
-    marginRight: 12,
   },
   textInputContainer: {
     flex: 1,
     justifyContent: 'flex-start', // Align to top instead of center
     minHeight: 40,
     maxHeight: 100, // Allow text input to grow
+    backgroundColor: 'transparent', // Ensure transparent background
   },
   textInput: {
     flex: 1,
@@ -322,6 +357,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     maxHeight: 100, // Allow vertical growth
     paddingVertical: 8,
     textAlignVertical: 'top', // Align text to top when multiline
+    backgroundColor: 'transparent', // Ensure transparent background
   },
   sendButton: {
     backgroundColor: theme.primary,

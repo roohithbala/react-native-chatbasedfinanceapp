@@ -190,7 +190,7 @@ export default function LocationMentionInput({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="auto">
       <TextInput
         ref={inputRef}
         style={[styles.input, style]}
@@ -208,6 +208,9 @@ export default function LocationMentionInput({
         blurOnSubmit={false}
         editable={true}
         selectTextOnFocus={false}
+        pointerEvents="auto"
+        importantForAutofill="no"
+        autoFocus={false}
       />
 
       {showSuggestions && suggestions.length > 0 && (

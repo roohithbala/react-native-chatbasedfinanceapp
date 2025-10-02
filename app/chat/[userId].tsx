@@ -108,6 +108,9 @@ export default function ChatDetailScreen() {
     fileSize?: number;
     mimeType?: string;
   } | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showMenuModal, setShowMenuModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Message[]>([]);
@@ -160,7 +163,7 @@ export default function ChatDetailScreen() {
       console.error('Error loading messages:', error);
       setIsLoading(false);
       // Show error to user
-      Alert.alert('Error', 'Failed to load messages. Please try again.');
+      Alert.alert('Error', 'Failed to load messages. Please check your connection and try again.');
     }
   };
 
@@ -438,32 +441,50 @@ export default function ChatDetailScreen() {
   };
 
   const handleHamburgerMenu = () => {
-    router.push('/expenses');
+    setShowMenuModal(true);
   };
 
   const handleSend = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim()) {
+      console.log('Cannot send empty message');
+      return;
+    }
+
+    setIsSending(true);
+    setError(null);
 
     try {
       const messageToSend = newMessage.trim();
+      console.log('Processing message:', JSON.stringify(messageToSend));
+      console.log('Message length:', messageToSend.length);
+      console.log('Message starts with @:', messageToSend.startsWith('@'));
 
       // Check if the message is a command
       const commandData = CommandParser.parse(messageToSend);
+      console.log('Command parsing result:', JSON.stringify(commandData));
+      console.log('Command type:', commandData.type);
+      console.log('Is command type unknown?', commandData.type === 'unknown');
+      console.log('Command data exists?', !!commandData);
 
       if (commandData && commandData.type !== 'unknown') {
+        console.log('DETECTED COMMAND - Processing as command');
         // Send the original command message first
         const sentCommand = await directMessagesAPI.sendMessage(userId, messageToSend);
         setMessages(prev => [...prev, sentCommand]);
 
         // Then handle the command
         if (commandData.type === 'split') {
+          console.log('Processing split command');
           await handleSplitBillCommand(commandData.data);
         } else if (commandData.type === 'expense') {
+          console.log('Processing expense command');
           await handleExpenseCommand(commandData.data);
         }
       } else {
+        console.log('SENDING AS REGULAR MESSAGE');
         // Send as regular message
         const sent = await directMessagesAPI.sendMessage(userId, messageToSend);
+        console.log('Message sent successfully:', sent);
         setMessages(prev => [...prev, sent]);
       }
 
@@ -471,7 +492,10 @@ export default function ChatDetailScreen() {
       Keyboard.dismiss();
     } catch (error: any) {
       console.error('Error sending message:', error);
+      setError(error.message || 'Failed to send message');
       Alert.alert('Error', error.message || 'Failed to send message');
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -499,7 +523,18 @@ export default function ChatDetailScreen() {
             isOwnMessage ? styles.ownBubble : styles.otherBubble,
           ]}
         >
-          {item.splitBillData ? (() => {
+          {item.splitBillData && 
+            typeof item.splitBillData === 'object' && 
+            item.splitBillData._id && 
+            typeof item.splitBillData._id === 'string' && 
+            item.splitBillData._id.length > 0 &&
+            item.splitBillData.description && 
+            typeof item.splitBillData.description === 'string' &&
+            item.splitBillData.totalAmount && 
+            typeof item.splitBillData.totalAmount === 'number' &&
+            item.splitBillData.totalAmount > 0 &&
+            Array.isArray(item.splitBillData.participants) &&
+            item.splitBillData.participants.length > 0 ? (() => {
             const transformedParticipants = item.splitBillData.participants.map(p => ({
               userId: typeof p.userId === 'object' ? p.userId._id : p.userId,
               name: typeof p.userId === 'object' ? p.userId.name : 'Unknown',
@@ -525,22 +560,30 @@ export default function ChatDetailScreen() {
                   // Refresh messages to show updated payment status
                   loadMessages();
                 }}
+                onRejectBill={(splitBillId) => {
+                  // Remove the rejected split bill message from the chat
+                  setMessages(prev => prev.filter(msg => 
+                    !msg.splitBillData || msg.splitBillData._id !== splitBillId
+                  ));
+                }}
               />
             );
           })() : (
-            <Text style={[
-              styles.messageText,
-              isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-            ]}>
-              {item.text}
-            </Text>
+            <>
+              <Text style={[
+                styles.messageText,
+                isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+              ]}>
+                {item.text}
+              </Text>
+              <Text style={[
+                styles.messageTime,
+                isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
+              ]}>
+                {format(new Date(item.createdAt), 'HH:mm')}
+              </Text>
+            </>
           )}
-          <Text style={[
-            styles.messageTime,
-            isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
-          ]}>
-            {format(new Date(item.createdAt), 'HH:mm')}
-          </Text>
         </View>
       </View>
     );
@@ -556,7 +599,7 @@ export default function ChatDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#6366F1" />
+      <StatusBar barStyle="light-content" />
       <LinearGradient
         colors={['#6366F1', '#8B5CF6', '#EC4899']}
         start={{ x: 0, y: 0 }}
@@ -578,7 +621,7 @@ export default function ChatDetailScreen() {
               </View>
               <View style={styles.userDetails}>
                 <Text style={styles.userName}>{otherUser.name}</Text>
-                <Text style={styles.userStatus}>Active now</Text>
+                <Text style={styles.userStatus}>Online</Text>
               </View>
             </View>
           )}
@@ -600,7 +643,8 @@ export default function ChatDetailScreen() {
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        enabled={true}
       >
         <FlatList
           ref={flatListRef}
@@ -632,6 +676,8 @@ export default function ChatDetailScreen() {
           selectedMedia={selectedMedia}
           onMediaSend={handleMediaSend}
           onMediaCancel={handleMediaCancel}
+          isSending={isSending}
+          error={error}
         />
       </KeyboardAvoidingView>
 
@@ -712,6 +758,71 @@ export default function ChatDetailScreen() {
           />
         </SafeAreaView>
       </Modal>
+
+      {/* Menu Modal */}
+      <Modal
+        visible={showMenuModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowMenuModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMenuModal(false)}
+        >
+          <View style={styles.menuContainer}>
+            <View style={styles.menuContent}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenuModal(false);
+                  handleSearchMessages();
+                }}
+              >
+                <Ionicons name="search" size={20} color={theme.text} />
+                <Text style={[styles.menuItemText, { color: theme.text }]}>Search Messages</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenuModal(false);
+                  Alert.alert(
+                    'Clear Chat',
+                    `Are you sure you want to clear your chat with ${otherUser?.name}? This action cannot be undone.`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Clear', style: 'destructive', onPress: handleClearChat }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color={theme.text} />
+                <Text style={[styles.menuItemText, { color: theme.text }]}>Clear Chat</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenuModal(false);
+                  Alert.alert(
+                    'Block User',
+                    `Are you sure you want to block ${otherUser?.name}? You won't be able to send or receive messages from this user.`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Block', style: 'destructive', onPress: handleBlockUser }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="ban-outline" size={20} color="#EF4444" />
+                <Text style={[styles.menuItemText, { color: "#EF4444" }]}>Block User</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -722,7 +833,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.background,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
+    paddingTop: Platform.OS === 'ios' ? 60 : 30,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -1224,5 +1335,40 @@ const getStyles = (theme: any) => StyleSheet.create({
   settledText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: Platform.OS === 'ios' ? 100 : 60,
+    paddingRight: 16,
+  },
+  menuContainer: {
+    minWidth: 200,
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  menuContent: {
+    paddingVertical: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
