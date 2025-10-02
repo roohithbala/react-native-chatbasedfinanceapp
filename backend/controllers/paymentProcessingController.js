@@ -10,6 +10,81 @@ const {
 } = require('../utils/paymentUtils');
 
 /**
+ * Mark current user as paid in a split bill
+ */
+async function markCurrentUserAsPaid(req, res) {
+  try {
+    const { splitBillId } = req.params;
+    const { paymentMethod = 'cash', notes } = req.body;
+
+    if (!isValidObjectId(splitBillId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid split bill ID'
+      });
+    }
+
+    const splitBill = await SplitBill.findById(splitBillId)
+      .populate('participants.userId', 'name')
+      .populate('createdBy', 'name');
+
+    if (!splitBill) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Split bill not found'
+      });
+    }
+
+    // Check if user is authorized to view this split bill
+    if (!isAuthorizedForSplitBill(splitBill, req.userId)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to view this split bill'
+      });
+    }
+
+    // Check if user is a participant in this bill
+    const participant = splitBill.participants.find(p =>
+      p.userId.toString() === req.userId.toString()
+    );
+
+    if (!participant) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'You are not a participant in this bill'
+      });
+    }
+
+    if (participant.isPaid) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'You have already marked this payment as paid'
+      });
+    }
+
+    // Mark the current user as paid
+    await splitBill.markParticipantAsPaid(req.userId, paymentMethod, notes);
+
+    // Emit real-time update
+    emitSplitBillUpdate(req.io, splitBill, req.userId, paymentMethod, req.userId);
+
+    res.json({
+      status: 'success',
+      message: 'Payment marked as paid successfully',
+      data: {
+        splitBill: buildSplitBillResponse(splitBill)
+      }
+    });
+  } catch (error) {
+    console.error('Mark current user as paid error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: error.message || 'Server error'
+    });
+  }
+}
+
+/**
  * Mark a participant as paid
  */
 async function markParticipantAsPaid(req, res) {
@@ -442,6 +517,7 @@ async function generateUpiQrCode(req, res) {
 }
 
 module.exports = {
+  markCurrentUserAsPaid,
   markParticipantAsPaid,
   confirmPayment,
   processBhimUpiTransaction,

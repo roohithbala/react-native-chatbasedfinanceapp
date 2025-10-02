@@ -191,17 +191,33 @@ router.post('/', auth, async (req, res) => {
 // Mark participant payment as paid
 router.patch('/:id/mark-paid', auth, async (req, res) => {
   try {
-    const splitBill = await SplitBill.findById(req.params.id);
+    const splitBill = await SplitBill.findById(req.params.id)
+      .populate('participants.userId', 'name')
+      .populate('createdBy', 'name');
+
     if (!splitBill) {
       return res.status(404).json({ message: 'Split bill not found' });
     }
 
-    const participant = splitBill.participants.find(
-      p => p.userId.toString() === req.userId
-    );
+    // Use proper authorization check
+    const { isAuthorizedForSplitBill } = require('../utils/paymentUtils');
+    if (!isAuthorizedForSplitBill(splitBill, req.userId)) {
+      return res.status(403).json({ message: 'Not authorized to modify this split bill' });
+    }
+
+    // Find the participant using proper ID comparison (handle both populated objects and ObjectId strings)
+    const participant = splitBill.participants.find(p => {
+      const participantUserId = typeof p.userId === 'object' && p.userId ? p.userId._id || p.userId : p.userId;
+      const participantIdString = participantUserId ? participantUserId.toString() : '';
+      return participantIdString === req.userId.toString();
+    });
 
     if (!participant) {
-      return res.status(404).json({ message: 'You are not a participant in this bill' });
+      return res.status(403).json({ message: 'You are not a participant in this bill' });
+    }
+
+    if (participant.isPaid) {
+      return res.status(400).json({ message: 'You have already marked this payment as paid' });
     }
 
     participant.isPaid = true;

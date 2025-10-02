@@ -11,10 +11,14 @@ const {
   refundBhimUpiTransaction,
   createBhimUpiPaymentIntent,
   verifyBhimUpiPayment,
-  generateUpiQrCode
+  generateUpiQrCode,
+  markCurrentUserAsPaid
 } = require('../controllers/paymentController');
 
 const router = express.Router();
+
+// Mark current user as paid (self-marking)
+router.patch('/:splitBillId/mark-paid', auth, markCurrentUserAsPaid);
 
 // Mark participant as paid
 router.post('/:splitBillId/participants/:participantId/pay', auth, markParticipantAsPaid);
