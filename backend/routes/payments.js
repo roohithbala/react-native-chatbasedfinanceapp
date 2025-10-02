@@ -7,9 +7,11 @@ const {
   getGroupSettlement,
   addPaymentReminder,
   getUserPaymentHistory,
-  processGooglePayTransaction,
-  refundGooglePayTransaction,
-  createPaymentIntent
+  processBhimUpiTransaction,
+  refundBhimUpiTransaction,
+  createBhimUpiPaymentIntent,
+  verifyBhimUpiPayment,
+  generateUpiQrCode
 } = require('../controllers/paymentController');
 
 const router = express.Router();
@@ -32,13 +34,19 @@ router.post('/:splitBillId/reminders', auth, addPaymentReminder);
 // Get user's payment history
 router.get('/users/:userId/history', auth, getUserPaymentHistory);
 
-// Process Google Pay transaction
-router.post('/google-pay', auth, processGooglePayTransaction);
+// Process BHIM UPI transaction
+router.post('/bhim-upi', auth, processBhimUpiTransaction);
 
-// Refund Google Pay transaction
-router.post('/google-pay/refund', auth, refundGooglePayTransaction);
+// Refund BHIM UPI transaction
+router.post('/bhim-upi/refund', auth, refundBhimUpiTransaction);
 
-// Create payment intent for Google Pay
-router.post('/create-payment-intent', auth, createPaymentIntent);
+// Create payment intent for BHIM UPI
+router.post('/create-bhim-upi-intent', auth, createBhimUpiPaymentIntent);
+
+// Verify BHIM UPI payment status
+router.get('/bhim-upi/verify/:transactionId', auth, verifyBhimUpiPayment);
+
+// Generate UPI QR Code
+router.post('/generate-upi-qr', auth, generateUpiQrCode);
 
 module.exports = router;

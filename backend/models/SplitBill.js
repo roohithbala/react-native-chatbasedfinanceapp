@@ -73,7 +73,12 @@ const splitBillSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
-    paidAt: Date
+    paidAt: Date,
+    isRejected: {
+      type: Boolean,
+      default: false
+    },
+    rejectedAt: Date
   }],
   payments: [{
     fromUserId: {
@@ -93,7 +98,7 @@ const splitBillSchema = new mongoose.Schema({
     },
     paymentMethod: {
       type: String,
-      enum: ['cash', 'card', 'bank_transfer', 'digital_wallet', 'other'],
+      enum: ['cash', 'card', 'bank_transfer', 'digital_wallet', 'bhim_upi', 'other'],
       default: 'cash'
     },
     notes: String,
@@ -167,7 +172,13 @@ const splitBillSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  settledAt: Date
+  settledAt: Date,
+  isCancelled: {
+    type: Boolean,
+    default: false
+  },
+  cancelledAt: Date,
+  cancelReason: String
 }, {
   timestamps: true
 });
@@ -183,8 +194,8 @@ splitBillSchema.statics.getUserStats = async function(userId) {
     {
       $match: {
         $or: [
-          { createdBy: mongoose.Types.ObjectId(userId) },
-          { 'participants.userId': mongoose.Types.ObjectId(userId) }
+          { createdBy: new mongoose.Types.ObjectId(userId) },
+          { 'participants.userId': new mongoose.Types.ObjectId(userId) }
         ]
       }
     },
@@ -246,7 +257,7 @@ splitBillSchema.statics.getGroupStats = async function(groupId) {
   }
 
   const stats = await this.aggregate([
-    { $match: { groupId: mongoose.Types.ObjectId(groupId) } },
+    { $match: { groupId: new mongoose.Types.ObjectId(groupId) } },
     {
       $facet: {
         totals: [

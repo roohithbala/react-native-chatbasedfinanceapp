@@ -16,7 +16,7 @@ import { useTheme } from '@/app/context/ThemeContext';
 
 export default function YouOweScreen() {
   const { theme } = useTheme();
-  const { currentUser, splitBills } = useFinanceStore();
+  const { currentUser, splitBills, markSplitBillAsPaid } = useFinanceStore();
   const styles = getStyles(theme);
 
   const [settlements, setSettlements] = useState<SettlementPlan[]>([]);
@@ -34,46 +34,80 @@ export default function YouOweScreen() {
       setLoading(true);
       setError(null);
 
-      // Get all settlements where current user owes money
+      console.log('Loading settlements for user:', currentUser._id);
+      console.log('Available split bills:', splitBills.length);
+
+      // Calculate settlements directly from split bills where current user owes money
       const userSettlements: SettlementPlan[] = [];
 
-      // Check all split bills for settlements involving current user
       for (const bill of splitBills) {
         try {
-          let settlementData: SettlementPlan[] = [];
+          console.log(`Checking bill ${bill._id}:`, {
+            description: bill.description,
+            participantsCount: bill.participants?.length,
+            isSettled: bill.isSettled
+          });
 
-          if (bill.groupId) {
-            // Group settlement
-            const response = await PaymentsAPI.getGroupSettlement(bill.groupId);
-            settlementData = response.settlement || [];
-          } else {
-            // Direct chat settlement - calculate manually
-            const participants = bill.participants || [];
-            const currentUserParticipant = participants.find(p => p.userId === currentUser._id);
-            const otherParticipant = participants.find(p => p.userId !== currentUser._id);
-
-            if (currentUserParticipant && otherParticipant && !currentUserParticipant.isPaid) {
-              settlementData = [{
-                fromUserId: currentUser._id,
-                toUserId: otherParticipant.userId,
-                amount: currentUserParticipant.amount,
-                fromUserName: currentUser.name || 'You',
-                toUserName: 'Friend' // For direct chats, we don't have the other user's name easily
-              }];
-            }
+          // Skip settled bills
+          if (bill.isSettled) {
+            console.log(`Skipping settled bill ${bill._id}`);
+            continue;
           }
 
-          // Filter settlements where current user is the payer (owes money)
-          const userOwedSettlements = settlementData.filter(
-            (settlement: SettlementPlan) => settlement.fromUserId === currentUser._id
-          );
+          const participants = bill.participants || [];
+          
+          // Find current user's participant entry
+          const currentUserParticipant = participants.find(p => {
+            const userId = typeof p.userId === 'object' && p.userId ? (p.userId as any)._id : p.userId;
+            console.log('Checking participant:', { userId, currentUserId: currentUser._id, match: userId === currentUser._id });
+            return userId === currentUser._id;
+          });
 
-          userSettlements.push(...userOwedSettlements);
+          console.log('Current user participant:', currentUserParticipant);
+
+          // If current user is a participant and hasn't paid, they owe money
+          if (currentUserParticipant && !currentUserParticipant.isPaid) {
+            console.log(`User owes ${currentUserParticipant.amount} for bill ${bill._id}`);
+            
+            // For group bills, find who should receive the payment (usually the creator)
+            // For direct bills, find the other participant
+            let recipientName = 'Unknown';
+            let recipientId = '';
+            
+            if (bill.groupId) {
+              // Group bill - payment goes to the bill creator
+              recipientName = bill.createdBy?.name || 'Group Member';
+              recipientId = bill.createdBy?._id || '';
+            } else {
+              // Direct bill - find the other participant
+              const otherParticipant = participants.find(p => {
+                const userId = typeof p.userId === 'object' && p.userId ? (p.userId as any)._id : p.userId;
+                return userId !== currentUser._id;
+              });
+              
+              if (otherParticipant) {
+                const userId = otherParticipant.userId;
+                recipientName = typeof userId === 'object' && userId ? (userId as any).name || 'Friend' : 'Friend';
+                recipientId = typeof userId === 'object' && userId ? (userId as any)._id : userId as string;
+              }
+            }
+
+            userSettlements.push({
+              fromUserId: currentUser._id,
+              toUserId: recipientId,
+              amount: currentUserParticipant.amount,
+              fromUserName: currentUser.name || 'You',
+              toUserName: recipientName,
+              billId: bill._id, // Add bill ID for easier lookup
+              billDescription: bill.description
+            });
+          }
         } catch (err) {
-          console.error(`Error loading settlements for bill ${bill._id}:`, err);
+          console.error(`Error processing bill ${bill._id}:`, err);
         }
       }
 
+      console.log('Final settlements:', userSettlements.length);
       setSettlements(userSettlements);
     } catch (err: any) {
       console.error('Error loading settlements:', err);
@@ -83,22 +117,43 @@ export default function YouOweScreen() {
     }
   };
 
-  const handleSettlePayment = (settlement: SettlementPlan) => {
-    Alert.alert(
-      'Mark as Paid',
-      `This will mark your ${theme.currency}${settlement.amount} payment to ${settlement.toUserName} as completed.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Mark as Paid',
-          onPress: () => {
-            Alert.alert('Success', 'Payment marked as completed!');
-            // In a real app, this would update the settlement status
-            // For now, we'll just show a success message
-          },
-        },
-      ]
-    );
+  const handleSettlePayment = async (settlement: SettlementPlan) => {
+    try {
+      console.log('Handling settlement payment:', settlement);
+      
+      // Use the billId that's now included in the settlement
+      const billId = settlement.billId;
+      
+      if (!billId) {
+        Alert.alert('Error', 'Could not find the related split bill');
+        return;
+      }
+
+      console.log('Marking bill as paid:', billId);
+      await markSplitBillAsPaid(billId);
+
+      Alert.alert('Success', 'Payment marked as completed!');
+      
+      // Reload settlements to reflect the change
+      await loadSettlements();
+      
+    } catch (error: any) {
+      console.error('Error marking payment as paid:', error);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to mark payment as paid';
+      if (error.message?.includes('not a participant')) {
+        errorMessage = 'You are not authorized to mark this payment as paid. Only participants can update payment status.';
+      } else if (error.message?.includes('not found')) {
+        errorMessage = 'This split bill could not be found. It may have been deleted.';
+      } else if (error.message?.includes('already')) {
+        errorMessage = 'This payment has already been marked as paid.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
+    }
   };
 
   const totalOwed = settlements.reduce((total, settlement) => total + settlement.amount, 0);

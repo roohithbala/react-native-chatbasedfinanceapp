@@ -4,27 +4,47 @@ import { Ionicons } from '@expo/vector-icons';
 import { SplitBill, SplitBillParticipant } from '@/lib/store/financeStore';
 import { PaymentStatusCard } from './PaymentStatusCard';
 import { SettlementModal } from './SettlementModal';
-import GooglePayButton from './GooglePayButton';
+import PaymentModal from './PaymentModal';
 import { useTheme } from '../context/ThemeContext';
 
 interface SplitBillCardProps {
   bill: SplitBill;
   currentUserId?: string;
   onMarkAsPaid?: (billId: string) => void;
+  onRejectBill?: (billId: string) => void;
   groupId?: string;
 }
 
-export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, groupId }: SplitBillCardProps) {
+export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, onRejectBill, groupId }: SplitBillCardProps) {
   const [showPaymentStatus, setShowPaymentStatus] = useState(false);
   const [showSettlement, setShowSettlement] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const { theme } = useTheme();
   const styles = getStyles(theme);
-  const userShare = bill.participants.find(p => p.userId === currentUserId);
+  const userShare = bill.participants.find(p => {
+    // Handle both populated object and string userId formats
+    const participantUserId = typeof p.userId === 'object' && p.userId && '_id' in p.userId ? (p.userId as any)._id : p.userId;
+    return participantUserId === currentUserId;
+  });
 
   const handlePaymentUpdate = () => {
     // Refresh the bill data if needed
     if (onMarkAsPaid) {
       // This could trigger a refresh of the parent component
+      console.log('Payment update triggered for bill:', bill._id);
+    }
+    // Force a re-render by updating state
+    setShowPaymentStatus(false);
+    setShowSettlement(false);
+    setShowPaymentModal(false);
+  };
+
+  const handleRejectBill = () => {
+    if (onRejectBill) {
+      onRejectBill(bill._id);
+    } else {
+      // Default reject behavior - could show a confirmation dialog
+      console.log('Reject bill:', bill._id);
     }
   };
 
@@ -69,17 +89,23 @@ export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, group
                   </TouchableOpacity>
                 )}
 
-                <GooglePayButton
-                  amount={userShare?.amount || 0}
-                  description={`Payment for ${bill.description}`}
-                  splitBillId={bill._id}
-                  recipientId={bill.createdBy._id}
-                  recipientName={bill.createdBy.name}
-                  groupId={groupId}
-                  onSuccess={handlePaymentUpdate}
-                  buttonText="Pay with GPay"
-                  style={styles.googlePayButton}
-                />
+                <TouchableOpacity
+                  style={[styles.payNowButton, { backgroundColor: theme.success || '#10B981' }]}
+                  onPress={() => setShowPaymentModal(true)}
+                >
+                  <Ionicons name="card" size={16} color={theme.surface || 'white'} />
+                  <Text style={[styles.payNowButtonText, { color: theme.surface || 'white' }]}>Pay Now</Text>
+                </TouchableOpacity>
+
+                {onRejectBill && (
+                  <TouchableOpacity
+                    style={[styles.rejectButton, { backgroundColor: theme.error || '#EF4444' }]}
+                    onPress={handleRejectBill}
+                  >
+                    <Ionicons name="close" size={16} color={theme.surface || 'white'} />
+                    <Text style={[styles.rejectButtonText, { color: theme.surface || 'white' }]}>Reject</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
@@ -122,6 +148,27 @@ export default function SplitBillCard({ bill, currentUserId, onMarkAsPaid, group
         />
       )}
 
+      {/* Payment Modal */}
+      {userShare && (
+        <PaymentModal
+          visible={showPaymentModal}
+          amount={userShare.amount}
+          description={`Payment for ${bill.description}`}
+          recipientName={bill.createdBy.name}
+          recipientId={currentUserId}
+          groupId={groupId}
+          splitBillId={bill._id}
+          onSuccess={(result) => {
+            handlePaymentUpdate();
+            setShowPaymentModal(false);
+          }}
+          onError={(error) => {
+            console.error('Payment failed:', error);
+            setShowPaymentModal(false);
+          }}
+          onClose={() => setShowPaymentModal(false)}
+        />
+      )}
     </>
   );
 }
@@ -243,5 +290,29 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   googlePayButton: {
     marginTop: 16,
+  },
+  payNowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  payNowButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  rejectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  rejectButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

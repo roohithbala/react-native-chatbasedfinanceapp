@@ -93,7 +93,7 @@ export interface FinanceState {
 
   // Auth actions
   clearStorage: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (credentials: { email?: string; username?: string; password: string }) => Promise<void>;
   register: (userData: { name: string; email: string; username: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;

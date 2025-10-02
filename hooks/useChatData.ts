@@ -49,6 +49,36 @@ export const useChatData = () => {
     setRefreshing(false);
   };
 
+  const addNewChatToList = (user: any) => {
+    // Check if chat already exists
+    const existingChatIndex = recentChats.findIndex(chat => chat._id === user._id);
+    
+    if (existingChatIndex !== -1) {
+      // Move existing chat to top
+      const existingChat = recentChats[existingChatIndex];
+      const updatedChats = [
+        existingChat,
+        ...recentChats.slice(0, existingChatIndex),
+        ...recentChats.slice(existingChatIndex + 1)
+      ];
+      setRecentChats(updatedChats);
+    } else {
+      // Add new chat at the top
+      const newChat: ChatPreview = {
+        _id: user._id,
+        lastMessage: '',
+        lastMessageAt: new Date().toISOString(),
+        unreadCount: 0,
+        user: {
+          name: user.name,
+          username: user.username,
+          avatar: user.avatar || ''
+        }
+      };
+      setRecentChats([newChat, ...recentChats]);
+    }
+  };
+
   return {
     recentChats,
     setRecentChats,
@@ -60,5 +90,6 @@ export const useChatData = () => {
     loadRecentChats,
     handleRefresh,
     loadGroups,
+    addNewChatToList,
   };
 };

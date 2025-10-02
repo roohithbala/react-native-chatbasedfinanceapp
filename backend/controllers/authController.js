@@ -89,16 +89,24 @@ const register = async (userData) => {
 
 // Login user
 const login = async (loginData) => {
-  const { email, password } = loginData;
+  const { email, password, username } = loginData;
 
-  // Validate input data
-  const validation = validateLoginData({ email, password });
-  if (!validation.isValid) {
-    throw new Error(validation.errors[0]);
+  // Validate input data - accept either email or username
+  if (!email && !username) {
+    throw new Error('Email or username is required');
+  }
+  if (!password) {
+    throw new Error('Password is required');
   }
 
-  // Find user and populate groups
-  const user = await User.findOne({ email }).populate('groups');
+  // Find user by email or username and populate groups
+  let user;
+  if (email) {
+    user = await User.findOne({ email: email.toLowerCase() }).populate('groups');
+  } else if (username) {
+    user = await User.findOne({ username: username.trim() }).populate('groups');
+  }
+
   if (!user) {
     throw new Error('Invalid credentials');
   }

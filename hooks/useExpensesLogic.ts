@@ -199,6 +199,13 @@ export const useExpensesLogic = () => {
     try {
       console.log('Marking split bill as paid:', splitBillId);
       await markSplitBillAsPaid(splitBillId);
+
+      // Reload split bills data to ensure UI updates immediately
+      if (selectedGroup?._id) {
+        splitBillsLoadedRef.current = false;
+        await getGroupSplitBills(selectedGroup._id);
+      }
+
       Alert.alert('Success', 'Payment marked as paid!');
     } catch (error: any) {
       console.error('Error marking as paid:', error);

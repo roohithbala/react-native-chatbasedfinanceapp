@@ -231,6 +231,11 @@ class GroupExpenseService {
     period: 'week' | 'month' | 'year' = 'month'
   ) {
     try {
+      // Validate groupId
+      if (!groupId || typeof groupId !== 'string' || groupId.trim() === '') {
+        throw new Error('Invalid group ID provided');
+      }
+
       // Use the typed api instance
       
       // Try to get group stats from the backend endpoint
@@ -239,13 +244,32 @@ class GroupExpenseService {
         if (statsResponse.data && statsResponse.data.status === 'success') {
           return statsResponse.data.data;
         }
-      } catch (error) {
-        console.log('Group stats endpoint not available, using fallback method');
+      } catch (error: any) {
+        console.log('Group stats endpoint not available, using fallback method. Error:', error.response?.status);
       }
       
       // Fallback: Try to get group data and split bills separately
-      const groupResponse = await typedApi.get(`/groups/${groupId}`);
-      const groupData = groupResponse.data;
+      let groupData = null;
+      try {
+        const groupResponse = await typedApi.get(`/groups/${groupId}`);
+        groupData = groupResponse.data;
+      } catch (error: any) {
+        console.log('Could not fetch group data:', error.response?.status);
+        // If group doesn't exist, return empty stats
+        if (error.response?.status === 404) {
+          return {
+            overview: {
+              totalAmount: 0,
+              count: 0,
+              settled: 0,
+              pending: 0
+            },
+            byCategory: [],
+            byParticipant: []
+          };
+        }
+        throw error; // Re-throw for other errors
+      }
       
       // Try to get split bills for the group
       let splitBills = [];
@@ -259,6 +283,12 @@ class GroupExpenseService {
           : (splitBillResponse.data?.bills || []);
       } catch (error) {
         console.log('No split bills found for group:', error);
+        splitBills = []; // Ensure splitBills is always an array
+      }
+      
+      // Ensure splitBills is always an array
+      if (!Array.isArray(splitBills)) {
+        splitBills = [];
       }
       
       // Calculate stats from split bills

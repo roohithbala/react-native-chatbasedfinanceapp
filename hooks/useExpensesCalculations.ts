@@ -52,20 +52,41 @@ export const useExpensesCalculations = (
   // Calculate settlement stats
   const settlementStats = useMemo(() => ({
     awaiting: splitBills
-      .filter(bill => bill.participants.some((p: Participant) => p.userId === currentUser?._id && !p.isPaid))
+      .filter(bill => bill.participants.some((p: Participant) => {
+        const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+        return userId === currentUser?._id && !p.isPaid;
+      }))
       .length,
     totalAwaiting: splitBills
-      .filter(bill => bill.participants.some((p: Participant) => p.userId === currentUser?._id && !p.isPaid))
+      .filter(bill => bill.participants.some((p: Participant) => {
+        const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+        return userId === currentUser?._id && !p.isPaid;
+      }))
       .reduce((total, bill) => {
-        const userParticipant = bill.participants.find((p: Participant) => p.userId === currentUser?._id);
+        const userParticipant = bill.participants.find((p: Participant) => {
+          const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+          return userId === currentUser?._id;
+        });
         return total + (userParticipant?.amount || 0);
       }, 0),
     settled: splitBills
-      .filter(bill => bill.participants.every((p: Participant) => p.isPaid))
+      .filter(bill => bill.participants.some((p: Participant) => {
+        const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+        return userId === currentUser?._id && p.isPaid;
+      }))
       .length,
     totalSettled: splitBills
-      .filter(bill => bill.participants.every((p: Participant) => p.isPaid))
-      .reduce((total, bill) => total + bill.totalAmount, 0)
+      .filter(bill => bill.participants.some((p: Participant) => {
+        const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+        return userId === currentUser?._id && p.isPaid;
+      }))
+      .reduce((total, bill) => {
+        const userParticipant = bill.participants.find((p: Participant) => {
+          const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+          return userId === currentUser?._id;
+        });
+        return total + (userParticipant?.amount || 0);
+      }, 0)
   }), [splitBills, currentUser?._id]);
 
   return {

@@ -104,7 +104,7 @@ router.get('/:userId', auth, async (req, res) => {
 // Send a message to a user
 router.post('/:userId', auth, async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, splitBillData } = req.body;
     
     if (!text || !text.trim()) {
       return res.status(400).json({ message: 'Message text is required' });
@@ -118,7 +118,8 @@ router.post('/:userId', auth, async (req, res) => {
     const message = new DirectMessage({
       sender: req.user._id,
       receiver: receiver._id,
-      text: text.trim()
+      text: text.trim(),
+      splitBillData: splitBillData || undefined
     });
 
     await message.save();

@@ -15,15 +15,17 @@ export const generateObjectId = () => {
 // Mock API functions for demo
 export const mockAPI = {
   auth: {
-    login: async (email: string, password: string) => {
+    login: async (credentials: { email?: string; username?: string; password: string }) => {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      if (email && password) {
+      const identifier = credentials.email || credentials.username;
+      if (identifier && credentials.password) {
         return {
           token: 'mock-jwt-token-' + Date.now(),
           user: {
             _id: 'user_' + Date.now(),
-            name: email.split('@')[0],
-            email: email,
+            name: identifier.split('@')[0],
+            email: credentials.email || '',
+            username: credentials.username || '',
             avatar: '👤',
             preferences: {
               notifications: true,

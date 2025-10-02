@@ -30,28 +30,59 @@ const validateSplitBillData = (data) => {
  */
 const validateGroupSplitBill = async (groupId, participants, userId) => {
   try {
+    console.log('🔍 Validating group split bill:', { groupId, userId, participantCount: participants?.length });
+    
     const group = await Group.findById(groupId);
     if (!group) {
+      console.log('❌ Group not found:', groupId);
       return { isValid: false, message: 'Group not found' };
     }
 
-    const isMember = group.members.some(m => m.userId.toString() === userId.toString() && m.isActive);
-    if (!isMember) {
+    console.log('✅ Group found:', group.name, 'Members:', group.members?.length);
+
+    // Check if user is a member (more robust check)
+    const userMember = group.members?.find(m => m.userId?.toString() === userId.toString());
+    if (!userMember) {
+      console.log('❌ User is not a member of the group');
       return { isValid: false, message: 'You must be a member of the group to create split bills' };
     }
 
-    const groupMemberIds = group.members
-      .filter(m => m.isActive)
-      .map(m => m.userId.toString());
+    // Check if user is active (default to true if not set)
+    const isActive = userMember.isActive !== false; // Default to true if undefined
+    if (!isActive) {
+      console.log('❌ User membership is not active');
+      return { isValid: false, message: 'Your membership in this group is not active' };
+    }
 
-    const invalidParticipants = participants.filter(p => !groupMemberIds.includes(p.userId));
+    console.log('✅ User is active member of group');
+
+    // Get active group member IDs
+    const groupMemberIds = group.members
+      ?.filter(m => m.isActive !== false) // Default to true if undefined
+      ?.map(m => m.userId?.toString())
+      ?.filter(id => id) || []; // Filter out undefined IDs
+
+    console.log('📋 Active group members:', groupMemberIds.length);
+
+    // Check if all participants are active members
+    const invalidParticipants = participants.filter(p => {
+      const isValid = groupMemberIds.includes(p.userId);
+      if (!isValid) {
+        console.log('❌ Invalid participant:', p.userId, 'not in group members');
+      }
+      return !isValid;
+    });
+
     if (invalidParticipants.length > 0) {
+      console.log('❌ Found invalid participants:', invalidParticipants.length);
       return { isValid: false, message: 'All participants must be active members of the group' };
     }
 
+    console.log('✅ All participants are valid group members');
     return { isValid: true, group };
   } catch (error) {
-    return { isValid: false, message: 'Error validating group' };
+    console.error('❌ Error validating group:', error);
+    return { isValid: false, message: 'Error validating group: ' + error.message };
   }
 };
 

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { useFinanceStore } from '../../lib/store/financeStore';
+import { usersAPI } from '../../lib/services/api';
 
 interface UserProfile {
   _id: string;
@@ -22,6 +23,13 @@ interface UserProfile {
   email?: string;
   avatar?: string;
   bio?: string;
+  isActive: boolean;
+  lastSeen?: string;
+  groups?: Array<{
+    _id: string;
+    name: string;
+    avatar?: string;
+  }>;
   createdAt: string;
 }
 
@@ -38,26 +46,15 @@ export default function UserProfileScreen() {
 
   const loadUserProfile = async () => {
     try {
-      // For now, we'll create a mock profile since we don't have a dedicated API
-      // In a real app, you'd fetch this from your backend
+      // If viewing own profile, redirect to main profile
       if (userId === currentUser?._id) {
-        // If viewing own profile, redirect to main profile
         router.replace('/profile');
         return;
       }
 
-      // Mock user profile - in real app, fetch from API
-      const mockProfile: UserProfile = {
-        _id: userId,
-        name: 'User Name', // This would come from the chat context
-        username: 'username',
-        email: 'user@example.com',
-        avatar: 'U',
-        bio: 'Finance enthusiast and group expense tracker!',
-        createdAt: new Date().toISOString(),
-      };
-
-      setUserProfile(mockProfile);
+      // Fetch real user profile data from API
+      const userData = await usersAPI.getUser(userId);
+      setUserProfile(userData);
       setIsLoading(false);
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -155,7 +152,7 @@ export default function UserProfileScreen() {
 
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: theme.primary }]}>0</Text>
+              <Text style={[styles.statNumber, { color: theme.primary }]}>{userProfile.groups?.length || 0}</Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Groups</Text>
             </View>
             <View style={styles.statItem}>
@@ -190,9 +187,9 @@ export default function UserProfileScreen() {
           </View>
 
           <View style={[styles.detailItem, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Ionicons name="calendar-outline" size={20} color={theme.textSecondary} />
+            <Ionicons name="time-outline" size={20} color={theme.textSecondary} />
             <Text style={[styles.detailText, { color: theme.text }]}>
-              Joined {new Date(userProfile.createdAt).toLocaleDateString()}
+              {userProfile.lastSeen ? `Last seen ${new Date(userProfile.lastSeen).toLocaleDateString()}` : 'Online'}
             </Text>
           </View>
         </View>

@@ -12,7 +12,8 @@ import {
 import { View as ThemedView } from './ThemedComponents';
 import { PaymentsAPI, SettlementPlan } from '@/lib/services/paymentsAPI';
 import { useFinanceStore } from '../../lib/store/financeStore';
-import GooglePayButton from './GooglePayButton';
+import BhimUpiButton from './BhimUpiButton';
+import PaymentModal from './PaymentModal';
 import { useTheme } from '../context/ThemeContext';
 
 interface SettlementModalProps {
@@ -34,6 +35,8 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
   const [settlement, setSettlement] = useState<SettlementPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<SettlementPlan | null>(null);
 
   useEffect(() => {
     if (visible && groupId) {
@@ -105,48 +108,15 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
         </View>
 
         {(isCurrentUserFrom || isCurrentUserTo) && (
-          <View style={styles.paymentOptions}>
-            <TouchableOpacity
-              style={[
-                styles.settleButton,
-                styles.cashButton,
-                { backgroundColor: theme.success },
-              ]}
-              onPress={() => handleSettlePayment(payment)}
-            >
-              <Text style={[styles.settleButtonText, { color: theme.surface }]}>Pay Cash</Text>
-            </TouchableOpacity>
-
-            {isCurrentUserFrom && (
-              <GooglePayButton
-                amount={payment.amount}
-                description={`Payment to ${payment.toUserName}`}
-                recipientName={payment.toUserName}
-                recipientId={payment.toUserId}
-                groupId={groupId}
-                onSuccess={(result) => {
-                  Alert.alert(
-                    'Payment Successful',
-                    `${theme.currency}${payment.amount.toFixed(2)} sent to ${payment.toUserName} via Google Pay`,
-                    [
-                      {
-                        text: 'OK',
-                        onPress: () => {
-                          onSettlementComplete?.();
-                          onClose();
-                        },
-                      },
-                    ]
-                  );
-                }}
-                onError={(error) => {
-                  Alert.alert('Payment Failed', error);
-                }}
-                buttonText="Pay with GPay"
-                style={styles.googlePayButton}
-              />
-            )}
-          </View>
+          <TouchableOpacity
+            style={[styles.payNowButton, { backgroundColor: theme.primary }]}
+            onPress={() => {
+              setSelectedPayment(payment);
+              setPaymentModalVisible(true);
+            }}
+          >
+            <Text style={[styles.payNowButtonText, { color: theme.surface }]}>Pay Now</Text>
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -205,6 +175,43 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
           </ScrollView>
         )}
       </View>
+
+      {/* Payment Modal */}
+      {selectedPayment && (
+        <PaymentModal
+          visible={paymentModalVisible}
+          amount={selectedPayment.amount}
+          description={`Payment to ${selectedPayment.toUserName}`}
+          recipientName={selectedPayment.toUserName}
+          recipientId={selectedPayment.toUserId}
+          groupId={groupId}
+          onSuccess={(result) => {
+            Alert.alert(
+              'Payment Successful! 🎉',
+              `₹${selectedPayment.amount.toFixed(2)} has been sent to ${selectedPayment.toUserName}.`,
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    onSettlementComplete?.();
+                    setPaymentModalVisible(false);
+                    setSelectedPayment(null);
+                  },
+                },
+              ]
+            );
+          }}
+          onError={(error) => {
+            Alert.alert('Payment Failed', error);
+            setPaymentModalVisible(false);
+            setSelectedPayment(null);
+          }}
+          onClose={() => {
+            setPaymentModalVisible(false);
+            setSelectedPayment(null);
+          }}
+        />
+      )}
     </Modal>
   );
 };
@@ -372,8 +379,20 @@ const getStyles = (theme: any) => StyleSheet.create({
   cashButton: {
     flex: 1,
   },
-  googlePayButton: {
+  bhimUpiButton: {
     flex: 1,
+  },
+  payNowButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  payNowButtonText: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    color: theme.surface,
   },
 });
 

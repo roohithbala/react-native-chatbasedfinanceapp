@@ -82,7 +82,13 @@ export default function AuthScreen() {
 
     try {
       if (isLogin) {
-        await login(email, password);
+        // Determine if input is email or username
+        const isEmail = email.includes('@');
+        const loginCredentials = isEmail
+          ? { email: email.trim(), password }
+          : { username: email.trim(), password };
+
+        await login(loginCredentials);
         Alert.alert('Success', 'Login successful!');
         router.replace('/(tabs)');
       } else {
@@ -192,14 +198,13 @@ export default function AuthScreen() {
               )}
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Email Address</Text>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Email or Username</Text>
                 <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
                   <TextInput
                     style={[styles.textInput, { color: theme.text }]}
                     value={email}
                     onChangeText={setEmail}
-                    placeholder="Enter your email"
-                    keyboardType="email-address"
+                    placeholder="Enter your email or username"
                     autoCapitalize="none"
                   />
                 </View>

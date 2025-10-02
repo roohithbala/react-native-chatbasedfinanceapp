@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChatHeader } from '../components/ChatHeader';
@@ -6,12 +6,15 @@ import { SearchBar } from '../components/SearchBar';
 import { ChatTabs } from '../components/ChatTabs';
 import { ChatsTabContent } from '../components/ChatsTabContent';
 import { JoinGroupModal } from '../components/JoinGroupModal';
+import { NewChatModal } from '../components/NewChatModal';
+import { SearchResults } from '../components/SearchResults';
 import ChatMenu from '../components/ChatMenu';
 import { useChatsLogic } from '@/hooks/useChatsLogic';
 import { useTheme } from '../context/ThemeContext';
 
 export default function ChatsScreen() {
   const { theme } = useTheme();
+  const [showNewChat, setShowNewChat] = useState(false);
   const {
     activeTab,
     setActiveTab,
@@ -64,6 +67,7 @@ export default function ChatsScreen() {
           activeTab={activeTab}
           onCreateGroup={handleCreateGroup}
           onJoinGroup={() => setShowJoinGroup(true)}
+          onNewChat={() => setShowNewChat(true)}
         />
       </View>
 
@@ -71,7 +75,7 @@ export default function ChatsScreen() {
         <SearchBar
           value={searchQuery}
           onChangeText={handleSearch}
-          placeholder="Search users..."
+          placeholder="Search chats..."
         />
       </View>
 
@@ -89,20 +93,10 @@ export default function ChatsScreen() {
             <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading chats...</Text>
           </View>
         ) : searchQuery.trim() && activeTab === 'chats' ? (
-          <ChatsTabContent
-            activeTab="chats"
-            recentChats={recentChats} // Use recentChats for now, we'll handle search separately
-            groups={[]}
-            currentUser={currentUser}
-            mutedChats={mutedChats}
-            blockedUsers={blockedUsers}
-            archivedChats={archivedChats}
-            refreshing={refreshing}
-            handleRefresh={handleRefresh}
-            handleUserSelect={handleUserSelect}
-            handleGroupSelect={handleGroupSelect}
-            handleMenuPress={handleMenuPress}
-            handleAddMembers={handleAddMembers}
+          <SearchResults
+            searchResults={searchResults}
+            isSearching={isSearching}
+            onUserSelect={handleUserSelect}
           />
         ) : (
           <ChatsTabContent
@@ -130,6 +124,12 @@ export default function ChatsScreen() {
         onInviteCodeChange={setInviteCode}
         onJoin={handleJoinGroup}
         loading={storeLoading}
+      />
+
+      <NewChatModal
+        visible={showNewChat}
+        onClose={() => setShowNewChat(false)}
+        onUserSelect={handleUserSelect}
       />
 
       <ChatMenu

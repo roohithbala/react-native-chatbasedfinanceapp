@@ -38,9 +38,17 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
     try {
       setLoading(true);
       setError(null);
+      console.log('Loading payment summary for bill:', splitBillId);
       const response = await PaymentsAPI.getPaymentSummary(splitBillId);
-      setSummary(response.summary);
-      setDebts(response.debts);
+      console.log('Payment summary response:', response);
+      
+      if (response && response.summary) {
+        setSummary(response.summary);
+        setDebts(response.debts || []);
+      } else {
+        console.error('Invalid response structure:', response);
+        setError('Invalid response from server');
+      }
     } catch (err: any) {
       console.error('Error loading payment summary:', err);
       setError(err.message || 'Failed to load payment summary');

@@ -16,6 +16,7 @@ export const useChatsLogic = () => {
     storeLoading,
     refreshing,
     handleRefresh,
+    addNewChatToList,
   } = useChatData();
 
   const {
@@ -28,14 +29,14 @@ export const useChatsLogic = () => {
     handleGroupSelect,
     handleCreateGroup,
     handleAddMembers,
-  } = useChatActions();
+  } = useChatActions(addNewChatToList);
 
   const {
     searchQuery,
     searchResults,
     isSearching,
     handleSearch,
-  } = useSearch();
+  } = useSearch(recentChats);
 
   const {
     showMenu,

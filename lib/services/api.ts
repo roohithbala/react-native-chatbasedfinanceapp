@@ -178,7 +178,7 @@ export const authAPI = {
     }
   },
 
-  login: async (credentials: { email: string; password: string }) => {
+  login: async (credentials: { email?: string; username?: string; password: string }) => {
     const response = await api.post('/auth/login', credentials);
     return response.data;
   },
@@ -1356,9 +1356,14 @@ export const directMessagesAPI = {
     }
   },
 
-  sendMessage: async (userId: string, text: string) => {
+  sendMessage: async (userId: string, text: string, splitBillData?: any) => {
     try {
-      const response = await api.post(`/direct-messages/${userId}`, { text });
+      const payload: any = { text };
+      if (splitBillData) {
+        payload.splitBillData = splitBillData;
+      }
+      
+      const response = await api.post(`/direct-messages/${userId}`, payload);
       if (!response.data) {
         throw new Error('Invalid response format from server');
       }

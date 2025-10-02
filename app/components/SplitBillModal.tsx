@@ -44,12 +44,17 @@ export default function SplitBillModal({
 
   useEffect(() => {
     if (visible) {
-      setSelectedMembers(new Set());
+      // For direct chats, automatically select the other user
+      if (groupId === null && groupMembers.length === 1) {
+        setSelectedMembers(new Set([groupMembers[0].userId]));
+      } else {
+        setSelectedMembers(new Set());
+      }
       setAmount('');
       setDescription('');
       setCategory('Food');
     }
-  }, [visible]);
+  }, [visible, groupId, groupMembers]);
 
   const toggleMember = (memberId: string) => {
     const newSelected = new Set(selectedMembers);
@@ -62,12 +67,25 @@ export default function SplitBillModal({
   };
 
   const handleCreateSplitBill = async () => {
-    if (!amount || !description || selectedMembers.size === 0) {
-      Alert.alert('Error', 'Please fill in all fields and select at least one member');
+    if (!amount || !description) {
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    if (!groupId || groupId.trim() === '' || groupId === 'undefined' || groupId === 'null') {
+    // For direct chats, ensure the other user is selected
+    if (groupId === null && selectedMembers.size === 0 && groupMembers.length === 1) {
+      Alert.alert('Error', 'Please select the person to split with');
+      return;
+    }
+
+    // For group chats, ensure at least one member is selected
+    if (groupId !== null && selectedMembers.size === 0) {
+      Alert.alert('Error', 'Please select at least one member to split with');
+      return;
+    }
+
+    // Allow null groupId for direct chats
+    if (groupId !== null && (!groupId || groupId.trim() === '' || groupId === 'undefined')) {
       Alert.alert('Error', 'Invalid group. Please try again.');
       return;
     }
@@ -83,13 +101,16 @@ export default function SplitBillModal({
       return;
     }
 
-    // Validate selected members exist in group members
-    const invalidMembers = Array.from(selectedMembers).filter(
-      memberId => !groupMembers.some(m => m.userId === memberId)
-    );
-    if (invalidMembers.length > 0) {
-      Alert.alert('Error', 'Some selected members are not valid group members');
-      return;
+    // For direct chats, we don't need to validate group members
+    if (groupId !== null) {
+      // Validate selected members exist in group members
+      const invalidMembers = Array.from(selectedMembers).filter(
+        memberId => !groupMembers.some(m => m.userId === memberId)
+      );
+      if (invalidMembers.length > 0) {
+        Alert.alert('Error', 'Some selected members are not valid group members');
+        return;
+      }
     }
 
     // Debug logging
@@ -106,31 +127,54 @@ export default function SplitBillModal({
     setIsLoading(true);
     try {
       const numAmount = parseFloat(amount);
-      const splitAmount = numAmount / (selectedMembers.size + 1); // +1 for current user
+      let splitAmount: number;
+      let allParticipants: { userId: string; amount: number }[];
       
-      // Include current user as a participant who has paid their share
-      const allParticipants = [
-        ...Array.from(selectedMembers).map(userId => ({
-          userId,
-          amount: splitAmount,
-        })),
-        {
-          userId: currentUser._id,
-          amount: splitAmount,
-        }
-      ];
+      if (groupId === null && groupMembers.length === 1) {
+        // Direct chat: split between current user and the other user
+        splitAmount = numAmount / 2;
+        allParticipants = [
+          {
+            userId: groupMembers[0].userId,
+            amount: splitAmount,
+          },
+          {
+            userId: currentUser._id,
+            amount: splitAmount,
+          }
+        ];
+      } else {
+        // Group chat: split between selected members + current user
+        splitAmount = numAmount / (selectedMembers.size + 1);
+        allParticipants = [
+          ...Array.from(selectedMembers).map(userId => ({
+            userId,
+            amount: splitAmount,
+          })),
+          {
+            userId: currentUser._id,
+            amount: splitAmount,
+          }
+        ];
+      }
 
-      const splitBillData = {
+      const splitBillData: any = {
         description,
         totalAmount: numAmount,
-        groupId,
         participants: allParticipants,
         splitType: 'equal' as const,
         category,
         currency: 'INR',
       };
 
+      // Only add groupId for group chats
+      if (groupId !== null && groupId !== undefined) {
+        splitBillData.groupId = groupId;
+      }
+
       console.log('SplitBillModal - Sending split bill data:', JSON.stringify(splitBillData, null, 2));
+      console.log('SplitBillModal - GroupId in data:', splitBillData.groupId, 'type:', typeof splitBillData.groupId);
+      console.log('SplitBillModal - Participants details:', splitBillData.participants.map((p: any) => ({ userId: p.userId, amount: p.amount, userIdType: typeof p.userId })));
 
       await createSplitBill(splitBillData);
       onClose();
@@ -146,9 +190,22 @@ export default function SplitBillModal({
     }
   };
 
-  const splitAmount = amount && selectedMembers.size > 0
-    ? (parseFloat(amount) / (selectedMembers.size + 1)).toFixed(2)
-    : '0.00';
+  const splitAmount = (() => {
+    if (!amount) return '0.00';
+    
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount <= 0) return '0.00';
+    
+    // For direct chats, always split between 2 people (current user + other user)
+    if (groupId === null && groupMembers.length === 1) {
+      return (numAmount / 2).toFixed(2);
+    }
+    
+    // For group chats, split based on selected members + current user
+    if (selectedMembers.size === 0) return '0.00';
+    
+    return (numAmount / (selectedMembers.size + 1)).toFixed(2);
+  })();
 
   return (
     <Modal
@@ -220,31 +277,54 @@ export default function SplitBillModal({
           </View>
 
           <View style={styles.membersSection}>
-            <Text style={styles.label}>Split with ({selectedMembers.size} selected)</Text>
-            <Text style={styles.splitAmount}>Each pays: ${splitAmount}</Text>
+            <Text style={styles.label}>
+              {groupId === null ? 'Split with' : `Split with (${selectedMembers.size} selected)`}
+            </Text>
+            <Text style={styles.splitAmount}>
+              {groupId === null && groupMembers.length === 1
+                ? `Each pays: ₹${splitAmount}`
+                : selectedMembers.size > 0
+                  ? `Each pays: ₹${splitAmount}`
+                  : 'Select members to see split amount'
+              }
+            </Text>
 
-            {groupMembers.map((member: any) => (
-              <TouchableOpacity
-                key={member.userId}
-                style={[
-                  styles.memberItem,
-                  selectedMembers.has(member.userId) && styles.memberItemSelected,
-                ]}
-                onPress={() => toggleMember(member.userId)}
-              >
-                <View style={styles.memberInfo}>
-                  <View style={styles.memberAvatar}>
-                    <Text style={styles.memberInitial}>
-                      {member.name.charAt(0).toUpperCase()}
-                    </Text>
+            {groupMembers.map((member: any) => {
+              // For direct chats, the single member should be pre-selected
+              const isSelected = groupId === null && groupMembers.length === 1
+                ? true
+                : selectedMembers.has(member.userId);
+              
+              return (
+                <TouchableOpacity
+                  key={member.userId}
+                  style={[
+                    styles.memberItem,
+                    isSelected && styles.memberItemSelected,
+                  ]}
+                  onPress={() => {
+                    // For direct chats with single member, don't allow deselection
+                    if (groupId === null && groupMembers.length === 1) {
+                      return;
+                    }
+                    toggleMember(member.userId);
+                  }}
+                  disabled={groupId === null && groupMembers.length === 1}
+                >
+                  <View style={styles.memberInfo}>
+                    <View style={styles.memberAvatar}>
+                      <Text style={styles.memberInitial}>
+                        {member.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text style={styles.memberName}>{member.name}</Text>
                   </View>
-                  <Text style={styles.memberName}>{member.name}</Text>
-                </View>
-                {selectedMembers.has(member.userId) && (
-                  <Ionicons name="checkmark-circle" size={24} color={theme.primary || '#2563EB'} />
-                )}
-              </TouchableOpacity>
-            ))}
+                  {isSelected && (
+                    <Ionicons name="checkmark-circle" size={24} color={theme.primary || '#2563EB'} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </ScrollView>
 

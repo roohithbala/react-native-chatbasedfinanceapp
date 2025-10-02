@@ -7,12 +7,14 @@ interface ChatHeaderProps {
   activeTab: 'chats' | 'groups';
   onCreateGroup: () => void;
   onJoinGroup?: () => void;
+  onNewChat?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   activeTab,
   onCreateGroup,
   onJoinGroup,
+  onNewChat,
 }) => {
   return (
     <LinearGradient colors={['#2563EB', '#1D4ED8']} style={styles.header}>
@@ -38,6 +40,16 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               onPress={onCreateGroup}
             >
               <Ionicons name="people" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        )}
+        {activeTab === 'chats' && onNewChat && (
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={onNewChat}
+            >
+              <Ionicons name="add" size={24} color="white" />
             </TouchableOpacity>
           </View>
         )}

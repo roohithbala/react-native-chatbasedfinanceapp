@@ -42,6 +42,8 @@ export interface SettlementPlan {
   amount: number;
   fromUserName: string;
   toUserName: string;
+  billId?: string; // Add optional bill ID for easier lookup
+  billDescription?: string; // Add optional bill description
 }
 
 export interface Reminder {
@@ -151,9 +153,9 @@ export class PaymentsAPI {
     }
   }
 
-  static async processGooglePayTransaction(
+  static async processBhimUpiTransaction(
     paymentData: {
-      paymentMethodId: string;
+      upiId: string;
       amount: number;
       currency: string;
       description: string;
@@ -163,29 +165,80 @@ export class PaymentsAPI {
     }
   ): Promise<any> {
     try {
-      const response = await api.post('/payments/google-pay', paymentData);
+      const response = await api.post('/payments/bhim-upi', paymentData);
       return response.data;
     } catch (error) {
-      console.error('Google Pay transaction error:', error);
+      console.error('BHIM UPI transaction error:', error);
       throw error;
     }
   }
 
-  static async refundGooglePayTransaction(
-    transactionId: string,
-    amount?: number
+  static async createBhimUpiPaymentIntent(
+    paymentData: {
+      amount: number;
+      currency: string;
+      description: string;
+      upiId: string;
+      recipientId?: string;
+      splitBillId?: string;
+      groupId?: string;
+    }
   ): Promise<any> {
     try {
-      const response = await api.post('/payments/google-pay/refund', {
-        transactionId,
-        amount,
-      });
+      const response = await api.post('/payments/create-bhim-upi-intent', paymentData);
       return response.data;
     } catch (error) {
-      console.error('Google Pay refund error:', error);
+      console.error('BHIM UPI payment intent creation error:', error);
       throw error;
     }
   }
+
+  static async generateUpiQrCode(
+    qrData: {
+      amount: number;
+      currency: string;
+      description: string;
+      upiId: string;
+    }
+  ): Promise<any> {
+    try {
+      const response = await api.post('/payments/generate-upi-qr', qrData);
+      return response.data;
+    } catch (error) {
+      console.error('UPI QR code generation error:', error);
+      throw error;
+    }
+  }
+
+  static async verifyBhimUpiPayment(transactionId: string): Promise<any> {
+    try {
+      const response = await api.get(`/payments/bhim-upi/verify/${transactionId}`);
+      return response.data;
+    } catch (error) {
+      console.error('BHIM UPI payment verification error:', error);
+      throw error;
+    }
+  }
+
+  static async refundBhimUpiTransaction(
+    transactionId: string,
+    amount?: number,
+    reason?: string
+  ): Promise<any> {
+    try {
+      const response = await api.post('/payments/bhim-upi/refund', {
+        transactionId,
+        amount,
+        reason,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('BHIM UPI refund error:', error);
+      throw error;
+    }
+  }
+
+  // Legacy Google Pay methods (deprecated - use BHIM UPI instead)
 }
 
 export default PaymentsAPI;

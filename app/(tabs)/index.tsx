@@ -99,22 +99,53 @@ export default function HomeScreen() {
   };
 
   const getRecentExpenses = () => {
-    return expenses.slice(0, 3);
+    // Filter out expenses that are from settled split bills
+    const unsettledSplitBillIds = new Set(
+      splitBills
+        .filter(bill => !bill.isSettled)
+        .map(bill => bill._id)
+    );
+
+    return expenses
+      .filter(expense => {
+        // If expense is not related to a split bill, include it
+        if (!expense.groupId) return true;
+        
+        // If expense is related to a split bill, only include if the bill is not settled
+        // For now, we'll include all expenses since we don't have a direct link
+        // In a real app, you'd have a field linking expenses to split bills
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 3);
   };
 
   const getPendingSplitBills = () => {
     return splitBills.filter(bill => 
-      bill.participants.some(p => 
-        p.userId === currentUser?._id && !p.isPaid
-      )
+      bill.participants.some(p => {
+        const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+        return userId === currentUser?._id && !p.isPaid;
+      })
     ).slice(0, 3);
   };
 
   const getTotalOwed = () => {
-    return getPendingSplitBills().reduce((total, bill) => {
-      const userParticipant = bill.participants.find(p => p.userId === currentUser?._id);
-      return total + (userParticipant?.amount || 0);
-    }, 0);
+    if (!currentUser || !splitBills) return 0;
+    
+    return splitBills
+      .filter(bill => 
+        bill.participants && bill.participants.some(p => {
+          const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+          return userId === currentUser._id && !p.isPaid;
+        })
+      )
+      .reduce((total, bill) => {
+        const userParticipant = bill.participants.find(p => {
+          const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+          return userId === currentUser._id;
+        });
+        return total + (userParticipant?.amount || 0);
+      }, 0);
   };
 
   const getTotalExpensesThisMonth = () => {

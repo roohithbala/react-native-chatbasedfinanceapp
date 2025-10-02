@@ -26,6 +26,7 @@ import { useFinanceStore } from '../../lib/store/financeStore';
 import { CommandParser } from '../../lib/components/CommandParser';
 import { useTheme } from '../context/ThemeContext';
 import MessageInput from '../components/MessageInput';
+import SplitBillMessage from '../components/SplitBillMessage';
 
 interface Message {
   _id: string;
@@ -42,8 +43,47 @@ interface Message {
     username: string;
     avatar?: string;
   };
+  splitBillData?: {
+    _id: string;
+    description: string;
+    totalAmount: number;
+    participants: Array<{
+      userId: {
+        _id: string;
+        name: string;
+        username: string;
+      };
+      amount: number;
+      isPaid: boolean;
+      paidAt?: string;
+    }>;
+    isSettled: boolean;
+  };
   createdAt: string;
   read: boolean;
+}
+
+interface SplitBillMessageProps {
+  splitBillData: {
+    _id: string;
+    description: string;
+    totalAmount: number;
+    participants: Array<{
+      userId: {
+        _id: string;
+        name: string;
+        username: string;
+      };
+      amount: number;
+      isPaid: boolean;
+      paidAt?: string;
+    }>;
+    isSettled: boolean;
+  };
+  currentUserId?: string;
+  otherUserName: string;
+  isOwnMessage: boolean;
+  onPaymentSuccess?: () => void;
 }
 
 export default function ChatDetailScreen() {
@@ -206,11 +246,21 @@ export default function ChatDetailScreen() {
         throw new Error('Failed to create split bill');
       }
 
-      // Send confirmation message with proper details
-      const confirmationMessage = `✅ Split bill created!\n📝 ${description}\n💰 Total: $${(data.amount || 0).toFixed(2)}\n🤝 Each pays: $${((data.amount || 0) / 2).toFixed(2)}\n💸 You paid your share - ${otherUser?.name || 'Friend'} owes you $${((data.amount || 0) / 2).toFixed(2)}`;
+      // Send confirmation message with split bill data
+      const confirmationMessage = {
+        text: `✅ Split bill created!\n📝 ${description}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n🤝 Each pays: ₹${((data.amount || 0) / 2).toFixed(2)}\n💸 You paid your share - ${otherUser?.name || 'Friend'} owes you ₹${((data.amount || 0) / 2).toFixed(2)}`,
+        splitBillData: {
+          _id: result._id,
+          description: description,
+          totalAmount: data.amount,
+          participants: result.participants,
+          isSettled: result.isSettled
+        }
+      };
 
       try {
-        const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage);
+        // Send message with split bill data
+        const sent = await directMessagesAPI.sendMessage(userId, confirmationMessage.text, confirmationMessage.splitBillData);
         setMessages(prev => [...prev, sent]);
       } catch (sendError) {
         console.error('Error sending confirmation message:', sendError);
@@ -388,59 +438,7 @@ export default function ChatDetailScreen() {
   };
 
   const handleHamburgerMenu = () => {
-    Alert.alert(
-      'Chat Options',
-      `Chat with ${otherUser?.name || 'this user'}`,
-      [
-        {
-          text: 'View Profile',
-          onPress: () => {
-            router.push(`/profile/${userId}`);
-          }
-        },
-        {
-          text: 'Search Messages',
-          onPress: handleSearchMessages,
-        },
-        {
-          text: 'Clear Chat',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Clear Chat',
-              'Are you sure you want to clear all messages in this chat?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Clear',
-                  style: 'destructive',
-                  onPress: handleClearChat,
-                }
-              ]
-            );
-          }
-        },
-        {
-          text: 'Block User',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Block User',
-              `Are you sure you want to block ${otherUser?.name || 'this user'}?`,
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Block',
-                  style: 'destructive',
-                  onPress: handleBlockUser,
-                }
-              ]
-            );
-          }
-        },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+    router.push('/expenses');
   };
 
   const handleSend = async () => {
@@ -501,12 +499,42 @@ export default function ChatDetailScreen() {
             isOwnMessage ? styles.ownBubble : styles.otherBubble,
           ]}
         >
-          <Text style={[
-            styles.messageText,
-            isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-          ]}>
-            {item.text}
-          </Text>
+          {item.splitBillData ? (() => {
+            const transformedParticipants = item.splitBillData.participants.map(p => ({
+              userId: typeof p.userId === 'object' ? p.userId._id : p.userId,
+              name: typeof p.userId === 'object' ? p.userId.name : 'Unknown',
+              amount: p.amount,
+              isPaid: p.isPaid
+            }));
+
+            const currentUserShare = transformedParticipants.find(p => p.userId === currentUser?._id)?.amount || 0;
+            const currentUserPaid = transformedParticipants.find(p => p.userId === currentUser?._id)?.isPaid || false;
+
+            return (
+              <SplitBillMessage
+                splitBillData={{
+                  splitBillId: item.splitBillData._id,
+                  description: item.splitBillData.description,
+                  totalAmount: item.splitBillData.totalAmount,
+                  participants: transformedParticipants,
+                  userShare: currentUserShare,
+                  isPaid: currentUserPaid
+                }}
+                currentUserId={currentUser?._id || ''}
+                onPaymentSuccess={() => {
+                  // Refresh messages to show updated payment status
+                  loadMessages();
+                }}
+              />
+            );
+          })() : (
+            <Text style={[
+              styles.messageText,
+              isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+            ]}>
+              {item.text}
+            </Text>
+          )}
           <Text style={[
             styles.messageTime,
             isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
@@ -1117,5 +1145,84 @@ const getStyles = (theme: any) => StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 16,
+  },
+  splitBillContainer: {
+    padding: 12,
+  },
+  splitBillHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  splitBillTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  splitBillDescription: {
+    fontSize: 14,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  splitBillDetails: {
+    marginBottom: 12,
+  },
+  splitBillRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  splitBillLabel: {
+    fontSize: 14,
+  },
+  splitBillValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  paidText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  splitBillActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  payButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  payButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  remindButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  remindButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  settledContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    gap: 4,
+  },
+  settledText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

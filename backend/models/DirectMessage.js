@@ -16,6 +16,22 @@ const directMessageSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  splitBillData: {
+    _id: String,
+    description: String,
+    totalAmount: Number,
+    participants: [{
+      userId: {
+        _id: String,
+        name: String,
+        username: String
+      },
+      amount: Number,
+      isPaid: Boolean,
+      paidAt: Date
+    }],
+    isSettled: Boolean
+  },
   read: {
     type: Boolean,
     default: false

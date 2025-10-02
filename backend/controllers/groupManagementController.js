@@ -188,6 +188,9 @@ const updateNotificationSettings = async (groupId, notifications, userId) => {
 const getGroupStats = async (groupId, userId) => {
   const group = await validateGroupMembership(groupId, userId);
 
+  // Populate member details for stats
+  await group.populate('members.userId', 'name username email avatar');
+
   const Expense = require('../models/Expense');
   const SplitBill = require('../models/SplitBill');
 
@@ -197,19 +200,19 @@ const getGroupStats = async (groupId, userId) => {
   const expenseCount = expenses.length;
 
   // Get split bill statistics
-  const splitBills = await SplitBill.find({ 'participants.groupId': groupId });
+  const splitBills = await SplitBill.find({ groupId });
   const totalSplitBills = splitBills.length;
   const settledSplitBills = splitBills.filter(bill => bill.isSettled).length;
 
   // Calculate member contributions
   const memberStats = {};
   group.members.forEach(member => {
-    const memberId = member.userId.toString();
+    const memberId = member.userId._id ? member.userId._id.toString() : member.userId.toString();
     const memberExpenses = expenses.filter(exp => exp.userId.toString() === memberId);
     const totalSpent = memberExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
     memberStats[memberId] = {
-      name: member.userId.name || 'Unknown',
+      name: member.userId.name || member.userId.username || 'Unknown',
       totalSpent,
       expenseCount: memberExpenses.length
     };

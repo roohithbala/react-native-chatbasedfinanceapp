@@ -7,7 +7,7 @@ interface PaymentMethodSelectorProps {
   onMethodChange: (method: string) => void;
 }
 
-const paymentMethods = ['Cash', 'Card', 'Digital Wallet', 'Bank Transfer', 'Other'];
+const paymentMethods = ['BHIM UPI'];
 
 export default function PaymentMethodSelector({ selectedMethod, onMethodChange }: PaymentMethodSelectorProps) {
   const { theme } = useTheme();

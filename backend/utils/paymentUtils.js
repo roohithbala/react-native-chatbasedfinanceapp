@@ -96,9 +96,27 @@ function validateReminderData(data) {
  * @returns {boolean} - True if authorized
  */
 function isAuthorizedForSplitBill(splitBill, userId) {
-  const isCreator = splitBill.createdBy.toString() === userId;
-  const isParticipant = splitBill.participants.some(p => p.userId.toString() === userId);
-  return isCreator || isParticipant;
+  console.log('Checking authorization for split bill:', splitBill._id);
+  console.log('User ID:', userId, typeof userId);
+  console.log('Created by:', splitBill.createdBy, typeof splitBill.createdBy);
+
+  const isCreator = splitBill.createdBy.toString() === userId.toString();
+  console.log('Is creator:', isCreator);
+
+  console.log('Participants:', splitBill.participants.length);
+  const isParticipant = splitBill.participants.some(p => {
+    // Handle both populated objects and ObjectId strings
+    const participantUserId = typeof p.userId === 'object' && p.userId ? p.userId._id || p.userId : p.userId;
+    const participantIdString = participantUserId ? participantUserId.toString() : '';
+    console.log('Checking participant:', participantIdString, 'vs', userId.toString());
+    return participantIdString === userId.toString();
+  });
+  console.log('Is participant:', isParticipant);
+
+  const authorized = isCreator || isParticipant;
+  console.log('Final authorization result:', authorized);
+
+  return authorized;
 }
 
 /**

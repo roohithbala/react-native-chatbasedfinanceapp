@@ -14,17 +14,17 @@ const validateGroupMembership = async (groupId, userId, requiredRole = null) => 
   });
 
   if (!group) {
-    return { valid: false, error: 'Group not found or access denied' };
+    throw new Error('Group not found or access denied');
   }
 
   if (requiredRole) {
     const member = group.members.find(m => m.userId.toString() === userId && m.isActive);
     if (!member || member.role !== requiredRole) {
-      return { valid: false, error: 'Insufficient permissions' };
+      throw new Error('Insufficient permissions');
     }
   }
 
-  return { valid: true, group };
+  return group;
 };
 
 // Check if user can be added to group

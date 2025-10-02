@@ -14,7 +14,7 @@ interface AuthState {
 
   // Actions
   clearStorage: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (credentials: { email?: string; username?: string; password: string }) => Promise<void>;
   register: (userData: { name: string; email: string; username: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
@@ -47,11 +47,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (email: string, password: string) => {
+  login: async (credentials: { email?: string; username?: string; password: string }) => {
     try {
       set({ isLoading: true, error: null });
 
-      const response = await authAPI.login({ email, password });
+      const response = await authAPI.login(credentials);
 
       if (response.token && response.user) {
         await AsyncStorage.setItem('authToken', response.token);

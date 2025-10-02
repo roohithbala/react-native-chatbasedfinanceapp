@@ -46,6 +46,10 @@ router.get('/', auth, async (req, res) => {
 // Create new split bill
 router.post('/', auth, async (req, res) => {
   try {
+    console.log('🔄 Split bill creation request received');
+    console.log('📝 Request body:', JSON.stringify(req.body, null, 2));
+    console.log('👤 User ID:', req.userId);
+    
     const {
       description,
       totalAmount,
@@ -57,78 +61,129 @@ router.post('/', auth, async (req, res) => {
       notes
     } = req.body;
 
+    console.log('🔍 Extracted data:', { description, totalAmount, groupId, participantsCount: participants?.length, splitType, category, currency, notes });
+
     // Validation
     if (!description || !totalAmount || !participants || !participants.length) {
+      console.log('❌ Validation failed: missing required fields');
       return res.status(400).json({ 
         message: 'Description, total amount, and participants are required' 
       });
     }
 
+    console.log('✅ Basic validation passed');
+
     // If groupId is provided, validate group exists and user is a member
     if (groupId) {
+      console.log('🏢 Validating group split bill...');
       const Group = require('../models/Group');
       const group = await Group.findById(groupId);
       if (!group) {
+        console.log('❌ Group not found:', groupId);
         return res.status(404).json({ message: 'Group not found' });
       }
 
       if (!group.members.some(m => m.userId.toString() === req.userId.toString() && m.isActive)) {
+        console.log('❌ User not a member of group');
         return res.status(403).json({ message: 'You must be a member of the group to create split bills' });
       }
+      console.log('✅ Group validation passed');
     } else {
+      console.log('👥 Validating direct split bill...');
       // For direct chat split bills, validate that all participants exist
       const User = require('../models/User');
       const participantIds = participants.map(p => p.userId);
+      console.log('👥 Participant IDs:', participantIds);
+      
       const users = await User.find({ _id: { $in: participantIds } });
+      console.log('👥 Found users:', users.length, 'expected:', participantIds.length);
       
       if (users.length !== participantIds.length) {
+        console.log('❌ Some participants not found');
         return res.status(400).json({ message: 'One or more participants not found' });
       }
 
       // Ensure the creator is included in participants for direct chat
       if (!participantIds.includes(req.userId.toString())) {
+        console.log('❌ Creator not included in participants');
         return res.status(400).json({ message: 'Creator must be a participant in direct chat split bills' });
       }
+      console.log('✅ Direct validation passed');
     }
 
     // Validate total amount matches sum of participant amounts
     const totalParticipantAmount = participants.reduce((sum, p) => sum + p.amount, 0);
+    console.log('💰 Total amount:', totalAmount, 'Participant sum:', totalParticipantAmount);
+    
     if (Math.abs(totalAmount - totalParticipantAmount) > 0.01) {
+      console.log('❌ Amount mismatch');
       return res.status(400).json({ 
         message: 'Sum of participant amounts must equal total amount' 
       });
     }
 
+    console.log('✅ Amount validation passed');
+
     // Create the split bill
-    const splitBill = new SplitBill({
+    console.log('🔍 Creating split bill document...');
+    const splitBillData = {
       description,
       totalAmount,
       groupId: groupId ? new (require('mongoose').Types.ObjectId)(groupId) : null,
-      participants: participants.map(p => ({
-        ...p,
-        userId: new (require('mongoose').Types.ObjectId)(p.userId), // Convert string to ObjectId
-        isPaid: p.userId === req.userId.toString() // Compare strings for isPaid logic
-      })),
+      participants: participants.map(p => {
+        console.log('👤 Processing participant:', p);
+        try {
+          const userIdObj = new (require('mongoose').Types.ObjectId)(p.userId);
+          console.log('✅ Converted userId to ObjectId:', userIdObj);
+          return {
+            ...p,
+            userId: userIdObj,
+            isPaid: p.userId === req.userId.toString()
+          };
+        } catch (error) {
+          console.error('❌ Failed to convert userId to ObjectId:', p.userId, error);
+          throw new Error(`Invalid userId format: ${p.userId}`);
+        }
+      }),
       splitType: splitType || 'equal',
       category: category || 'Other',
       currency,
       notes,
       createdBy: req.userId
-    });
+    };
 
-    await splitBill.save();
-    
-    // Populate the response
-    await splitBill
-      .populate('createdBy', 'name avatar')
-      .populate('participants.userId', 'name avatar');
+    console.log('📝 Final split bill data:', JSON.stringify(splitBillData, null, 2));
+    const splitBill = new SplitBill(splitBillData);
+
+    console.log('💾 Saving split bill...');
+    let savedSplitBill;
+    try {
+      savedSplitBill = await splitBill.save();
+      console.log('✅ Split bill saved successfully with ID:', savedSplitBill._id);
+    } catch (saveError) {
+      console.error('❌ Failed to save split bill:', saveError);
+      throw saveError;
+    }
+
+    console.log('🔍 Populating response...');
+    try {
+      await splitBill
+        .populate('createdBy', 'name avatar')
+        .populate('participants.userId', 'name avatar');
+      console.log('✅ Split bill populated successfully');
+    } catch (populateError) {
+      console.error('❌ Failed to populate split bill:', populateError);
+      // Return the split bill without population if populate fails
+      console.log('⚠️ Returning split bill without population');
+    }
 
     res.status(201).json({
       message: 'Split bill created successfully',
       splitBill
     });
   } catch (error) {
-    console.error('Create split bill error:', error);
+    console.error('❌ Create split bill error:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ message: 'Server error' });
   }
 });

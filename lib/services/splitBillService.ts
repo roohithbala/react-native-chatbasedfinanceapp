@@ -265,15 +265,65 @@ class SplitBillService {
   }
 
   static async markAsPaid(id: string): Promise<{ splitBill: SplitBill }> {
-    const response = await axios.patch(`/split-bills/${id}/mark-paid`);
-    
-    // Handle backend response format: { message: '...', splitBill }
-    if (response.data && response.data.splitBill) {
-      return { splitBill: response.data.splitBill };
+    try {
+      const response = await axios.patch(`/split-bills/${id}/mark-paid`);
+      console.log('markAsPaid response:', response.data);
+      
+      // Handle various response formats from backend
+      if (response.data && response.data.splitBill) {
+        return { splitBill: response.data.splitBill };
+      }
+      
+      // Handle format: { message: '...', data: splitBill }
+      if (response.data && response.data.data) {
+        return { splitBill: response.data.data };
+      }
+      
+      // Handle direct splitBill response
+      if (response.data && response.data._id) {
+        return { splitBill: response.data };
+      }
+      
+      // Handle error responses that contain only a message
+      if (response.data && response.data.message && !response.data.splitBill) {
+        console.error('Backend returned error message:', response.data.message);
+        throw new Error(response.data.message);
+      }
+      
+      console.error('Unexpected markAsPaid response format:', response.data);
+      throw new Error('Invalid response from server');
+    } catch (error: any) {
+      console.error('markAsPaid error:', error);
+      throw error;
     }
-    
-    // Fallback for unexpected response format
-    throw new Error('Invalid response from server');
+  }
+
+  static async rejectBill(id: string): Promise<{ splitBill: SplitBill }> {
+    try {
+      const response = await axios.patch(`/split-bills/${id}/reject`);
+      console.log('rejectBill response:', response.data);
+      
+      // Handle various response formats from backend
+      if (response.data && response.data.splitBill) {
+        return { splitBill: response.data.splitBill };
+      }
+      
+      // Handle format: { message: '...', data: splitBill }
+      if (response.data && response.data.data) {
+        return { splitBill: response.data.data };
+      }
+      
+      // Handle direct splitBill response
+      if (response.data && response.data._id) {
+        return { splitBill: response.data };
+      }
+      
+      console.error('Unexpected rejectBill response format:', response.data);
+      throw new Error('Invalid response from server');
+    } catch (error: any) {
+      console.error('rejectBill error:', error);
+      throw error;
+    }
   }
 
   static async getStats(groupId?: string, period: 'week' | 'month' | 'year' = 'month'): Promise<SplitBillStats> {

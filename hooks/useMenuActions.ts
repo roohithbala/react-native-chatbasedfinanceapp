@@ -172,8 +172,8 @@ export const useMenuActions = () => {
 
         case 'viewProfile':
           if (activeTab === 'chats') {
-            // Navigate to profile tab instead of specific user profile
-            router.push('/profile');
+            // Navigate to the selected user's profile
+            router.push(`/profile/${selectedChat._id}`);
           } else {
             // Navigate to group chat screen for group info
             router.push(`/group-chat/${selectedChat._id}`);

@@ -36,7 +36,7 @@ const createSplitBill = async (userId, splitBillData) => {
   let validatedGroup = null;
 
   // Validate group or direct split bill
-  if (groupId && groupId !== 'undefined' && groupId !== 'null' && groupId !== '') {
+  if (groupId !== undefined && groupId !== null && groupId !== 'undefined' && groupId !== 'null' && groupId !== '') {
     const groupValidation = await splitBillUtils.validateGroupSplitBill(groupId, participants, userId);
     if (!groupValidation.isValid) {
       throw new Error(groupValidation.message);
@@ -51,15 +51,31 @@ const createSplitBill = async (userId, splitBillData) => {
   }
 
   // Create the split bill
+  let groupIdObject = null;
+  if (isGroupSplitBill) {
+    try {
+      groupIdObject = new mongoose.Types.ObjectId(groupId);
+    } catch (error) {
+      throw new Error(`Invalid groupId: ${groupId}`);
+    }
+  }
+
   const splitBill = new SplitBill({
     description,
     totalAmount,
-    groupId: isGroupSplitBill ? new mongoose.Types.ObjectId(groupId) : null,
-    participants: participants.map(p => ({
-      userId: new mongoose.Types.ObjectId(p.userId),
-      amount: p.amount,
-      isPaid: p.userId === userId.toString() // Creator has paid their share
-    })),
+    groupId: groupIdObject,
+    participants: participants.map(p => {
+      try {
+        const participantData = {
+          userId: new mongoose.Types.ObjectId(p.userId),
+          amount: p.amount,
+          isPaid: p.userId.toString() === userId.toString() // Creator has paid their share
+        };
+        return participantData;
+      } catch (error) {
+        throw new Error(`Invalid participant userId: ${p.userId}`);
+      }
+    }),
     splitType: splitType || 'equal',
     category: category || 'Other',
     currency,
@@ -96,10 +112,14 @@ const markPaymentAsPaid = async (splitBillId, userId) => {
   }
 
   const participant = splitBill.participants.find(
-    p => p.userId.toString() === userId
+    p => p.userId.toString() === userId.toString()
   );
 
   if (!participant) {
+    // Check if user is the creator - creators might not be in participants array for legacy data
+    if (splitBill.createdBy.toString() === userId.toString()) {
+      throw new Error('You have already paid as the bill creator, or this bill was created incorrectly');
+    }
     throw new Error('You are not a participant in this bill');
   }
 
@@ -132,7 +152,70 @@ const markPaymentAsPaid = async (splitBillId, userId) => {
   return splitBill;
 };
 
+/**
+ * Reject a split bill
+ * @param {string} splitBillId - Split bill ID
+ * @param {string} userId - User ID rejecting the bill
+ * @returns {Object} - Updated split bill
+ */
+const rejectSplitBill = async (splitBillId, userId) => {
+  const splitBill = await SplitBill.findById(splitBillId);
+
+  if (!splitBill) {
+    throw new Error('Split bill not found');
+  }
+
+  // Check if user is a participant
+  const participant = splitBill.participants.find(
+    p => p.userId.toString() === userId.toString()
+  );
+
+  if (!participant) {
+    throw new Error('You are not a participant in this bill');
+  }
+
+  // Check if bill is already settled
+  if (splitBill.isSettled) {
+    throw new Error('Bill already settled');
+  }
+
+  // Check if user is trying to reject their own bill
+  if (splitBill.createdBy.toString() === userId) {
+    throw new Error('Cannot reject your own bill');
+  }
+
+  // Mark participant as rejected (we'll add a rejected field to the schema)
+  participant.isRejected = true;
+  participant.rejectedAt = new Date();
+
+  // Check if all non-creator participants have rejected
+  const activeParticipants = splitBill.participants.filter(p => p.userId.toString() !== splitBill.createdBy.toString());
+  const allRejected = activeParticipants.every(p => p.isRejected);
+
+  if (allRejected) {
+    // If all participants reject, cancel the bill
+    splitBill.isCancelled = true;
+    splitBill.cancelledAt = new Date();
+    splitBill.cancelReason = 'All participants rejected the bill';
+  }
+
+  await splitBill.save();
+
+  // Populate the response
+  await splitBill
+    .populate('createdBy', 'name avatar')
+    .populate('participants.userId', 'name avatar')
+    .populate({
+      path: 'groupId',
+      select: 'name',
+      options: { allowEmpty: true }
+    });
+
+  return splitBill;
+};
+
 module.exports = {
   createSplitBill,
-  markPaymentAsPaid
+  markPaymentAsPaid,
+  rejectSplitBill
 };

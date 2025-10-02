@@ -111,7 +111,7 @@ interface FinanceState {
   
   // Auth actions
   clearStorage: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (credentials: { email?: string; username?: string; password: string }) => Promise<void>;
   register: (userData: { name: string; email: string; username: string; password: string; upiId: string }) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
@@ -131,6 +131,7 @@ interface FinanceState {
   getGroupSplitBills: (groupId: string, page?: number, limit?: number) => Promise<SplitBillsResponse>;
   getSplitBill: (id: string) => Promise<SplitBill>;
   markSplitBillAsPaid: (id: string) => Promise<SplitBill>;
+  rejectSplitBill: (id: string) => Promise<SplitBill>;
   getSplitBillStats: (groupId?: string, period?: 'week' | 'month' | 'year') => Promise<SplitBillStats>;
   
   // Budget actions
@@ -265,11 +266,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
 
-  login: async (email: string, password: string) => {
+  login: async (credentials: { email?: string; username?: string; password: string }) => {
     try {
       set({ isLoading: true, error: null });
       
-      const response = await authAPI.login({ email, password });
+      const response = await authAPI.login(credentials);
       
       if (response.token && response.user) {
         await AsyncStorage.setItem('authToken', response.token);
@@ -1047,6 +1048,32 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     } catch (error: any) {
       set({ 
         error: error.response?.data?.message || error.message || 'Failed to mark split bill as paid',
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  rejectSplitBill: async (id: string): Promise<SplitBill> => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await SplitBillService.rejectBill(id);
+      
+      if (!response.splitBill) {
+        throw new Error('Invalid response from server');
+      }
+
+      set((state) => ({
+        splitBills: Array.isArray(state.splitBills) ? state.splitBills.map(bill => 
+          bill._id === id ? response.splitBill : bill
+        ) : [],
+        isLoading: false
+      }));
+
+      return response.splitBill;
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || error.message || 'Failed to reject split bill',
         isLoading: false 
       });
       throw error;

@@ -50,7 +50,13 @@ export const useAuthForm = () => {
       }
 
       if (isLogin) {
-        await login(formData.email.trim(), formData.password);
+        // Determine if input is email or username
+        const isEmail = formData.email.includes('@');
+        const loginCredentials = isEmail
+          ? { email: formData.email.trim(), password: formData.password }
+          : { username: formData.email.trim(), password: formData.password };
+
+        await login(loginCredentials);
         Alert.alert('Success', 'Welcome back!');
       } else {
         await register({
