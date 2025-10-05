@@ -33,18 +33,6 @@ const expenseSchema = new mongoose.Schema({
     type: String,
     trim: true
   }],
-  location: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Location',
-    default: null
-  },
-  locationDetails: {
-    address: String,
-    coordinates: {
-      latitude: Number,
-      longitude: Number
-    }
-  },
   receipt: {
     url: String,
     filename: String
@@ -73,6 +61,10 @@ const expenseSchema = new mongoose.Schema({
       min: 0,
       max: 1
     }
+  },
+  archived: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
@@ -82,6 +74,7 @@ const expenseSchema = new mongoose.Schema({
 expenseSchema.index({ userId: 1, createdAt: -1 });
 expenseSchema.index({ groupId: 1, createdAt: -1 });
 expenseSchema.index({ category: 1, createdAt: -1 });
+expenseSchema.index({ archived: 1 });
 
 // Static methods for statistics
 expenseSchema.statics.getUserStats = async function(userId, period = 'month') {
@@ -106,6 +99,7 @@ expenseSchema.statics.getUserStats = async function(userId, period = 'month') {
     {
       $match: {
         userId: new mongoose.Types.ObjectId(userId),
+        archived: false, // Exclude archived expenses from statistics
         createdAt: { $gte: startDate }
       }
     },
@@ -182,6 +176,7 @@ expenseSchema.statics.getGroupStats = async function(groupId, period = 'month') 
     {
       $match: {
         groupId: new mongoose.Types.ObjectId(groupId),
+        archived: false, // Exclude archived expenses from statistics
         createdAt: { $gte: startDate }
       }
     },

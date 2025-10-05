@@ -2,7 +2,6 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const { uploadImage, uploadVideo, uploadAudio, uploadDocument } = require('../middleware/upload');
 const Message = require('../models/Message');
-const DirectMessage = require('../models/DirectMessage');
 const User = require('../models/User');
 const Group = require('../models/Group');
 const path = require('path');
@@ -76,30 +75,7 @@ router.post('/audio/:groupId', auth, (req, res) => {
   });
 });
 
-// Upload document
-router.post('/document/:groupId', auth, (req, res) => {
-  uploadDocument(req, res, async (err) => {
-    if (err) {
-      return res.status(400).json({
-        status: 'error',
-        message: err.message
-      });
-    }
-
-    try {
-      await handleMediaUpload(req, res, 'document');
-    } catch (error) {
-      console.error('Document upload error:', error);
-      res.status(500).json({
-        status: 'error',
-        message: 'Failed to process document upload'
-      });
-    }
-  });
-});
-
-// Direct message uploads
-// Upload image for direct messages
+// Upload image to direct message
 router.post('/image/direct/:userId', auth, (req, res) => {
   uploadImage(req, res, async (err) => {
     if (err) {
@@ -121,7 +97,7 @@ router.post('/image/direct/:userId', auth, (req, res) => {
   });
 });
 
-// Upload video for direct messages
+// Upload video to direct message
 router.post('/video/direct/:userId', auth, (req, res) => {
   uploadVideo(req, res, async (err) => {
     if (err) {
@@ -143,7 +119,7 @@ router.post('/video/direct/:userId', auth, (req, res) => {
   });
 });
 
-// Upload audio for direct messages
+// Upload audio to direct message
 router.post('/audio/direct/:userId', auth, (req, res) => {
   uploadAudio(req, res, async (err) => {
     if (err) {
@@ -165,7 +141,7 @@ router.post('/audio/direct/:userId', auth, (req, res) => {
   });
 });
 
-// Upload document for direct messages
+// Upload document to direct message
 router.post('/document/direct/:userId', auth, (req, res) => {
   uploadDocument(req, res, async (err) => {
     if (err) {
@@ -186,6 +162,114 @@ router.post('/document/direct/:userId', auth, (req, res) => {
     }
   });
 });
+
+// Helper function to handle direct media upload and message creation
+async function handleDirectMediaUpload(req, res, mediaType) {
+  const { userId: recipientId } = req.params;
+  const senderId = req.userId;
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'No file uploaded'
+    });
+  }
+
+  // Validate that recipient exists
+  const recipient = await User.findById(recipientId);
+  if (!recipient) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Recipient not found'
+    });
+  }
+
+  // Get sender info
+  const sender = await User.findById(senderId).select('name avatar username');
+  if (!sender) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Sender not found'
+    });
+  }
+
+  // Create media URL (relative path for serving)
+  const mediaUrl = `/uploads/${mediaType}s/${file.filename}`;
+
+  // Get file metadata
+  const stats = fs.statSync(file.path);
+  const fileSize = stats.size;
+
+  // Create direct message data
+  const messageData = {
+    text: req.body.caption || '', // Optional caption
+    sender: {
+      _id: sender._id,
+      name: sender.name,
+      username: sender.username,
+      avatar: sender.avatar
+    },
+    recipient: recipientId,
+    type: mediaType,
+    status: 'sent',
+    mediaUrl,
+    mediaType,
+    mediaSize: fileSize,
+    fileName: file.originalname,
+    mimeType: file.mimetype,
+    readBy: [{
+      userId: senderId,
+      readAt: new Date()
+    }]
+  };
+
+  // Add media-specific metadata
+  if (mediaType === 'image' || mediaType === 'video') {
+    messageData.mediaWidth = req.body.width || null;
+    messageData.mediaHeight = req.body.height || null;
+  }
+
+  if (mediaType === 'video' || mediaType === 'audio') {
+    messageData.mediaDuration = req.body.duration || null;
+  }
+
+  // Create and save direct message
+  const DirectMessage = require('../models/DirectMessage');
+  const message = new DirectMessage(messageData);
+  await message.save();
+
+  // Emit socket event for real-time updates
+  if (req.io) {
+    const socketMessage = {
+      _id: message._id.toString(),
+      text: message.text,
+      sender: message.sender,
+      recipient: message.recipient.toString(),
+      type: message.type,
+      status: message.status,
+      mediaUrl: message.mediaUrl,
+      mediaType: message.mediaType,
+      mediaSize: message.mediaSize,
+      fileName: message.fileName,
+      mimeType: message.mimeType,
+      createdAt: message.createdAt.toISOString(),
+      readBy: message.readBy
+    };
+
+    // Emit to both sender and recipient
+    req.io.to(`user_${recipientId}`).emit('receive-direct-message', socketMessage);
+    req.io.to(`user_${senderId}`).emit('receive-direct-message', socketMessage);
+  }
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      message: message,
+      fileUrl: mediaUrl
+    }
+  });
+}
 
 // Helper function to handle media upload and message creation
 async function handleMediaUpload(req, res, mediaType) {
@@ -295,73 +379,6 @@ async function handleMediaUpload(req, res, mediaType) {
 
     req.io.to(groupId).emit('receive-message', socketMessage);
   }
-
-  res.status(201).json({
-    status: 'success',
-    data: {
-      message: message,
-      fileUrl: mediaUrl
-    }
-  });
-}
-
-// Helper function to handle direct message media upload
-async function handleDirectMediaUpload(req, res, mediaType) {
-  const { userId: recipientId } = req.params;
-  const senderId = req.userId;
-  const file = req.file;
-
-  if (!file) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'No file uploaded'
-    });
-  }
-
-  // Validate recipient exists
-  const recipient = await User.findById(recipientId);
-  if (!recipient) {
-    return res.status(404).json({
-      status: 'error',
-      message: 'Recipient not found'
-    });
-  }
-
-  // Get sender info
-  const sender = await User.findById(senderId).select('name avatar username');
-  if (!sender) {
-    return res.status(404).json({
-      status: 'error',
-      message: 'Sender not found'
-    });
-  }
-
-  // Create media URL (relative path for serving)
-  const mediaUrl = `/uploads/${mediaType}s/${file.filename}`;
-
-  // Get file metadata
-  const stats = fs.statSync(file.path);
-  const fileSize = stats.size;
-
-  // Create direct message data
-  const messageData = {
-    sender: senderId,
-    receiver: recipientId,
-    text: req.body.caption || '', // Optional caption
-    mediaUrl,
-    mediaType,
-    mediaSize: fileSize,
-    fileName: file.originalname,
-    mimeType: file.mimetype
-  };
-
-  // Create and save direct message
-  const message = new DirectMessage(messageData);
-  await message.save();
-
-  // Populate sender and receiver info for response
-  await message.populate('sender', 'name username avatar');
-  await message.populate('receiver', 'name username avatar');
 
   res.status(201).json({
     status: 'success',

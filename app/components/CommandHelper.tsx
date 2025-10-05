@@ -24,13 +24,13 @@ export default function CommandHelper({
           style={styles.commandChip}
           onPress={onSplitBillPress}
         >
-          <Text style={styles.commandChipText}>💰 Split Bill</Text>
+          <Text style={styles.commandChipText}>@split dinner $100 @all</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.commandChip}
           onPress={onAddExpensePress}
         >
-          <Text style={styles.commandChipText}>@addexpense</Text>
+          <Text style={styles.commandChipText}>@addexpense coffee 50</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.commandChip}

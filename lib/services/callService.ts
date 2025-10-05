@@ -63,6 +63,7 @@ export interface CallData {
   status: 'ringing' | 'connecting' | 'connected' | 'ended';
   startTime?: Date;
   endTime?: Date;
+  groupId?: string;
 }
 
 class CallService {
@@ -234,7 +235,7 @@ class CallService {
         participants,
         type,
         offer
-      });
+      }, this.currentCall.participants[0].userId, this.currentCall.groupId);
 
       console.log('📞 Call started successfully');
       return this.currentCall;
@@ -277,7 +278,7 @@ class CallService {
       socketService.sendCallAnswer({
         callId: this.currentCall.callId,
         answer
-      });
+      }, this.currentCall.participants[0].userId, this.currentCall.groupId);
 
       this.currentCall.status = 'connected';
       console.log('📞 Call answered successfully');
@@ -293,10 +294,7 @@ class CallService {
     console.log('📞 Ending call');
 
     if (this.currentCall) {
-      socketService.sendCallEnd({
-        callId: this.currentCall.callId,
-        participants: this.currentCall.participants.map(p => p.userId)
-      });
+      socketService.sendCallEnd(this.currentCall.participants[0].userId, this.currentCall.groupId);
     }
 
     this.cleanup();
@@ -445,7 +443,7 @@ class CallService {
           callId: this.currentCall.callId,
           candidate: event.candidate,
           participants: this.currentCall.participants.map(p => p.userId)
-        });
+        }, this.currentCall.participants[0].userId, this.currentCall.groupId);
       }
     };
 

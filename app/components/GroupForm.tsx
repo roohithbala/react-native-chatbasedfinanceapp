@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface GroupFormProps {
   groupName: string;
@@ -18,6 +19,8 @@ export default function GroupForm({
   onGroupDescriptionChange,
   isCreating,
 }: GroupFormProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   return (
     <View style={styles.form}>
       <View style={styles.inputGroup}>
@@ -27,7 +30,7 @@ export default function GroupForm({
           value={groupName}
           onChangeText={onGroupNameChange}
           placeholder="Enter group name"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={theme.textSecondary}
           maxLength={50}
           editable={!isCreating}
         />
@@ -45,7 +48,7 @@ export default function GroupForm({
           value={groupDescription}
           onChangeText={onGroupDescriptionChange}
           placeholder="Describe your group"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={theme.textSecondary}
           multiline
           numberOfLines={3}
           maxLength={200}
@@ -88,6 +91,40 @@ const styles = StyleSheet.create({
   characterCount: {
     fontSize: 12,
     color: '#64748B',
+    textAlign: 'right',
+    marginTop: 4,
+  },
+});
+
+const getStyles = (theme: any) => StyleSheet.create({
+  form: {
+    marginBottom: 20,
+  },
+  inputGroup: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.text,
+    marginBottom: 8,
+  },
+  textInput: {
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    color: theme.text,
+  },
+  descriptionInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  characterCount: {
+    fontSize: 12,
+    color: theme.textSecondary,
     textAlign: 'right',
     marginTop: 4,
   },

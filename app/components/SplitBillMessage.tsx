@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Linking, Vibration } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SplitBillData } from '../types/chat';
 import { useTheme } from '../context/ThemeContext';
@@ -11,7 +11,6 @@ interface SplitBillMessageProps {
   onPayBill?: (splitBillId: string) => void;
   onViewDetails?: (splitBillId: string) => void;
   onPaymentSuccess?: () => void;
-  onRejectBill?: (splitBillId: string) => void;
 }
 
 export default function SplitBillMessage({
@@ -19,14 +18,16 @@ export default function SplitBillMessage({
   currentUserId,
   onPayBill,
   onViewDetails,
-  onPaymentSuccess,
-  onRejectBill
+  onPaymentSuccess
 }: SplitBillMessageProps) {
   const { theme } = useTheme();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(-20)).current;
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  const successAnim = React.useRef(new Animated.Value(0)).current;
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [paymentStatus, setPaymentStatus] = React.useState<'pending' | 'paid' | 'rejected'>('pending');
+  const [showSuccessAnimation, setShowSuccessAnimation] = React.useState(false);
 
   React.useEffect(() => {
     Animated.parallel([
@@ -43,33 +44,24 @@ export default function SplitBillMessage({
     ]).start();
   }, []);
 
-  // Safety check for splitBillData
-  if (!splitBillData || !splitBillData.participants || !Array.isArray(splitBillData.participants)) {
-    console.error('Invalid splitBillData:', splitBillData);
-    return null;
-  }
-
   const userParticipant = splitBillData.participants.find(p => {
     // Handle both string and object userId formats
     const participantUserId = typeof p.userId === 'object' && p.userId && '_id' in p.userId ? (p.userId as any)._id : p.userId;
     return participantUserId === currentUserId;
   });
   const isPaid = userParticipant?.isPaid || false;
-  const userShare = Number(userParticipant?.amount) || 0;
+  const userShare = userParticipant?.amount || 0;
 
   React.useEffect(() => {
     // Initialize payment status based on current data
     if (userParticipant?.isPaid) {
       setPaymentStatus('paid');
+    } else {
+      setPaymentStatus('pending');
     }
   }, [userParticipant?.isPaid]);
 
   const handlePayBill = async () => {
-    if (!splitBillData.splitBillId) {
-      Alert.alert('Error', 'Invalid split bill data');
-      return;
-    }
-
     if (onPayBill && splitBillData.splitBillId) {
       onPayBill(splitBillData.splitBillId);
       return;
@@ -114,23 +106,107 @@ export default function SplitBillMessage({
 
   const initiateUPIPayment = async () => {
     try {
-      // Create UPI payment URL
-      // Note: This is a basic UPI URL format. In production, you'd use a proper UPI library
-      const upiUrl = `tez://pay?pa=merchant@upi&pn=Merchant&am=${userShare.toFixed(2)}&cu=INR&tn=Split Bill Payment`;
+      // Create UPI payment URL with proper format
+      // Using a more complete UPI URL format for better compatibility
+      const upiUrl = `tez://pay?pa=merchant@upi&pn=Split Bill Payment&am=${userShare.toFixed(2)}&cu=INR&tn=Payment for ${splitBillData.description}`;
+
+      console.log('Attempting UPI payment with URL:', upiUrl);
 
       const supported = await Linking.canOpenURL(upiUrl);
       if (supported) {
         await Linking.openURL(upiUrl);
-        // After UPI app opens, mark as paid (in real app, you'd verify payment)
+        // After UPI app opens, show a confirmation dialog
         setTimeout(() => {
-          markAsPaidManually();
-        }, 2000);
+          Alert.alert(
+            'Payment Initiated',
+            'Your UPI app has been opened. Please complete the payment there.',
+            [
+              {
+                text: 'Mark as Paid',
+                onPress: () => markAsPaidManually(),
+                style: 'default',
+              },
+              {
+                text: 'Cancel',
+                style: 'cancel',
+              },
+            ]
+          );
+        }, 1000);
       } else {
-        Alert.alert('UPI Not Available', 'No UPI app found on this device');
+        // Try alternative UPI URL formats
+        const alternativeUrls = [
+          `paytmmp://pay?pa=merchant@upi&pn=Split Bill Payment&am=${userShare.toFixed(2)}&cu=INR`,
+          `phonepe://pay?pa=merchant@upi&pn=Split Bill Payment&am=${userShare.toFixed(2)}&cu=INR`,
+          `bhim://pay?pa=merchant@upi&pn=Split Bill Payment&am=${userShare.toFixed(2)}&cu=INR`
+        ];
+
+        let opened = false;
+        for (const url of alternativeUrls) {
+          try {
+            const altSupported = await Linking.canOpenURL(url);
+            if (altSupported) {
+              await Linking.openURL(url);
+              opened = true;
+              setTimeout(() => {
+                Alert.alert(
+                  'Payment Initiated',
+                  'Your UPI app has been opened. Please complete the payment there.',
+                  [
+                    {
+                      text: 'Mark as Paid',
+                      onPress: () => markAsPaidManually(),
+                      style: 'default',
+                    },
+                    {
+                      text: 'Cancel',
+                      style: 'cancel',
+                    },
+                  ]
+                );
+              }, 1000);
+              break;
+            }
+          } catch (error) {
+            console.log('Alternative UPI URL failed:', url);
+          }
+        }
+
+        if (!opened) {
+          Alert.alert(
+            'UPI Not Available',
+            'No UPI app found on this device. You can still mark the payment as completed manually.',
+            [
+              {
+                text: 'Mark as Paid',
+                onPress: () => markAsPaidManually(),
+                style: 'default',
+              },
+              {
+                text: 'Cancel',
+                style: 'cancel',
+              },
+            ]
+          );
+        }
       }
     } catch (error) {
       console.error('UPI payment error:', error);
-      Alert.alert('Error', 'Failed to open UPI app');
+      Alert.alert(
+        'UPI Error',
+        'Failed to open UPI app. You can mark the payment as completed manually.',
+        [
+          {
+            text: 'Mark as Paid',
+            onPress: () => markAsPaidManually(),
+            style: 'default',
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
     }
   };
 
@@ -139,12 +215,51 @@ export default function SplitBillMessage({
 
     try {
       setIsProcessingPayment(true);
+      
+      // Add haptic feedback
+      Vibration.vibrate(100);
+      
+      // Animate button press
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
       const result = await SplitBillService.markAsPaid(splitBillData.splitBillId);
       
       // Update local state to reflect payment completion
       setPaymentStatus('paid');
       
-      Alert.alert('Success', 'Payment marked as completed!');
+      // Trigger success animation
+      setShowSuccessAnimation(true);
+      Vibration.vibrate([0, 100, 50, 100]); // Success vibration pattern
+      
+      // Animate success checkmark
+      Animated.timing(successAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+      
+      // Hide success animation after delay
+      setTimeout(() => {
+        setShowSuccessAnimation(false);
+        Animated.timing(successAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }, 2000);
+      
+      Alert.alert('✅ Payment Successful', 'Your payment has been recorded!');
       
       // Call success callback if provided
       if (onPaymentSuccess) {
@@ -152,7 +267,19 @@ export default function SplitBillMessage({
       }
     } catch (error: any) {
       console.error('Mark as paid error:', error);
-      Alert.alert('Error', error.message || 'Failed to mark payment as completed');
+      
+      // Handle "already paid" error more gracefully
+      if (error.message && error.message.includes('already marked this payment as paid')) {
+        // Update local state to reflect that payment is already completed
+        setPaymentStatus('paid');
+        Alert.alert('ℹ️ Payment Already Completed', 'This payment has already been marked as paid.');
+        return;
+      }
+      
+      // Error vibration
+      Vibration.vibrate([0, 200, 100, 200]);
+      
+      Alert.alert('❌ Payment Failed', error.message || 'Failed to mark payment as completed');
     } finally {
       setIsProcessingPayment(false);
     }
@@ -192,11 +319,6 @@ export default function SplitBillMessage({
       if (onPaymentSuccess) {
         onPaymentSuccess();
       }
-
-      // Call reject callback to notify parent component
-      if (onRejectBill) {
-        onRejectBill(splitBillData.splitBillId);
-      }
     } catch (error: any) {
       console.error('Reject bill error:', error);
       Alert.alert('Error', error.message || 'Failed to reject bill');
@@ -221,6 +343,27 @@ export default function SplitBillMessage({
         },
       ]}
     >
+      {/* Success Animation Overlay */}
+      {showSuccessAnimation && (
+        <Animated.View 
+          style={[
+            styles.successOverlay,
+            {
+              opacity: successAnim,
+              transform: [{ scale: successAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1]
+              }) }]
+            }
+          ]}
+        >
+          <View style={styles.successContent}>
+            <Ionicons name="checkmark-circle" size={48} color="#10B981" />
+            <Text style={styles.successText}>Payment Successful!</Text>
+          </View>
+        </Animated.View>
+      )}
+
       {/* Notification Header */}
       <View style={styles.notificationHeader}>
         <View style={styles.notificationIcon}>
@@ -229,7 +372,7 @@ export default function SplitBillMessage({
         <View style={styles.notificationContent}>
           <Text style={styles.notificationTitle}>Split Bill Request</Text>
           <Text style={styles.notificationSubtitle}>
-            {splitBillData.participants.length} people • ₹{(Number(splitBillData.totalAmount) || 0).toFixed(2)}
+            {splitBillData.participants.length} people • ₹{splitBillData.totalAmount.toFixed(2)}
           </Text>
         </View>
         <View style={styles.notificationBadge}>
@@ -239,12 +382,12 @@ export default function SplitBillMessage({
 
       {/* Bill Details */}
       <View style={styles.billDetails}>
-        <Text style={styles.description}>{splitBillData.description || 'Split Bill'}</Text>
+        <Text style={styles.description}>{splitBillData.description}</Text>
 
         <View style={styles.amountSection}>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Total Amount</Text>
-            <Text style={styles.totalAmount}>₹{(Number(splitBillData.totalAmount) || 0).toFixed(2)}</Text>
+            <Text style={styles.totalAmount}>₹{splitBillData.totalAmount.toFixed(2)}</Text>
           </View>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Your Share</Text>
@@ -270,14 +413,17 @@ export default function SplitBillMessage({
                 return participantUserId !== currentUserId;
               })
               .slice(0, 3)
-              .map((participant, index) => (
-                <View key={participant?.userId || index} style={styles.participantChip}>
-                  <Text style={styles.participantName}>{participant?.name || 'Unknown'}</Text>
-                  {participant?.isPaid && (
-                    <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                  )}
-                </View>
-              ))}
+              .map((participant, index) => {
+                const participantUserId = typeof participant.userId === 'object' && participant.userId && '_id' in participant.userId ? (participant.userId as any)._id : participant.userId;
+                return (
+                  <View key={`${participantUserId}-${index}`} style={styles.participantChip}>
+                    <Text style={styles.participantName}>{participant.name}</Text>
+                    {participant.isPaid && (
+                      <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                    )}
+                  </View>
+                );
+              })}
           </View>
         </View>
       </View>
@@ -291,10 +437,12 @@ export default function SplitBillMessage({
               onPress={handlePayBill}
               disabled={isProcessingPayment}
             >
-              <Ionicons name="card" size={18} color="white" />
-              <Text style={styles.payButtonText}>
-                {isProcessingPayment ? 'Processing...' : `Pay ₹${userShare.toFixed(2)}`}
-              </Text>
+              <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+                <Ionicons name="card" size={18} color="white" />
+                <Text style={styles.payButtonText}>
+                  {isProcessingPayment ? 'Processing...' : `Pay ₹${userShare.toFixed(2)}`}
+                </Text>
+              </Animated.View>
             </TouchableOpacity>
             <View style={styles.secondaryButtonsRow}>
               <TouchableOpacity
@@ -536,5 +684,27 @@ const styles = StyleSheet.create({
   },
   rejectButtonText: {
     color: '#EF4444',
+  },
+  successOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(16, 185, 129, 0.95)',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  successContent: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  successText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 12,
   },
 });

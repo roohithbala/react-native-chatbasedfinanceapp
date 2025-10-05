@@ -4,13 +4,18 @@ const {
   getBudgets,
   createOrUpdateBudget,
   deleteBudget,
-  getBudgetAlerts
+  getBudgetAlerts,
+  getHistoricalBudgets,
+  getBudgetTrends
 } = require('../controllers/budgetController');
 
 const router = express.Router();
 
 // Get user budgets
 router.get('/', auth, getBudgets);
+
+// Get historical budgets
+router.get('/historical', auth, getHistoricalBudgets);
 
 // Create or update budget
 router.post('/', auth, createOrUpdateBudget);
@@ -20,5 +25,8 @@ router.delete('/:id', auth, deleteBudget);
 
 // Get budget alerts
 router.get('/alerts', auth, getBudgetAlerts);
+
+// Get budget trends
+router.get('/trends', auth, getBudgetTrends);
 
 module.exports = router;

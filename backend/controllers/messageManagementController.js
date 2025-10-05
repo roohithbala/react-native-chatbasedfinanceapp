@@ -117,11 +117,8 @@ const sendMessage = async (groupId, userId, messageData, io) => {
     }
   }
 
-  // Extract mentions and location mentions
-  const [mentions, locationMentions] = await Promise.all([
-    chatUtils.extractMentions(text),
-    chatUtils.extractLocationMentions(text, userId)
-  ]);
+  // Extract mentions
+  const mentions = await chatUtils.extractMentions(text);
 
   // Save the original user message
   const message = new Message({
@@ -133,19 +130,46 @@ const sendMessage = async (groupId, userId, messageData, io) => {
       avatar: user.avatar
     },
     groupId,
-    type: commandResult?.success ? 'command' : type,
+    type: commandResult?.success && commandResult.type === 'split' ? 'split_bill' : (commandResult?.success ? 'command' : type),
     status: 'sent',
     commandType: commandResult?.type,
     mentions,
-    locationMentions,
     readBy: [{
       userId: userId,
       readAt: new Date()
     }]
   });
 
+  // If it's a split command, add split bill data
+  if (commandResult?.success && commandResult.type === 'split') {
+    // Get the created split bill details
+    const SplitBill = require('../models/SplitBill');
+    const splitBill = await SplitBill.findById(commandResult.data.splitBillId)
+      .populate('participants.userId', 'name username')
+      .populate('createdBy', 'name username');
+
+    if (splitBill) {
+      // Find current user's share
+      const userParticipant = splitBill.participants.find(p => p.userId._id.toString() === userId.toString());
+      const userShare = userParticipant ? userParticipant.amount : 0;
+
+      message.splitBillData = {
+        splitBillId: splitBill._id.toString(),
+        description: splitBill.description,
+        totalAmount: splitBill.totalAmount,
+        userShare: userShare,
+        isPaid: userParticipant ? userParticipant.isPaid : false,
+        participants: splitBill.participants.map(p => ({
+          userId: p.userId._id.toString(),
+          name: p.userId.name || 'Unknown',
+          amount: p.amount,
+          isPaid: p.isPaid
+        }))
+      };
+    }
+  }
   // If it's a command, add command data
-  if (commandResult?.success) {
+  else if (commandResult?.success) {
     message.commandData = commandResult.data;
   }
 

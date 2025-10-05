@@ -149,7 +149,141 @@ async function deleteBudget(req, res) {
   }
 }
 
+/**
+ * Roll over budgets to next period
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function rolloverBudgets(req, res) {
+  try {
+    const { rolloverUnused = true, rolloverPercentage = 100 } = req.body;
+
+    // Find all active budgets for the user
+    const budgets = await Budget.find({
+      userId: req.userId,
+      isActive: true
+    });
+
+    const rolledOverBudgets = [];
+
+    for (const budget of budgets) {
+      // Calculate spent amount
+      const expenses = await Expense.find({
+        userId: req.userId,
+        category: budget.category,
+        createdAt: { $gte: budget.startDate, $lte: budget.endDate }
+      });
+      const spent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const remaining = budget.amount - spent;
+
+      // Calculate new budget amount
+      let newAmount = budget.amount;
+      if (rolloverUnused && remaining > 0) {
+        const rolloverAmount = (remaining * rolloverPercentage) / 100;
+        newAmount = budget.amount + rolloverAmount;
+      }
+
+      // Calculate next period dates
+      const { startDate, endDate } = calculatePeriodDates(budget.period);
+
+      // Create new budget for next period
+      const newBudget = new Budget({
+        userId: req.userId,
+        groupId: budget.groupId,
+        category: budget.category,
+        amount: newAmount,
+        period: budget.period,
+        startDate,
+        endDate,
+        alerts: createDefaultAlerts()
+      });
+
+      await newBudget.save();
+      rolledOverBudgets.push(newBudget);
+
+      // Deactivate current budget
+      budget.isActive = false;
+      await budget.save();
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        rolledOverBudgets: rolledOverBudgets.length,
+        message: `Successfully rolled over ${rolledOverBudgets.length} budgets to next period`
+      }
+    });
+  } catch (error) {
+    console.error('Rollover budgets error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to rollover budgets'
+    });
+  }
+}
+
+/**
+ * Reset budgets for new period
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function resetBudgets(req, res) {
+  try {
+    const { period = 'monthly', resetAmount } = req.body;
+
+    // Find all active budgets for the user
+    const budgets = await Budget.find({
+      userId: req.userId,
+      isActive: true
+    });
+
+    const resetBudgets = [];
+
+    for (const budget of budgets) {
+      // Calculate new period dates
+      const { startDate, endDate } = calculatePeriodDates(period);
+
+      // Create new budget with reset amount or keep current
+      const newAmount = resetAmount !== undefined ? parseFloat(resetAmount) : budget.amount;
+
+      const newBudget = new Budget({
+        userId: req.userId,
+        groupId: budget.groupId,
+        category: budget.category,
+        amount: newAmount,
+        period,
+        startDate,
+        endDate,
+        alerts: createDefaultAlerts()
+      });
+
+      await newBudget.save();
+      resetBudgets.push(newBudget);
+
+      // Deactivate current budget
+      budget.isActive = false;
+      await budget.save();
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        resetBudgets: resetBudgets.length,
+        message: `Successfully reset ${resetBudgets.length} budgets for new period`
+      }
+    });
+  } catch (error) {
+    console.error('Reset budgets error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to reset budgets'
+    });
+  }
+}
+
 module.exports = {
   createOrUpdateBudget,
-  deleteBudget
+  deleteBudget,
+  rolloverBudgets,
+  resetBudgets
 };

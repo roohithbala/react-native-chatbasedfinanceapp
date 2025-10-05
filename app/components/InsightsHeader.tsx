@@ -1,13 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../context/ThemeContext';
 
 export const InsightsHeader: React.FC = () => {
-  const { theme } = useTheme();
-
   return (
-    <LinearGradient colors={[theme.primary, theme.primaryDark]} style={styles.header}>
+    <LinearGradient colors={['#1E293B', '#334155']} style={styles.header}>
       <Text style={styles.headerTitle}>AI Insights</Text>
       <Text style={styles.headerSubtitle}>Powered by financial intelligence</Text>
     </LinearGradient>

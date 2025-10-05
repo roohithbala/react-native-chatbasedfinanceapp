@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const LocationMentionParser = require('../utils/locationMentionParser');
 
 /**
  * Formats a message object for API responses
@@ -36,6 +35,7 @@ const formatMessage = (message) => {
     commandType: msg.commandType || null,
     commandData: msg.commandData || null,
     systemData: msg.systemData || null,
+    splitBillData: msg.splitBillData || null,
     mediaUrl: msg.mediaUrl || null,
     mediaType: msg.mediaType || null,
     mediaSize: msg.mediaSize || 0,
@@ -46,11 +46,6 @@ const formatMessage = (message) => {
     fileName: msg.fileName || null,
     mimeType: msg.mimeType || null,
     mentions: (msg.mentions || []).map(m => m.toString()),
-    locationMentions: (msg.locationMentions || []).map(lm => ({
-      locationId: lm.locationId.toString(),
-      locationName: lm.locationName,
-      coordinates: lm.coordinates
-    })),
     reactions: (msg.reactions || []).map(r => ({
       userId: r.userId.toString(),
       emoji: r.emoji,
@@ -78,21 +73,6 @@ const extractMentions = async (text) => {
     return users.map(u => u._id);
   } catch (error) {
     console.error('Error extracting mentions:', error);
-    return [];
-  }
-};
-
-/**
- * Extracts location mentions from message text
- * @param {string} text - Message text
- * @param {string} userId - User ID
- * @returns {Array} - Array of location mentions
- */
-const extractLocationMentions = async (text, userId) => {
-  try {
-    return await LocationMentionParser.parseLocationMentions(text, userId);
-  } catch (error) {
-    console.error('Error extracting location mentions:', error);
     return [];
   }
 };
@@ -146,6 +126,9 @@ const formatMessageForSocket = (message) => {
     status: 'sent',
     groupId: message.groupId,
     readBy: message.readBy,
+    commandType: message.commandType,
+    commandData: message.commandData,
+    splitBillData: message.splitBillData,
     mediaUrl: message.mediaUrl,
     mediaType: message.mediaType,
     mediaSize: message.mediaSize,
@@ -156,7 +139,6 @@ const formatMessageForSocket = (message) => {
     fileName: message.fileName,
     mimeType: message.mimeType,
     mentions: message.mentions,
-    locationMentions: message.locationMentions,
     reactions: message.reactions
   };
 };
@@ -186,7 +168,6 @@ const formatSystemMessageForSocket = (systemMessage, groupId, commandResult) => 
     commandType: commandResult?.type,
     commandData: commandResult?.data || {},
     mentions: [],
-    locationMentions: [],
     reactions: []
   };
 };
@@ -194,7 +175,6 @@ const formatSystemMessageForSocket = (systemMessage, groupId, commandResult) => 
 module.exports = {
   formatMessage,
   extractMentions,
-  extractLocationMentions,
   validateGroupMembership,
   formatMessageForSocket,
   formatSystemMessageForSocket

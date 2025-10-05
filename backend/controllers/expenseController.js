@@ -35,7 +35,7 @@ const getUserExpenses = async (userId, queryParams) => {
 
 // Create expense
 const createExpense = async (userId, expenseData, io) => {
-  const { description, amount, category, groupId, tags, location } = expenseData;
+  const { description, amount, category, groupId, tags } = expenseData;
 
   // Validate expense data
   const validation = validateExpenseData({ description, amount });
@@ -52,8 +52,7 @@ const createExpense = async (userId, expenseData, io) => {
     category: category || 'Other',
     userId,
     groupId: validGroupId,
-    tags,
-    location
+    tags
   });
 
   await expense.save();
@@ -81,7 +80,7 @@ const createExpense = async (userId, expenseData, io) => {
 
 // Update expense
 const updateExpense = async (expenseId, userId, updateData, io) => {
-  const { description, amount, category, tags, location } = updateData;
+  const { description, amount, category, tags } = updateData;
 
   const expense = await Expense.findOne({ _id: expenseId, userId });
   if (!expense) {
@@ -93,7 +92,6 @@ const updateExpense = async (expenseId, userId, updateData, io) => {
   if (amount) expense.amount = amount;
   if (category) expense.category = category;
   if (tags) expense.tags = tags;
-  if (location) expense.location = location;
 
   await expense.save();
   await expense.populate('userId', 'name avatar');
@@ -150,10 +148,33 @@ const getExpenseStats = async (userId, period = 'month') => {
   return await calculateExpenseStats(userId, period);
 };
 
+// Reset all user expenses
+const resetUserExpenses = async (userId, io) => {
+  // Archive all expenses for the user instead of deleting
+  const result = await Expense.updateMany(
+    { userId, archived: false }, // Only archive non-archived expenses
+    { $set: { archived: true } }
+  );
+
+  // Emit real-time update to notify clients
+  if (io) {
+    io.to(`user-${userId}`).emit('expense-update', {
+      type: 'reset',
+      userId: userId
+    });
+  }
+
+  return {
+    archivedCount: result.modifiedCount,
+    message: `Successfully archived ${result.modifiedCount} expenses`
+  };
+};
+
 module.exports = {
   getUserExpenses,
   createExpense,
   updateExpense,
   deleteExpense,
-  getExpenseStats
+  getExpenseStats,
+  resetUserExpenses
 };

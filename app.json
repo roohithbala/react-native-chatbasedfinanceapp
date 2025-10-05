@@ -34,9 +34,9 @@
       "eas": {
         "projectId": "eadbdbb7-4aea-4077-b627-3d61cb465198"
       },
-      "API_URL": "http://10.255.29.172:3001/api",
-      "SOCKET_URL": "http://10.255.29.172:3001",
-      "FRONTEND_URL": "http://10.255.29.172:8081"
+      "API_URL": "http://10.27.93.172:3001/api",
+      "SOCKET_URL": "http://10.27.93.172:3001",
+      "FRONTEND_URL": "http://10.27.93.172:8081"
     }
   }
 }

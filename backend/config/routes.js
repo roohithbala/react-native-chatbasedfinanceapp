@@ -6,13 +6,13 @@ const budgetRoutes = require('../routes/budgets');
 const groupRoutes = require('../routes/groups');
 const chatRoutes = require('../routes/chat');
 const aiRoutes = require('../routes/ai');
-const splitBillRoutes = require('../routes/splitBills');
+const splitBillRoutes = require('../routes/split-bills');
 const directMessageRoutes = require('../routes/direct-messages');
-const locationRoutes = require('../routes/locations');
 const paymentRoutes = require('../routes/payments');
 const relationshipRoutes = require('../routes/relationships');
 const uploadRoutes = require('../routes/uploads');
 const callRoutes = require('../routes/calls');
+const reminderRoutes = require('../routes/reminders');
 
 const configureRoutes = (app, io) => {
   // Mount routes
@@ -40,7 +40,6 @@ const configureRoutes = (app, io) => {
     next();
   }, splitBillRoutes);
   app.use('/api/direct-messages', directMessageRoutes);
-  app.use('/api/locations', locationRoutes);
   app.use('/api/payments', paymentRoutes);
   app.use('/api/relationships', relationshipRoutes);
   app.use('/api/uploads', (req, res, next) => {
@@ -48,6 +47,7 @@ const configureRoutes = (app, io) => {
     next();
   }, uploadRoutes);
   app.use('/api/calls', callRoutes);
+  app.use('/api/reminders', reminderRoutes);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {

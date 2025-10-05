@@ -13,6 +13,7 @@ const auth = async (req, res, next) => {
     console.log('Verifying token for route:', req.path);
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    console.log('Decoded token:', decoded);
     const user = await User.findById(decoded.userId);
     
     if (!user || !user.isActive) {

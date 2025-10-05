@@ -5,12 +5,25 @@ import type { Budget } from './types';
 
 interface BudgetsState {
   budgets: Budget;
+  detailedBudgets: any;
+  historicalBudgets: any;
+  budgetTrends: any;
+  selectedPeriod: 'monthly' | 'yearly';
+  selectedYear: number;
+  selectedMonth: number;
   isLoading: boolean;
   error: string | null;
 
   // Actions
   setBudget: (category: string, amount: number) => Promise<void>;
   loadBudgets: () => Promise<void>;
+  loadHistoricalBudgets: (params?: { period?: string; year?: number; month?: number }) => Promise<void>;
+  loadBudgetTrends: (months?: number) => Promise<void>;
+  rolloverBudgets: (params?: { rolloverUnused?: boolean; rolloverPercentage?: number }) => Promise<void>;
+  resetBudgets: (params?: { period?: string; resetAmount?: number }) => Promise<void>;
+  setSelectedPeriod: (period: 'monthly' | 'yearly') => void;
+  setSelectedYear: (year: number) => void;
+  setSelectedMonth: (month: number) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
@@ -18,6 +31,12 @@ interface BudgetsState {
 
 export const useBudgetsStore = create<BudgetsState>((set, get) => ({
   budgets: {},
+  detailedBudgets: {},
+  historicalBudgets: {},
+  budgetTrends: {},
+  selectedPeriod: 'monthly',
+  selectedYear: new Date().getFullYear(),
+  selectedMonth: new Date().getMonth() + 1,
   isLoading: false,
   error: null,
 
@@ -56,14 +75,17 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
         const budgets = typeof response.budgets === 'object' && !Array.isArray(response.budgets)
           ? response.budgets
           : {};
+        const detailedBudgets = response.detailedBudgets || {};
         set({
           budgets: budgets,
+          detailedBudgets: detailedBudgets,
           error: null,
           isLoading: false
         });
       } else {
         set({
           budgets: {},
+          detailedBudgets: {},
           error: null,
           isLoading: false
         });
@@ -91,6 +113,123 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
     }
   },
 
+  loadHistoricalBudgets: async ({ period, year, month } = {}) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await budgetsAPI.getHistoricalBudgets({ period, year, month });
+
+      if (response && response.historicalBudgets) {
+        const historicalBudgets = typeof response.historicalBudgets === 'object' && !Array.isArray(response.historicalBudgets)
+          ? response.historicalBudgets
+          : {};
+        set({
+          historicalBudgets: historicalBudgets,
+          error: null,
+          isLoading: false
+        });
+      } else {
+        set({
+          historicalBudgets: {},
+          error: null,
+          isLoading: false
+        });
+      }
+    } catch (error: any) {
+      console.error('Error loading historical budgets:', error);
+      set({
+        error: 'Failed to load historical budgets',
+        historicalBudgets: {},
+        isLoading: false
+      });
+    }
+  },
+
+  loadBudgetTrends: async (months: number = 6) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await budgetsAPI.getBudgetTrends({ months });
+
+      if (response && response.trends) {
+        const budgetTrends = typeof response.trends === 'object' && !Array.isArray(response.trends)
+          ? response.trends
+          : {};
+        set({
+          budgetTrends: budgetTrends,
+          error: null,
+          isLoading: false
+        });
+      } else {
+        set({
+          budgetTrends: {},
+          error: null,
+          isLoading: false
+        });
+      }
+    } catch (error: any) {
+      console.error('Error loading budget trends:', error);
+      set({
+        error: 'Failed to load budget trends',
+        budgetTrends: {},
+        isLoading: false
+      });
+    }
+  },
+
+  rolloverBudgets: async ({ rolloverUnused, rolloverPercentage } = {}) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await budgetsAPI.rolloverBudgets({ rolloverUnused, rolloverPercentage });
+
+      if (response && response.budgets) {
+        const budgets = typeof response.budgets === 'object' && !Array.isArray(response.budgets)
+          ? response.budgets
+          : {};
+        set({
+          budgets: budgets,
+          error: null,
+          isLoading: false
+        });
+      } else {
+        await get().loadBudgets();
+      }
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to rollover budgets',
+        isLoading: false
+      });
+      throw error;
+    }
+  },
+
+  resetBudgets: async ({ period, resetAmount } = {}) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await budgetsAPI.resetBudgets({ period, resetAmount });
+
+      if (response && response.budgets) {
+        const budgets = typeof response.budgets === 'object' && !Array.isArray(response.budgets)
+          ? response.budgets
+          : {};
+        set({
+          budgets: budgets,
+          error: null,
+          isLoading: false
+        });
+      } else {
+        await get().loadBudgets();
+      }
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to reset budgets',
+        isLoading: false
+      });
+      throw error;
+    }
+  },
+
+  setSelectedPeriod: (period: 'monthly' | 'yearly') => set({ selectedPeriod: period }),
+  setSelectedYear: (year: number) => set({ selectedYear: year }),
+  setSelectedMonth: (month: number) => set({ selectedMonth: month }),
   setLoading: (loading: boolean) => set({ isLoading: loading }),
   setError: (error: string | null) => set({ error }),
   clearError: () => set({ error: null }),

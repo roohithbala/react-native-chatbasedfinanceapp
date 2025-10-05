@@ -59,10 +59,34 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
+// Reset all expenses for user
+router.delete('/reset', auth, async (req, res) => {
+  try {
+    const result = await expenseController.resetUserExpenses(req.userId, req.io);
+
+    res.json({
+      message: 'All expenses reset successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Reset expenses error:', error);
+    res.status(500).json({
+      message: error.message || 'Server error'
+    });
+  }
+});
+
 // Delete expense
 router.delete('/:id', auth, async (req, res) => {
   try {
-    await expenseController.deleteExpense(req.params.id, req.userId, req.io);
+    const { id } = req.params;
+    
+    // Prevent matching the /reset route
+    if (id === 'reset') {
+      return res.status(404).json({ message: 'Route not found' });
+    }
+    
+    await expenseController.deleteExpense(id, req.userId, req.io);
 
     res.json({
       message: 'Expense deleted successfully'

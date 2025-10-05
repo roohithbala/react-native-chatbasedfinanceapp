@@ -21,8 +21,13 @@ const validateExpenseData = (data) => {
 
 // Build expense query
 const buildExpenseQuery = (userId, filters = {}) => {
-  const { category, startDate, endDate, groupId } = filters;
+  const { category, startDate, endDate, groupId, includeArchived = false } = filters;
   const query = { userId };
+
+  // Exclude archived expenses by default unless explicitly requested
+  if (!includeArchived) {
+    query.archived = false;
+  }
 
   if (category) query.category = category;
   if (groupId) query.groupId = groupId;
@@ -80,6 +85,7 @@ const calculateExpenseStats = async (userId, period = 'month') => {
     {
       $match: {
         userId: userId,
+        archived: false, // Exclude archived expenses from statistics
         createdAt: { $gte: startDate }
       }
     },

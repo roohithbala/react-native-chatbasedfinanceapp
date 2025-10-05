@@ -6,11 +6,13 @@ export const useBudgetData = () => {
   const {
     budgets,
     expenses,
+    splitBills,
     loadExpenses,
     loadBudgets,
     isLoading,
     error,
-    selectedGroup
+    selectedGroup,
+    currentUser
   } = useFinanceStore();
 
   const categories = ['Food', 'Transport', 'Entertainment', 'Shopping', 'Bills', 'Health', 'Other'];
@@ -47,7 +49,27 @@ export const useBudgetData = () => {
       (includeGroupExpenses || !expense.groupId) // Include group expenses if requested
     );
 
-    return filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+    let totalSpent = filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+
+    // Include split bills as expenses for budget tracking
+    if (splitBills && Array.isArray(splitBills)) {
+      const userSplitBills = splitBills.filter(bill =>
+        bill && typeof bill === 'object' &&
+        bill.category === category &&
+        bill.participants?.some((participant: any) =>
+          participant.userId === currentUser?._id && participant.status === 'pending'
+        )
+      );
+
+      const splitBillAmount = userSplitBills.reduce((sum, bill) => {
+        const userParticipant = bill.participants?.find((p: any) => p.userId === currentUser?._id);
+        return sum + (userParticipant?.amount || 0);
+      }, 0);
+
+      totalSpent += splitBillAmount;
+    }
+
+    return totalSpent;
   };
 
   const getPersonalSpentAmount = (category: string) => {
@@ -91,19 +113,39 @@ export const useBudgetData = () => {
     }
 
     // Track all user expenses across all groups
-    return expenses.reduce((sum, expense) => sum + (expense?.amount || 0), 0);
-  }, [expenses]);
+    let total = expenses.reduce((sum, expense) => sum + (expense?.amount || 0), 0);
+
+    // Include split bills as expenses for budget tracking
+    if (splitBills && Array.isArray(splitBills) && currentUser) {
+      const userSplitBills = splitBills.filter(bill =>
+        bill.participants?.some((participant: any) =>
+          participant.userId === currentUser._id && participant.status === 'pending'
+        )
+      );
+
+      const splitBillAmount = userSplitBills.reduce((sum, bill) => {
+        const userParticipant = bill.participants?.find((p: any) => p.userId === currentUser._id);
+        return sum + (userParticipant?.amount || 0);
+      }, 0);
+
+      total += splitBillAmount;
+    }
+
+    return total;
+  }, [expenses, splitBills, currentUser]);
 
   const loadData = useCallback(async () => {
     try {
       await Promise.all([
         loadExpenses(),
-        loadBudgets() // Load user-level budgets (not group-specific)
+        loadBudgets(), // Load user-level budgets (not group-specific)
+        // Load split bills for the selected group if available
+        selectedGroup ? useFinanceStore.getState().getGroupSplitBills(selectedGroup._id) : Promise.resolve()
       ]);
     } catch (err) {
       console.error('Error loading budget data:', err);
     }
-  }, [loadExpenses, loadBudgets]);
+  }, [loadExpenses, loadBudgets, selectedGroup]);
 
   const resetMonthlySpending = useCallback(async () => {
     try {
@@ -134,7 +176,31 @@ export const useBudgetData = () => {
       return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
     });
 
-    return filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+    let totalSpent = filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+
+    // Include split bills for current month
+    if (splitBills && Array.isArray(splitBills) && currentUser) {
+      const currentMonthSplitBills = splitBills.filter(bill => {
+        if (!bill || typeof bill !== 'object' || bill.category !== category) {
+          return false;
+        }
+
+        const billDate = new Date(bill.createdAt);
+        return billDate.getMonth() === currentMonth && billDate.getFullYear() === currentYear &&
+               bill.participants?.some((participant: any) =>
+                 participant.userId === currentUser._id && participant.status === 'pending'
+               );
+      });
+
+      const splitBillAmount = currentMonthSplitBills.reduce((sum, bill) => {
+        const userParticipant = bill.participants?.find((p: any) => p.userId === currentUser._id);
+        return sum + (userParticipant?.amount || 0);
+      }, 0);
+
+      totalSpent += splitBillAmount;
+    }
+
+    return totalSpent;
   };
 
   return {

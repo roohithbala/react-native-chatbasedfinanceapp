@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert, Platform, Text, TextInput, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
+import MentionInput from './MentionInput';
+import ChatActions from './ChatActions';
 import { useTheme } from '../context/ThemeContext';
 
 interface MessageInputProps {
@@ -26,8 +26,14 @@ interface MessageInputProps {
   } | null;
   onMediaSend?: () => void;
   onMediaCancel?: () => void;
-  isSending?: boolean;
-  error?: string | null;
+  // Mention props
+  groupId?: string;
+  activeGroup?: any;
+  isDirectChat?: boolean;
+  otherUser?: any;
+  onUserMention?: (user: any) => void;
+  // Actions props
+  showActions?: boolean;
 }
 
 export default function MessageInput({
@@ -39,163 +45,20 @@ export default function MessageInput({
   selectedMedia,
   onMediaSend,
   onMediaCancel,
-  isSending = false,
-  error = null,
+  // Mention props
+  groupId,
+  activeGroup,
+  isDirectChat = false,
+  otherUser,
+  onUserMention,
+  // Actions props
+  showActions = true,
 }: MessageInputProps) {
   const { theme } = useTheme();
   const styles = getStyles(theme);
 
-  const requestPermissions = async () => {
-    if (Platform.OS !== 'web') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Media library access is required to select files.');
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const pickImage = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      onMediaSelect?.({
-        uri: asset.uri,
-        type: 'image',
-        fileName: asset.fileName || `image-${Date.now()}.jpg`,
-        fileSize: asset.fileSize,
-        mimeType: asset.mimeType || 'image/jpeg',
-      });
-    }
-  };
-
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera access is required to take photos.');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      onMediaSelect?.({
-        uri: asset.uri,
-        type: 'image',
-        fileName: asset.fileName || `photo-${Date.now()}.jpg`,
-        fileSize: asset.fileSize,
-        mimeType: asset.mimeType || 'image/jpeg',
-      });
-    }
-  };
-
-  const pickVideo = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      onMediaSelect?.({
-        uri: asset.uri,
-        type: 'video',
-        fileName: asset.fileName || `video-${Date.now()}.mp4`,
-        fileSize: asset.fileSize,
-        mimeType: asset.mimeType || 'video/mp4',
-      });
-    }
-  };
-
-  const recordVideo = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera access is required to record videos.');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      onMediaSelect?.({
-        uri: asset.uri,
-        type: 'video',
-        fileName: asset.fileName || `video-${Date.now()}.mp4`,
-        fileSize: asset.fileSize,
-        mimeType: asset.mimeType || 'video/mp4',
-      });
-    }
-  };
-
-  const pickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'application/zip'],
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const asset = result.assets[0];
-        onMediaSelect?.({
-          uri: asset.uri,
-          type: 'document',
-          fileName: asset.name,
-          fileSize: asset.size,
-          mimeType: asset.mimeType || 'application/octet-stream',
-        });
-      }
-    } catch (error) {
-      console.error('Document picker error:', error);
-      Alert.alert('Error', 'Failed to pick document');
-    }
-  };
-
-  const showMediaOptions = () => {
-    Alert.alert(
-      'Select Media',
-      'Choose media type to send',
-      [
-        { text: 'Photo from Gallery', onPress: pickImage },
-        { text: 'Take Photo', onPress: takePhoto },
-        { text: 'Video from Gallery', onPress: pickVideo },
-        { text: 'Record Video', onPress: recordVideo },
-        { text: 'Document', onPress: pickDocument },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
   return (
-    <View style={styles.inputContainer} pointerEvents="auto">
-      {error && (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={16} color="#EF4444" />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
+    <View style={styles.inputContainer}>
       {selectedMedia && (
         <View style={styles.mediaPreview}>
           <View style={styles.mediaPreviewContent}>
@@ -220,53 +83,35 @@ export default function MessageInput({
           </View>
         </View>
       )}
-      <View style={styles.inputWrapper} pointerEvents="auto">
-        <TouchableOpacity
-          style={styles.moneyIcon}
-          onPress={onSplitBillPress}
-        >
-          <Ionicons name="cash" size={20} color={theme.primary} />
-        </TouchableOpacity>
-        {onMediaSelect && !selectedMedia && (
-          <TouchableOpacity
-            style={styles.mediaIcon}
-            onPress={showMediaOptions}
-          >
-            <Ionicons name="attach" size={20} color={theme.primary} />
-          </TouchableOpacity>
-        )}
-        <View style={styles.textInputContainer}>
-          <TextInput
-            style={[styles.textInput, { pointerEvents: 'auto' }]}
-            value={message}
-            onChangeText={onMessageChange}
-            placeholder="Type a message..."
-            placeholderTextColor={theme.textSecondary}
-            multiline
-            editable={true}
-            autoCapitalize="sentences"
-            autoCorrect={true}
-            keyboardType="default"
-            returnKeyType="send"
-            blurOnSubmit={false}
-            pointerEvents="auto"
-            maxLength={1000}
+      <View style={styles.inputWrapper}>
+        {showActions && onMediaSelect && (
+          <ChatActions
+            onMediaSelect={onMediaSelect}
+            onSplitBillPress={onSplitBillPress}
+            disabled={!!selectedMedia}
           />
-        </View>
+        )}
+        <MentionInput
+          style={styles.textInput}
+          value={message}
+          onChangeText={onMessageChange}
+          placeholder="Type @ to mention someone..."
+          groupId={groupId}
+          activeGroup={activeGroup}
+          isDirectChat={isDirectChat}
+          otherUser={otherUser}
+          onUserMention={onUserMention}
+        />
         <TouchableOpacity
-          style={[styles.sendButton, (!message.trim() && !selectedMedia) || isSending ? styles.sendButtonDisabled : null]}
+          style={[styles.sendButton, (!message.trim() && !selectedMedia) && styles.sendButtonDisabled]}
           onPress={selectedMedia ? onMediaSend : onSendPress}
-          disabled={(!message.trim() && !selectedMedia) || isSending}
+          disabled={!message.trim() && !selectedMedia}
         >
-          {isSending ? (
-            <ActivityIndicator size="small" color={theme.surface} />
-          ) : (
-            <Ionicons
-              name="send"
-              size={20}
-              color={(message.trim() || selectedMedia) && !isSending ? theme.surface : '#9CA3AF'}
-            />
-          )}
+          <Ionicons
+            name="send"
+            size={20}
+            color={(message.trim() || selectedMedia) ? theme.surface : '#9CA3AF'}
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -280,22 +125,6 @@ const getStyles = (theme: any) => StyleSheet.create({
     borderTopColor: theme.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.error ? `${theme.error}15` : '#FEF2F2',
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: theme.error ? `${theme.error}30` : '#FECACA',
-  },
-  errorText: {
-    fontSize: 14,
-    color: theme.error || '#DC2626',
-    marginLeft: 8,
-    flex: 1,
   },
   mediaPreview: {
     backgroundColor: theme.surfaceSecondary,
@@ -329,7 +158,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: theme.error ? `${theme.error}15` : '#FEF2F2',
+    backgroundColor: '#FEF2F2',
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -342,22 +171,15 @@ const getStyles = (theme: any) => StyleSheet.create({
     maxHeight: 120, // Allow input to grow up to 120px
     borderWidth: 1,
     borderColor: theme.border,
-  },
-  textInputContainer: {
-    flex: 1,
-    justifyContent: 'flex-start', // Align to top instead of center
-    minHeight: 40,
-    maxHeight: 100, // Allow text input to grow
-    backgroundColor: 'transparent', // Ensure transparent background
+    marginRight: 12,
   },
   textInput: {
     flex: 1,
     fontSize: 16,
     color: theme.text,
-    maxHeight: 100, // Allow vertical growth
+    maxHeight: 120, // Increased to match inputWrapper maxHeight
     paddingVertical: 8,
     textAlignVertical: 'top', // Align text to top when multiline
-    backgroundColor: 'transparent', // Ensure transparent background
   },
   sendButton: {
     backgroundColor: theme.primary,

@@ -1,6 +1,14 @@
 const Expense = require('../models/Expense');
 const Budget = require('../models/Budget');
 const SplitBill = require('../models/SplitBill');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const path = require('path');
+
+// Load environment variables
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// Initialize Google Gemini AI client
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY);
 
 /**
  * Validates period parameter
@@ -75,83 +83,158 @@ function calculateSplitBillShare(splitBills, userId) {
 }
 
 /**
- * Generates spending predictions based on expenses and budgets
+ * Generates spending predictions based on expenses and budgets using Google Gemini AI (Free)
  * @param {Array} expenses - User expenses
  * @param {Array} budgets - User budgets
  * @returns {Array} - Array of predictions
  */
 async function generateSpendingPredictions(expenses, budgets) {
-  const predictions = [];
+  try {
+    // Get the generative model
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-  // Group expenses by category
-  const categorySpending = groupExpensesByCategory(expenses);
+    // Prepare data for Gemini
+    const expenseData = expenses.map(exp => ({
+      amount: exp.amount,
+      category: exp.category,
+      description: exp.description,
+      date: exp.createdAt
+    }));
 
-  // Analyze each budget category
-  budgets.forEach(budget => {
-    const spent = categorySpending[budget.category] || 0;
-    const remaining = budget.amount - spent;
-    const spentPercentage = (spent / budget.amount) * 100;
+    const budgetData = budgets.map(budget => ({
+      category: budget.category,
+      amount: budget.amount,
+      spent: calculateCategorySpent(expenses, budget.category)
+    }));
 
-    if (spentPercentage > 80) {
-      predictions.push({
-        category: budget.category,
-        type: 'warning',
-        message: `You've spent ${spentPercentage.toFixed(0)}% of your ${budget.category} budget`,
-        severity: spentPercentage > 100 ? 'high' : 'medium',
-        suggestion: getSuggestionForCategory(budget.category),
-        remaining: Number(budget.amount) - spent
-      });
+    const prompt = `
+You are a financial advisor AI. Analyze the following spending data and budgets to provide personalized spending predictions and warnings.
+
+Expenses (last 30 days):
+${JSON.stringify(expenseData, null, 2)}
+
+Budgets:
+${JSON.stringify(budgetData, null, 2)}
+
+Please provide spending predictions and warnings in the following JSON format:
+{
+  "predictions": [
+    {
+      "category": "category_name",
+      "type": "warning|info|success",
+      "message": "specific prediction message",
+      "severity": "low|medium|high",
+      "suggestion": "specific actionable suggestion",
+      "remaining": number
     }
-  });
+  ]
+}
 
-  // Trend analysis
-  const weeklyTrend = analyzeWeeklyTrend(expenses);
-  if (weeklyTrend.isIncreasing) {
-    predictions.push({
-      type: 'trend',
-      message: `Your spending has increased by ${weeklyTrend.percentage.toFixed(1)}% this week`,
-      severity: 'medium',
-      suggestion: 'Consider reviewing your recent purchases and identifying areas to cut back'
-    });
+Focus on:
+1. Budget overruns or near-overruns
+2. Spending trends and patterns
+3. Categories with unusual spending
+4. Savings opportunities
+5. Financial health indicators
+
+Be specific, actionable, and encouraging. Keep messages concise but helpful.
+`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // Try to parse JSON response
+    try {
+      const parsed = JSON.parse(text);
+      return parsed.predictions || [];
+    } catch (parseError) {
+      console.error('Failed to parse Gemini response:', parseError);
+      // Fallback to basic analysis
+      return generateBasicPredictions(expenses, budgets);
+    }
+  } catch (error) {
+    console.error('Gemini API error in generateSpendingPredictions:', error);
+    // Fallback to basic analysis
+    return generateBasicPredictions(expenses, budgets);
   }
-
-  return predictions;
 }
 
 /**
- * Generates financial insights from expenses and budgets
+ * Generates financial insights from expenses and budgets using Google Gemini AI (Free)
  * @param {Array} expenses - User expenses
  * @param {Array} budgets - User budgets
  * @returns {Array} - Array of insights
  */
 async function generateFinancialInsights(expenses, budgets) {
-  const insights = [];
+  try {
+    // Get the generative model
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-  // Most expensive category
-  const categoryTotals = groupExpensesByCategory(expenses);
-  const topCategory = Object.entries(categoryTotals)
-    .sort(([,a], [,b]) => b - a)[0];
+    // Prepare data for Gemini
+    const expenseData = expenses.map(exp => ({
+      amount: exp.amount,
+      category: exp.category,
+      description: exp.description,
+      date: exp.createdAt
+    }));
 
-  if (topCategory) {
-    insights.push({
-      type: 'spending-pattern',
-      title: 'Top Spending Category',
-      message: `${topCategory[0]} accounts for ₹${Number(topCategory[1]).toFixed(2)} of your spending`,
-      icon: '📊'
-    });
+    const budgetData = budgets.map(budget => ({
+      category: budget.category,
+      amount: budget.amount,
+      spent: calculateCategorySpent(expenses, budget.category)
+    }));
+
+    const prompt = `
+You are a financial advisor AI. Analyze the following spending data and budgets to provide personalized financial insights and recommendations.
+
+Expenses (last 30 days):
+${JSON.stringify(expenseData, null, 2)}
+
+Budgets:
+${JSON.stringify(budgetData, null, 2)}
+
+Please provide financial insights in the following JSON format:
+{
+  "insights": [
+    {
+      "type": "spending-pattern|savings|budget|trend|goal",
+      "title": "concise title",
+      "message": "specific insight message",
+      "icon": "emoji representing the insight"
+    }
+  ]
+}
+
+Focus on:
+1. Spending patterns and habits
+2. Budget performance and adherence
+3. Savings opportunities and potential
+4. Financial goals and progress
+5. Positive reinforcement and achievements
+6. Areas for improvement
+
+Be encouraging, specific, and actionable. Use appropriate emojis for visual appeal.
+`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // Try to parse JSON response
+    try {
+      const parsed = JSON.parse(text);
+      return parsed.insights || [];
+    } catch (parseError) {
+      console.error('Failed to parse Gemini response for insights:', parseError);
+      // Fallback to basic insights
+      return generateBasicInsights(expenses, budgets);
+    }
+  } catch (error) {
+    console.error('Gemini API error in generateFinancialInsights:', error);
+    // Fallback to basic insights
+    return generateBasicInsights(expenses, budgets);
   }
-
-  // Savings opportunity
-  const totalSpent = calculateTotalExpenses(expenses);
-  const avgDailySpending = totalSpent / 30;
-  insights.push({
-    type: 'savings',
-    title: 'Daily Average',
-    message: `You spend an average of ₹${avgDailySpending.toFixed(2)} per day`,
-    icon: '💡'
-  });
-
-  return insights;
 }
 
 /**
@@ -203,11 +286,91 @@ function getSuggestionForCategory(category) {
 }
 
 /**
- * Analyzes emotional spending patterns
+ * Analyzes emotional spending patterns using Google Gemini AI (Free)
  * @param {Array} expenses - User expenses
  * @returns {Object} - Emotional analysis
  */
 async function analyzeEmotionalSpending(expenses) {
+  try {
+    // Get the generative model
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+
+    // Prepare expense data for analysis
+    const expenseData = expenses.map(exp => ({
+      amount: exp.amount,
+      category: exp.category,
+      description: exp.description,
+      hour: new Date(exp.createdAt).getHours(),
+      day: new Date(exp.createdAt).getDay(),
+      date: exp.createdAt
+    }));
+
+    const prompt = `
+You are a behavioral finance expert. Analyze the following spending data to identify emotional spending patterns and triggers.
+
+Spending Data (last 30 days):
+${JSON.stringify(expenseData, null, 2)}
+
+Please analyze for emotional spending patterns and provide insights in the following JSON format:
+{
+  "dominantEmotion": "stressed|happy|neutral|anxious|excited|frustrated",
+  "triggers": ["array of identified triggers"],
+  "recommendations": ["array of specific, actionable recommendations"],
+  "confidence": 0.0-1.0
+}
+
+Consider:
+1. Time patterns (late night spending, weekend spending)
+2. Amount patterns (impulse buys, emotional purchases)
+3. Category patterns (comfort spending, reward spending)
+4. Frequency patterns (binge spending, regular small purchases)
+
+Be empathetic, specific, and provide actionable advice.
+`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // Try to parse JSON response
+    try {
+      const parsed = JSON.parse(text);
+      return {
+        dominantEmotion: parsed.dominantEmotion || 'neutral',
+        triggers: parsed.triggers || [],
+        recommendations: parsed.recommendations || getEmotionalRecommendations(parsed.dominantEmotion || 'neutral'),
+        confidence: parsed.confidence || 0.75
+      };
+    } catch (parseError) {
+      console.error('Failed to parse Gemini response for emotional analysis:', parseError);
+      // Fallback to basic analysis
+      return analyzeEmotionalSpendingBasic(expenses);
+    }
+  } catch (error) {
+    console.error('Gemini API error in analyzeEmotionalSpending:', error);
+    // Fallback to basic analysis
+    return analyzeEmotionalSpendingBasic(expenses);
+  }
+}
+
+/**
+ * Calculates total spent in a specific category
+ * @param {Array} expenses - User expenses
+ * @param {string} category - Category to calculate
+ * @returns {number} - Total spent in category
+ */
+function calculateCategorySpent(expenses, category) {
+  return expenses
+    .filter(exp => exp.category === category)
+    .reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+}
+
+/**
+ * Fallback function for basic emotional analysis when Gemini API fails
+ * @param {Array} expenses - User expenses
+ * @returns {Object} - Basic emotional analysis
+ */
+function analyzeEmotionalSpendingBasic(expenses) {
   // Simulate emotional analysis based on spending patterns
   const timePatterns = expenses.map(exp => ({
     hour: new Date(exp.createdAt).getHours(),
@@ -269,6 +432,86 @@ function getEmotionalRecommendations(emotion) {
   return recommendations[emotion] || recommendations.neutral;
 }
 
+/**
+ * Fallback function for basic predictions when Gemini API fails
+ * @param {Array} expenses - User expenses
+ * @param {Array} budgets - User budgets
+ * @returns {Array} - Array of basic predictions
+ */
+function generateBasicPredictions(expenses, budgets) {
+  const predictions = [];
+
+  // Group expenses by category
+  const categorySpending = groupExpensesByCategory(expenses);
+
+  // Analyze each budget category
+  budgets.forEach(budget => {
+    const spent = categorySpending[budget.category] || 0;
+    const remaining = budget.amount - spent;
+    const spentPercentage = (spent / budget.amount) * 100;
+
+    if (spentPercentage > 80) {
+      predictions.push({
+        category: budget.category,
+        type: 'warning',
+        message: `You've spent ${spentPercentage.toFixed(0)}% of your ${budget.category} budget`,
+        severity: spentPercentage > 100 ? 'high' : 'medium',
+        suggestion: getSuggestionForCategory(budget.category),
+        remaining: Number(budget.amount) - spent
+      });
+    }
+  });
+
+  // Trend analysis
+  const weeklyTrend = analyzeWeeklyTrend(expenses);
+  if (weeklyTrend.isIncreasing) {
+    predictions.push({
+      type: 'trend',
+      message: `Your spending has increased by ${weeklyTrend.percentage.toFixed(1)}% this week`,
+      severity: 'medium',
+      suggestion: 'Consider reviewing your recent purchases and identifying areas to cut back'
+    });
+  }
+
+  return predictions;
+}
+
+/**
+ * Fallback function for basic insights when Gemini API fails
+ * @param {Array} expenses - User expenses
+ * @param {Array} budgets - User budgets
+ * @returns {Array} - Array of basic insights
+ */
+function generateBasicInsights(expenses, budgets) {
+  const insights = [];
+
+  // Most expensive category
+  const categoryTotals = groupExpensesByCategory(expenses);
+  const topCategory = Object.entries(categoryTotals)
+    .sort(([,a], [,b]) => b - a)[0];
+
+  if (topCategory) {
+    insights.push({
+      type: 'spending-pattern',
+      title: 'Top Spending Category',
+      message: `${topCategory[0]} accounts for ₹${Number(topCategory[1]).toFixed(2)} of your spending`,
+      icon: '📊'
+    });
+  }
+
+  // Savings opportunity
+  const totalSpent = calculateTotalExpenses(expenses);
+  const avgDailySpending = totalSpent / 30;
+  insights.push({
+    type: 'savings',
+    title: 'Daily Average',
+    message: `You spend an average of ₹${avgDailySpending.toFixed(2)} per day`,
+    icon: '💡'
+  });
+
+  return insights;
+}
+
 module.exports = {
   isValidPeriod,
   calculatePeriodStartDate,
@@ -280,5 +523,9 @@ module.exports = {
   analyzeWeeklyTrend,
   getSuggestionForCategory,
   analyzeEmotionalSpending,
-  getEmotionalRecommendations
+  getEmotionalRecommendations,
+  calculateCategorySpent,
+  generateBasicPredictions,
+  generateBasicInsights,
+  analyzeEmotionalSpendingBasic
 };

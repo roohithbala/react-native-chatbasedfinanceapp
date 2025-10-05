@@ -42,15 +42,10 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
       const response = await PaymentsAPI.getPaymentSummary(splitBillId);
       console.log('Payment summary response:', response);
       
-      // Handle the backend response format: { status: 'success', data: { splitBill, summary, debts } }
-      const responseData = response as any; // Type assertion to bypass cached type issues
-      if (responseData && responseData.data && responseData.data.summary) {
-        setSummary(responseData.data.summary);
-        setDebts(responseData.data.debts || []);
-      } else if (responseData && responseData.summary) {
-        // Fallback for direct format
-        setSummary(responseData.summary);
-        setDebts(responseData.debts || []);
+      // Handle nested response structure: { status: 'success', data: { summary, debts, splitBill } }
+      if (response && response.data && response.data.summary) {
+        setSummary(response.data.summary);
+        setDebts(response.data.debts || []);
       } else {
         console.error('Invalid response structure:', response);
         setError('Invalid response from server');
@@ -157,8 +152,8 @@ export const PaymentStatusCard: React.FC<PaymentStatusCardProps> = ({
       {/* Participant Status */}
       <Text style={styles.sectionTitle}>Participants</Text>
       <ScrollView style={styles.participantsContainer}>
-        {summary?.participants?.map((participant) => (
-          <View key={participant?.userId || Math.random()} style={styles.participantCard}>
+        {summary?.participants?.map((participant, index) => (
+          <View key={participant?.userId || `participant-${index}`} style={styles.participantCard}>
             <View style={styles.participantInfo}>
               <Text style={styles.participantName}>{participant?.name || 'Unknown User'}</Text>
               <Text style={styles.participantAmount}>

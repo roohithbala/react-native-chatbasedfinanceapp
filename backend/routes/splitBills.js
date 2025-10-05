@@ -73,7 +73,47 @@ router.post('/', auth, async (req, res) => {
 
     console.log('✅ Basic validation passed');
 
-    // If groupId is provided, validate group exists and user is a member
+    // Map category to valid enum values
+    const validCategories = ['Food', 'Transport', 'Entertainment', 'Shopping', 'Bills', 'Health', 'Other'];
+    let mappedCategory = category || 'Other';
+    
+    // Map common category names to valid enum values
+    const categoryMapping = {
+      'Dinner': 'Food',
+      'Lunch': 'Food',
+      'Breakfast': 'Food',
+      'Restaurant': 'Food',
+      'Meal': 'Food',
+      'Taxi': 'Transport',
+      'Uber': 'Transport',
+      'Bus': 'Transport',
+      'Train': 'Transport',
+      'Flight': 'Transport',
+      'Movie': 'Entertainment',
+      'Cinema': 'Entertainment',
+      'Concert': 'Entertainment',
+      'Game': 'Entertainment',
+      'Party': 'Entertainment',
+      'Grocery': 'Shopping',
+      'Supermarket': 'Shopping',
+      'Clothes': 'Shopping',
+      'Rent': 'Bills',
+      'Electricity': 'Bills',
+      'Water': 'Bills',
+      'Internet': 'Bills',
+      'Phone': 'Bills',
+      'Doctor': 'Health',
+      'Medicine': 'Health',
+      'Hospital': 'Health'
+    };
+    
+    if (categoryMapping[mappedCategory]) {
+      mappedCategory = categoryMapping[mappedCategory];
+    } else if (!validCategories.includes(mappedCategory)) {
+      mappedCategory = 'Other';
+    }
+
+    console.log('📂 Mapped category from', category, 'to', mappedCategory);
     if (groupId) {
       console.log('🏢 Validating group split bill...');
       const Group = require('../models/Group');
@@ -146,7 +186,7 @@ router.post('/', auth, async (req, res) => {
         }
       }),
       splitType: splitType || 'equal',
-      category: category || 'Other',
+      category: mappedCategory,
       currency,
       notes,
       createdBy: req.userId

@@ -1,28 +1,5 @@
 const mongoose = require('mongoose');
 
-const participantSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Participant user ID is required']
-  },
-  amount: {
-    type: Number,
-    required: [true, 'Participant amount is required'],
-    min: [0, 'Amount cannot be negative']
-  },
-  percentage: {
-    type: Number,
-    min: [0, 'Percentage cannot be negative'],
-    max: [100, 'Percentage cannot exceed 100']
-  },
-  isPaid: {
-    type: Boolean,
-    default: false
-  },
-  paidAt: Date
-}, { _id: false });
-
 const splitBillSchema = new mongoose.Schema({
   description: {
     type: String,
@@ -125,22 +102,33 @@ const splitBillSchema = new mongoose.Schema({
     },
     type: {
       type: String,
-      enum: ['payment_due', 'settlement_reminder'],
+      enum: ['payment_due', 'settlement_reminder', 'overdue_payment'],
       required: true
     },
     message: String,
+    scheduledFor: {
+      type: Date,
+      required: true
+    },
     sentAt: {
       type: Date,
-      default: Date.now
+      default: null
     },
     isRead: {
       type: Boolean,
       default: false
+    },
+    readAt: Date,
+    escalationLevel: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 3
     }
   }],
   splitType: {
     type: String,
-    enum: ['equal', 'percentage', 'custom'],
+    enum: ['equal', 'percentage', 'custom', 'itemized'],
     default: 'equal'
   },
   category: {
@@ -148,18 +136,22 @@ const splitBillSchema = new mongoose.Schema({
     enum: ['Food', 'Transport', 'Entertainment', 'Shopping', 'Bills', 'Health', 'Other'],
     default: 'Other'
   },
-  location: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Location',
-    default: null
-  },
-  locationDetails: {
-    address: String,
-    coordinates: {
-      latitude: Number,
-      longitude: Number
-    }
-  },
+  items: [{
+    name: {
+      type: String,
+      required: true
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    assignedTo: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    }]
+  }],
   receipt: {
     url: String,
     filename: String

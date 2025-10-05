@@ -19,16 +19,23 @@ router.get('/', auth, async (req, res) => {
 // Create new split bill
 router.post('/', auth, async (req, res) => {
   try {
+    console.log('📨 Split bill creation request received');
+    console.log('👤 User ID from auth:', req.userId);
+    console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+    
     const splitBill = await splitBillController.createSplitBill(req.userId, req.body);
 
+    console.log('✅ Split bill created successfully:', splitBill._id);
     res.status(201).json({
       message: 'Split bill created successfully',
       splitBill
     });
   } catch (error) {
-    console.error('Create split bill error:', error);
+    console.error('❌ Create split bill error:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
     const statusCode = error.message.includes('required') || error.message.includes('must') ? 400 : 500;
-    res.status(statusCode).json({ message: error.message });
+    res.status(statusCode).json({ message: error.message || 'Server error' });
   }
 });
 
@@ -49,7 +56,7 @@ router.get('/:id', auth, async (req, res) => {
 // Mark payment as paid
 router.patch('/:id/mark-paid', auth, async (req, res) => {
   try {
-    const splitBill = await splitBillController.markPaymentAsPaid(req.params.id, req.userId);
+    const splitBill = await splitBillController.markPaymentAsPaid(req.params.id, req.userId, req.io);
 
     res.json({
       message: 'Payment marked as paid',
@@ -67,7 +74,7 @@ router.patch('/:id/mark-paid', auth, async (req, res) => {
 // Reject split bill
 router.patch('/:id/reject', auth, async (req, res) => {
   try {
-    const splitBill = await splitBillController.rejectSplitBill(req.params.id, req.userId);
+    const splitBill = await splitBillController.rejectSplitBill(req.params.id, req.userId, req.io);
 
     res.json({
       message: 'Split bill rejected',

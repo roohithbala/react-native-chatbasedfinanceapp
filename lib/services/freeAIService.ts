@@ -75,7 +75,6 @@ class FreeAIService {
 
       const prompt = `
 You are a financial advisor analyzing a user's spending patterns. Based on the following data, provide 3-4 insightful observations and 2-3 actionable recommendations.
-
 Expense Summary:
 ${Object.entries(expenseSummary).map(([category, data]: [string, any]) =>
   `- ${category}: ₹${data.total.toFixed(2)} (${data.count} transactions)`
@@ -85,8 +84,7 @@ Total Spending: ₹${totalSpending.toFixed(2)}
 Categories: ${categories.join(', ')}
 
 ${budgets && Object.keys(budgets).length > 0 ?
-  `Budgets: ${Object.entries(budgets).map(([cat, amount]) => `${cat}: ₹${amount}`).join(', ')}` :
-  'No budgets set'
+  `Budgets: ${Object.entries(budgets).map(([cat, amount]) => `${cat}: ₹${amount}`).join(', ')}` : 'No budgets set'
 }
 
 Please respond in JSON format with this structure:

@@ -55,8 +55,9 @@ const splitBill = async (groupId, billData, userId) => {
   });
 
   await splitBill.save();
-  await splitBill.populate('participants.userId', 'name avatar');
-  await splitBill.populate('createdBy', 'name avatar');
+  await splitBill
+    .populate('participants.userId', 'name avatar')
+    .populate('createdBy', 'name avatar');
 
   return splitBill;
 };

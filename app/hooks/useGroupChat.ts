@@ -65,7 +65,7 @@ export const useGroupChat = (groupId: string, currentUser: any) => {
       setMessages(prev => [...prev, optimisticMessage]);
 
       // Send via socket for real-time delivery
-      socketService.sendMessage(groupId, { text: text.trim(), user: currentUser, type }, null);
+      socketService.sendMessage({ text: text.trim(), user: currentUser, type, groupId });
 
       // Also send via API as backup
       await chatAPI.sendMessage(groupId, messageData);

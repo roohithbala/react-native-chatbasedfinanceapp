@@ -60,11 +60,7 @@ const joinGroup = async (inviteCode, userId) => {
 const addMemberToGroup = async (groupId, searchField, searchValue, userId, io) => {
   const group = await validateGroupMembership(groupId, userId);
 
-  // Check if user is admin
-  const adder = group.members.find(m => m.userId.toString() === userId);
-  if (!adder || adder.role !== 'admin') {
-    throw new Error('Only group admins can add members');
-  }
+  // Any member can add other members (removed admin-only restriction)
 
   // Find user to add
   let userToAdd;
@@ -99,9 +95,9 @@ const addMemberToGroup = async (groupId, searchField, searchValue, userId, io) =
 
   await group.populate('members.userId', 'name username email avatar');
 
-  // Emit real-time update
+  // Emit real-time update to group members only
   if (io) {
-    io.emit('group-update', {
+    io.to(groupId).emit('groupUpdate', {
       type: 'member-added',
       groupId: group._id,
       member: {
@@ -151,9 +147,9 @@ const updateMemberRole = async (groupId, memberId, role, userId, io) => {
 
   await group.populate('members.userId', 'name username email avatar');
 
-  // Emit real-time update
+  // Emit real-time update to group members only
   if (io) {
-    io.emit('group-update', {
+    io.to(groupId).emit('groupUpdate', {
       type: 'member-role-updated',
       groupId: group._id,
       memberId: memberId,
@@ -176,16 +172,34 @@ const removeMemberFromGroup = async (groupId, memberId, userId, io) => {
   const group = await validateGroupMembership(groupId, userId);
 
   // Check if user is admin or removing themselves
-  const remover = group.members.find(m => m.userId.toString() === userId);
-  const isSelfRemoval = memberId === userId;
-  const isAdmin = remover && remover.role === 'admin';
+  const userIdStr = userId.toString();
+  const remover = group.members.find(m => {
+    const memberUserIdStr = m.userId.toString();
+    return memberUserIdStr === userIdStr || memberUserIdStr === userId;
+  });
+  const isSelfRemoval = memberId === userIdStr || memberId === userId;
+  let isAdmin = remover && remover.role === 'admin';
+  
+  // Additional check: if user is not found as admin but is the first member (likely the creator), grant admin privileges
+  const isGroupCreator = !isAdmin && group.members.length > 0 && group.members[0].userId.toString() === userIdStr;
+  
+  // If user is the group creator, ensure they have admin role
+  if (isGroupCreator && remover) {
+    remover.role = 'admin';
+    await group.save();
+    isAdmin = true;
+  }
 
-  if (!isSelfRemoval && !isAdmin) {
+  if (!isSelfRemoval && !isAdmin && !isGroupCreator) {
     throw new Error('Only group admins can remove other members');
   }
 
   // Find member to remove
-  const memberIndex = group.members.findIndex(m => m.userId.toString() === memberId);
+  const memberIdStr = memberId.toString();
+  const memberIndex = group.members.findIndex(m => {
+    const memberUserIdStr = m.userId.toString();
+    return memberUserIdStr === memberIdStr || memberUserIdStr === memberId;
+  });
   if (memberIndex === -1) {
     throw new Error('Member not found in group');
   }
@@ -195,7 +209,7 @@ const removeMemberFromGroup = async (groupId, memberId, userId, io) => {
   await group.save();
 
   // Remove group from user's groups
-  const user = await User.findById(memberId);
+  const user = await User.findById(memberIdStr);
   if (user && user.groups) {
     user.groups = user.groups.filter(g => g.toString() !== groupId);
     await user.save();
@@ -203,12 +217,12 @@ const removeMemberFromGroup = async (groupId, memberId, userId, io) => {
 
   await group.populate('members.userId', 'name username email avatar');
 
-  // Emit real-time update
+  // Emit real-time update to group members only
   if (io) {
-    io.emit('group-update', {
+    io.to(groupId).emit('groupUpdate', {
       type: 'member-removed',
       groupId: group._id,
-      memberId: memberId
+      memberId: memberIdStr
     });
   }
 
@@ -246,9 +260,9 @@ const leaveGroup = async (groupId, userId, io) => {
 
   await group.populate('members.userId', 'name username email avatar');
 
-  // Emit real-time update
+  // Emit real-time update to group members only
   if (io) {
-    io.emit('group-update', {
+    io.to(groupId).emit('groupUpdate', {
       type: 'member-left',
       groupId: group._id,
       memberId: userId

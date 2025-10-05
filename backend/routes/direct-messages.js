@@ -115,11 +115,14 @@ router.post('/:userId', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Only allow splitBillData for confirmation messages (starting with ✅)
+    const shouldIncludeSplitBillData = splitBillData && text.trim().startsWith('✅');
+
     const message = new DirectMessage({
       sender: req.user._id,
       receiver: receiver._id,
       text: text.trim(),
-      splitBillData: splitBillData || undefined
+      splitBillData: shouldIncludeSplitBillData ? splitBillData : undefined
     });
 
     await message.save();

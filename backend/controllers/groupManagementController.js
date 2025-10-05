@@ -61,9 +61,9 @@ const createGroup = async (groupData, userId, io) => {
   await group.save();
   await group.populate('members.userId', 'name username email avatar');
 
-  // Emit real-time update
+  // Emit real-time update to the user who created the group
   if (io) {
-    io.emit('group-update', {
+    io.to(`user_${userId}`).emit('groupUpdate', {
       type: 'created',
       group: group
     });
@@ -203,29 +203,62 @@ const getGroupStats = async (groupId, userId) => {
   const splitBills = await SplitBill.find({ groupId });
   const totalSplitBills = splitBills.length;
   const settledSplitBills = splitBills.filter(bill => bill.isSettled).length;
+  const pendingSplitBills = totalSplitBills - settledSplitBills;
 
-  // Calculate member contributions
-  const memberStats = {};
-  group.members.forEach(member => {
-    const memberId = member.userId._id ? member.userId._id.toString() : member.userId.toString();
-    const memberExpenses = expenses.filter(exp => exp.userId.toString() === memberId);
-    const totalSpent = memberExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  // Group expenses by category
+  const categoryMap = new Map();
+  expenses.forEach(expense => {
+    const category = expense.category || 'Other';
+    if (!categoryMap.has(category)) {
+      categoryMap.set(category, { category, amount: 0, count: 0 });
+    }
+    const categoryData = categoryMap.get(category);
+    categoryData.amount += expense.amount;
+    categoryData.count += 1;
+  });
 
-    memberStats[memberId] = {
-      name: member.userId.name || member.userId.username || 'Unknown',
-      totalSpent,
-      expenseCount: memberExpenses.length
-    };
+  // Group by participant (from split bills)
+  const participantMap = new Map();
+  splitBills.forEach(bill => {
+    if (bill.participants && Array.isArray(bill.participants)) {
+      bill.participants.forEach(participant => {
+        let userId = 'Unknown';
+        let userName = 'Unknown';
+
+        if (participant.userId) {
+          if (typeof participant.userId === 'string') {
+            userId = participant.userId;
+            userName = 'Unknown User';
+          } else if (participant.userId._id) {
+            userId = participant.userId._id.toString();
+            userName = participant.userId.name || 'Unknown User';
+          }
+        }
+
+        if (!participantMap.has(userId)) {
+          participantMap.set(userId, {
+            userId,
+            name: userName,
+            totalAmount: 0,
+            billCount: 0
+          });
+        }
+        const participantData = participantMap.get(userId);
+        participantData.totalAmount += participant.amount || 0;
+        participantData.billCount += 1;
+      });
+    }
   });
 
   return {
-    totalExpenses,
-    expenseCount,
-    totalSplitBills,
-    settledSplitBills,
-    pendingSplitBills: totalSplitBills - settledSplitBills,
-    memberCount: group.members.length,
-    memberStats
+    overview: {
+      totalAmount: totalExpenses,
+      count: expenseCount,
+      settled: settledSplitBills,
+      pending: pendingSplitBills
+    },
+    byCategory: Array.from(categoryMap.values()),
+    byParticipant: Array.from(participantMap.values())
   };
 };
 

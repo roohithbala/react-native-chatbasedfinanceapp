@@ -58,17 +58,28 @@ router.get('/search', auth, async (req, res) => {
 // Get user profile
 router.get('/:id', auth, async (req, res) => {
   try {
+    console.log('🔍 Getting user profile for ID:', req.params.id, 'type:', typeof req.params.id);
+    
+    // Validate the ID parameter
+    if (!req.params.id || req.params.id === 'undefined' || req.params.id === 'null') {
+      console.log('❌ Invalid user ID parameter:', req.params.id);
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
     const user = await User.findById(req.params.id)
       .select('name email username avatar isActive lastSeen')
       .populate('groups', 'name avatar');
 
     if (!user) {
+      console.log('❌ User not found for ID:', req.params.id);
       return res.status(404).json({ message: 'User not found' });
     }
 
+    console.log('✅ User found:', user._id, user.name);
     res.json({ user });
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error('❌ Get user error:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ message: 'Server error' });
   }
 });

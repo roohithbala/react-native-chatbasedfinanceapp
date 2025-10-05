@@ -22,15 +22,6 @@ export interface Reaction {
   createdAt: Date;
 }
 
-export interface LocationMention {
-  locationId: string;
-  locationName: string;
-  coordinates: {
-    latitude: number;
-    longitude: number;
-  };
-}
-
 export interface CommandData {
   amount?: number;
   splitAmount?: number;
@@ -92,7 +83,6 @@ export interface Message {
   mimeType?: string;
   mentions?: string[];
   reactions?: Reaction[];
-  locationMentions?: LocationMention[];
   isTemp?: boolean;
 }
 

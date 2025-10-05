@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Group = require('../models/Group');
+const { OAuth2Client } = require('google-auth-library');
 const {
   validateRegistrationData,
   validateLoginData,
@@ -8,6 +9,9 @@ const {
   checkUserExists,
   formatUserResponse
 } = require('../utils/authUtils');
+
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Register new user
 const register = async (userData) => {
@@ -75,6 +79,7 @@ const register = async (userData) => {
   await user.save();
 
   // Generate JWT
+  console.log('Register: Generating token for user._id:', user._id, 'type:', typeof user._id);
   const token = generateToken(user._id);
 
   return {
@@ -122,6 +127,7 @@ const login = async (loginData) => {
   await user.save();
 
   // Generate JWT
+  console.log('Login: Generating token for user._id:', user._id, 'type:', typeof user._id);
   const token = generateToken(user._id);
 
   return {
@@ -224,10 +230,135 @@ const logout = async (userId) => {
   return { message: 'Logged out successfully' };
 };
 
+// Google authentication
+const googleAuth = async (idToken) => {
+  try {
+    // Verify the Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload) {
+      throw new Error('Invalid Google token');
+    }
+
+    const { sub: googleId, email, name, picture } = payload;
+
+    // Check if user already exists with this Google ID
+    let user = await User.findOne({ googleId });
+
+    if (user) {
+      // User exists, update last seen and return token
+      user.lastSeen = new Date();
+      await user.save();
+
+      console.log('Google login: Generating token for user._id:', user._id, 'type:', typeof user._id);
+      const token = generateToken(user._id);
+      return {
+        message: 'Google login successful',
+        token,
+        user: formatUserResponse(user, true)
+      };
+    }
+
+    // Check if user exists with same email
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      // Link Google account to existing user
+      existingUser.googleId = googleId;
+      existingUser.lastSeen = new Date();
+      if (!existingUser.avatar && picture) {
+        existingUser.avatar = picture;
+      }
+      await existingUser.save();
+
+      console.log('Google link: Generating token for existingUser._id:', existingUser._id, 'type:', typeof existingUser._id);
+      const token = generateToken(existingUser._id);
+      return {
+        message: 'Google account linked successfully',
+        token,
+        user: formatUserResponse(existingUser, true)
+      };
+    }
+
+    // Create new user
+    const username = email.split('@')[0] + Math.random().toString(36).substring(2, 5);
+    const upiId = username + '@google'; // Default UPI ID for Google users
+
+    user = new User({
+      name,
+      email: email.toLowerCase(),
+      username,
+      upiId,
+      googleId,
+      avatar: picture,
+      preferences: {
+        notifications: true,
+        biometric: false,
+        darkMode: false,
+        currency: 'INR'
+      }
+    });
+
+    await user.save();
+
+    // Create default groups
+    const personalGroup = new Group({
+      name: 'Personal',
+      avatar: '👤',
+      inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      members: [{
+        userId: user._id,
+        role: 'admin'
+      }],
+      budgets: []
+    });
+
+    const familyGroup = new Group({
+      name: 'Family',
+      avatar: '👨‍👩‍👧‍👦',
+      inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      members: [{
+        userId: user._id,
+        role: 'admin'
+      }],
+      budgets: []
+    });
+
+    await Promise.all([
+      personalGroup.save(),
+      familyGroup.save()
+    ]);
+
+    // Add groups to user
+    user.groups = [personalGroup._id, familyGroup._id];
+    await user.save();
+
+    // Generate JWT
+    console.log('Google register: Generating token for user._id:', user._id, 'type:', typeof user._id);
+    const token = generateToken(user._id);
+
+    return {
+      message: 'Google registration successful',
+      token,
+      user: {
+        ...formatUserResponse(user),
+        groups: [personalGroup, familyGroup]
+      }
+    };
+  } catch (error) {
+    console.error('Google auth error:', error);
+    throw new Error('Google authentication failed');
+  }
+};
+
 module.exports = {
   register,
   login,
   getCurrentUser,
   updateProfile,
-  logout
+  logout,
+  googleAuth
 };

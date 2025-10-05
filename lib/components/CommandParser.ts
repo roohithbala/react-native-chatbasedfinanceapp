@@ -5,173 +5,221 @@ interface ParsedCommand {
 
 export class CommandParser {
   static parse(message: string): ParsedCommand {
-    // Only process messages that start with command prefixes followed by space
-    const trimmedMessage = message.trim();
-    
-    // Be extremely strict - only process if it starts with exact command prefixes
-    if (trimmedMessage.startsWith('@split ')) {
-      return this.parseSplitCommand(trimmedMessage);
-    } else if (trimmedMessage.startsWith('@addexpense ')) {
-      return this.parseExpenseCommand(trimmedMessage);
-    } else if (trimmedMessage === '@predict') {
+    // Only process messages that start with @ and are likely commands
+    const trimmed = message.trim();
+
+    // Must start with @ to be considered a command
+    if (!trimmed.startsWith('@')) {
+      console.log('CommandParser: Message does not start with @, treating as regular message');
+      return { type: 'unknown', data: {} };
+    }
+
+    // Additional safeguard: if message is very long (>100 chars), it's likely not a command
+    if (trimmed.length > 100) {
+      console.log('CommandParser: Message too long to be a command, treating as regular message');
+      return { type: 'unknown', data: {} };
+    }
+
+    // Additional safeguard: if message contains multiple @ symbols, it's likely not a command
+    const atSymbolCount = (trimmed.match(/@/g) || []).length;
+    if (atSymbolCount > 2) {
+      console.log('CommandParser: Message contains multiple @ symbols, treating as regular message');
+      return { type: 'unknown', data: {} };
+    }
+
+    const text = trimmed.toLowerCase();
+
+    if (text.startsWith('@split ')) {
+      console.log('CommandParser: Detected @split command, parsing...');
+      return this.parseSplitCommand(trimmed);
+    } else if (text.startsWith('@addexpense ')) {
+      console.log('CommandParser: Detected @addexpense command, parsing...');
+      return this.parseExpenseCommand(trimmed);
+    } else if (text === '@predict') {
+      console.log('CommandParser: Detected @predict command');
       return { type: 'predict', data: {} };
-    } else if (trimmedMessage === '@summary') {
+    } else if (text === '@summary') {
+      console.log('CommandParser: Detected @summary command');
       return { type: 'summary', data: {} };
     }
-    
-    // For ANY other message, return unknown - be very strict
-    console.log('Message does not start with valid command prefix:', trimmedMessage);
+
+    // Message starts with @ but is not a recognized command
+    console.log('CommandParser: Message starts with @ but is not a recognized command:', trimmed);
     return { type: 'unknown', data: {} };
   }
 
   private static parseSplitCommand(message: string): ParsedCommand {
-    // Parse: @split @username category amount or @split @username amount
-    const parts = message.trim().split(/\s+/);
-    
-    console.log('Parsing split command:', message);
-    console.log('Parts:', parts);
-    
-    if (parts.length < 3 || parts.length > 4) {
-      console.log('Invalid number of parts for split command - must be 3 or 4 parts');
+    // Parse format: @split description $amount @user1 @user2 ...
+    // Examples: @split dinner $500 @john @mary, @split movie $200 @all
+
+    const trimmed = message.trim();
+
+    // Must start with '@split ' (with space)
+    if (!trimmed.toLowerCase().startsWith('@split ')) {
+      console.log('Message does not start with @split followed by space');
       return { type: 'unknown', data: {} };
     }
 
-    // Check if first part after @split is a username mention
-    const firstPart = parts[1];
-    if (!firstPart.startsWith('@') || firstPart.length <= 1) {
-      console.log('First part is not a valid username mention:', firstPart);
+    // Remove @split and trim
+    const content = trimmed.substring(7).trim();
+
+    // Find the $amount
+    const dollarIndex = content.indexOf('$');
+    if (dollarIndex === -1) {
+      console.log('No $ found in split command');
       return { type: 'unknown', data: {} };
     }
 
-    const username = firstPart.substring(1); // Remove @ symbol
+    // Description is everything before $
+    const description = content.substring(0, dollarIndex).trim();
+    if (!description || description.length < 2) {
+      console.log('Description is too short:', description);
+      return { type: 'unknown', data: {} };
+    }
+
+    // Find the amount and @users after $
+    const afterDollar = content.substring(dollarIndex + 1).trim();
+    const parts = afterDollar.split(/\s+/);
+
+    if (parts.length < 2) {
+      console.log('Need amount and at least one @user');
+      return { type: 'unknown', data: {} };
+    }
+
+    // First part after $ should be the amount
+    const amountPart = parts[0];
+    const amount = parseFloat(amountPart);
+    if (isNaN(amount) || amount <= 0 || amount > 1000000) {
+      console.log('Amount is invalid:', amountPart);
+      return { type: 'unknown', data: {} };
+    }
+
+    // Remaining parts should be @users
+    const userParts = parts.slice(1);
+    if (userParts.length === 0) {
+      console.log('No users specified');
+      return { type: 'unknown', data: {} };
+    }
+
+    // Validate all user parts start with @
+    const users = [];
+    let isAll = false;
+    for (const part of userParts) {
+      if (!part.startsWith('@')) {
+        console.log('User does not start with @:', part);
+        return { type: 'unknown', data: {} };
+      }
+      const username = part.substring(1);
+      if (username === 'all') {
+        isAll = true;
+        users.length = 0; // Clear users if @all is specified
+        break;
+      }
+      if (!username || username.length === 0) {
+        console.log('Empty username after @');
+        return { type: 'unknown', data: {} };
+      }
+      // Validate username format
+      const usernameRegex = /^[a-zA-Z0-9_]{1,30}$/;
+      if (!usernameRegex.test(username)) {
+        console.log('Invalid username format:', username);
+        return { type: 'unknown', data: {} };
+      }
+      users.push(username);
+    }
+
+    // Try to extract category from description
+    const categoryKeywords = ['food', 'dinner', 'lunch', 'breakfast', 'coffee', 'drink', 'movie', 'travel', 'taxi', 'uber', 'hotel', 'shopping', 'grocery', 'gas', 'fuel', 'entertainment', 'party', 'gift'];
+    const descLower = description.toLowerCase();
     let category = 'Other';
-    let amount = 0;
-
-    console.log('Username:', username);
-    console.log('Parts length:', parts.length);
-
-    // Check if we have category and amount or just amount
-    if (parts.length === 4) {
-      // Format: @split @username category amount
-      category = parts[2];
-      const amountStr = parts[3];
-      amount = parseFloat(amountStr);
-      console.log('4-part format - Category:', category, 'Amount string:', amountStr, 'Parsed amount:', amount);
-    } else if (parts.length === 3) {
-      // Format: @split @username amount
-      const amountStr = parts[2];
-      amount = parseFloat(amountStr);
-      console.log('3-part format - Amount string:', amountStr, 'Parsed amount:', amount);
-    } else {
-      console.log('Invalid number of parts for split command');
-      return { type: 'unknown', data: {} };
+    for (const keyword of categoryKeywords) {
+      if (descLower.includes(keyword)) {
+        category = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+        break;
+      }
     }
 
-    console.log('Parsed amount:', amount, 'isNaN:', isNaN(amount), 'amount <= 0:', amount <= 0);
-
-    // Validate amount - must be a valid positive number
-    if (isNaN(amount) || amount <= 0 || !isFinite(amount)) {
-      console.log('Amount validation failed - not a valid positive number');
-      return { type: 'unknown', data: {} };
-    }
-
-    // Validate username - must not be empty and contain only valid characters
-    if (!username || !/^[a-zA-Z0-9_]+$/.test(username)) {
-      console.log('Username validation failed - invalid username format');
-      return { type: 'unknown', data: {} };
-    }
-
-    const result: ParsedCommand = {
-      type: 'split',
-      data: {
-        username,
-        description: `${category} with ${username}`,
-        amount,
-        category,
-        participants: [username],
-        splitType: 'equal',
-      },
-    };
-
-    console.log('Parsed split command result:', result);
-    return result;
-  }
-
-  private static parseSplitCommandLegacy(message: string): ParsedCommand {
-    // Parse: @split Dinner $120 @alice @bob or @split Dinner ₹120 @alice @bob or @split Dinner 120 @alice @bob
-    // This is more strict now - requires @split followed by description, amount, and at least one @mention
-    const parts = message.split(' ');
-    if (parts.length < 4) { // Need at least @split, description, amount, and one @mention
-      return { type: 'unknown', data: {} };
-    }
-
-    const description = parts[1] || 'Expense';
-
-    // Extract amount - support multiple currency formats and plain numbers
-    // Handle both formats: $120, ₹120, 120₹, 120, 120.50, $120.50, ₹120.50
-    const amountMatch = message.match(/(?:[\$₹£€¥]\s*)?(\d+(?:\.\d{1,2})?)(?:\s*[\$₹£€¥])?/);
-    const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
-
-    // Extract mentions - find all @mentions that are not @split
-    const mentions = message.match(/@\w+/g) || [];
-    const participants = mentions
-      .filter(mention => mention.toLowerCase() !== '@split') // Exclude @split command
-      .map(m => m.replace('@', '')); // Remove @ symbol
-
-    // Check for percentage splits
-    const percentageMatch = message.match(/(\d+)%/g);
-    let splitType = 'equal';
-    let splitData = {};
-
-    if (percentageMatch && percentageMatch.length === participants.length + 1) {
-      splitType = 'percentage';
-      // Parse percentage splits
-    }
-
-    // Validate that we have at least a description, valid amount, and at least one participant
-    if (!description.trim() || amount <= 0 || participants.length === 0) {
-      return {
-        type: 'unknown',
-        data: {}
-      };
-    }
+    console.log('✅ Valid split command parsed:', { description, amount, users, isAll, category });
 
     return {
       type: 'split',
       data: {
+        target: isAll ? 'all' : users[0],
+        username: isAll ? null : users[0],
+        isAll,
         description,
         amount,
-        participants,
-        splitType,
-        splitData,
+        category,
+        participants: isAll ? [] : users,
+        splitType: 'equal',
       },
     };
   }
 
+  private static parseSplitCommandLegacy(message: string): ParsedCommand {
+    // Legacy parser removed - now using strict format only
+    return { type: 'unknown', data: {} };
+  }
+
   private static parseExpenseCommand(message: string): ParsedCommand {
-    // Parse: @addexpense Coffee $5 category:Food or @addexpense Coffee ₹5 category:Food or @addexpense Coffee 5 category:Food
-    const parts = message.split(' ');
+    // EXTREMELY strict parsing: @addexpense description amount [category:Category]
+    // Examples: @addexpense coffee 50, @addexpense lunch 200 category:Food
+    // Must have at least 3 parts: @addexpense description amount
+
+    const trimmed = message.trim();
     
+    // Must start with '@addexpense ' (with space)
+    if (!trimmed.toLowerCase().startsWith('@addexpense ')) {
+      console.log('Message does not start with @addexpense followed by space');
+      return { type: 'unknown', data: {} };
+    }
+
+    const parts = trimmed.split(/\s+/);
+
+    // Must have at least 3 parts: @addexpense description amount
     if (parts.length < 3) {
-      console.log('Not enough parts for expense command - need at least description and amount');
+      console.log(`Expense command needs at least 3 parts, got ${parts.length}:`, parts);
       return { type: 'unknown', data: {} };
     }
-    
-    const description = parts[1] || 'Expense';
 
-    // Extract amount - support multiple currency formats and plain numbers
-    const amountMatch = message.match(/(?:[\$₹£€¥]\s*)?(\d+(?:\.\d{1,2})?)(?:\s*[\$₹£€¥])?/);
-    const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
+    const [command, description, amountPart, ...rest] = parts;
 
-    // Extract category - support both "category:" and "cat:" prefixes
-    const categoryMatch = message.match(/(?:category|cat):\s*(\w+)/i);
-    const category = categoryMatch ? categoryMatch[1] : 'Other';
-
-    // Validate that we have at least a description and amount
-    if (!description.trim() || amount <= 0 || !isFinite(amount)) {
-      console.log('Expense validation failed - invalid description or amount');
+    // Validate command is exactly '@addexpense' (case insensitive)
+    if (command.toLowerCase() !== '@addexpense') {
+      console.log('First part is not @addexpense:', command);
       return { type: 'unknown', data: {} };
     }
+
+    // Validate description is meaningful (at least 2 characters, not just numbers, not empty)
+    if (!description || description.length < 2 || /^\d+$/.test(description) || description.toLowerCase() === 'the' || description.toLowerCase() === 'a' || description.toLowerCase() === 'an') {
+      console.log('Description is too short, invalid, or meaningless:', description);
+      return { type: 'unknown', data: {} };
+    }
+
+    // Additional validation: ensure description doesn't look like a command
+    if (description.toLowerCase().startsWith('@') || description.toLowerCase().includes('split') || description.toLowerCase().includes('expense') || description.toLowerCase().includes('add')) {
+      console.log('Description looks like a command:', description);
+      return { type: 'unknown', data: {} };
+    }
+
+    // Validate amount is a valid number
+    const amount = parseFloat(amountPart);
+    if (isNaN(amount) || amount <= 0 || amount > 1000000 || !/^\d+(\.\d{1,2})?$/.test(amountPart)) {
+      console.log('Amount is invalid:', amountPart);
+      return { type: 'unknown', data: {} };
+    }
+
+    // Check for category in remaining parts
+    let category = 'Other';
+    const categoryPart = rest.find(part => part.toLowerCase().startsWith('category:'));
+    if (categoryPart) {
+      const categoryValue = categoryPart.split(':')[1];
+      if (categoryValue && categoryValue.length > 0) {
+        category = categoryValue;
+      }
+    }
+
+    console.log('✅ Valid expense command parsed:', { description, amount, category });
 
     return {
       type: 'expense',

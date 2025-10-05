@@ -103,9 +103,6 @@ export const BudgetTransactionDetails: React.FC<BudgetTransactionDetailsProps> =
                       <Text style={styles.transactionDate}>
                         {new Date(expense.createdAt).toLocaleDateString()}
                       </Text>
-                      {expense.location && (
-                        <Text style={styles.transactionLocation}>📍 {expense.location}</Text>
-                      )}
                     </View>
                     {expense.tags && expense.tags.length > 0 && (
                       <View style={styles.tagsContainer}>
@@ -280,11 +277,6 @@ const getStyles = (theme: any) => StyleSheet.create({
   transactionDate: {
     fontSize: 12,
     color: theme.textSecondary || '#64748B',
-  },
-  transactionLocation: {
-    fontSize: 12,
-    color: theme.textSecondary || '#64748B',
-    marginLeft: 8,
   },
   tagsContainer: {
     flexDirection: 'row',

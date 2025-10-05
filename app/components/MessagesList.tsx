@@ -15,14 +15,6 @@ interface Message {
   };
   type: 'text' | 'image' | 'file' | 'system' | 'command';
   status: 'sent' | 'delivered' | 'read' | 'error';
-  locationMentions?: {
-    locationId: string;
-    locationName: string;
-    coordinates: {
-      latitude: number;
-      longitude: number;
-    };
-  }[];
   isTemp?: boolean;
   readBy: {
     userId: string;
@@ -63,12 +55,6 @@ export default function MessagesList({
         status={msg.status === 'error' ? 'sent' : msg.status}
         type={msg.type}
         senderName={!isOwnMessage ? msg.user.name : undefined}
-        locationMentions={msg.locationMentions}
-        onLocationMentionPress={(location) => {
-          // Handle location mention press - could navigate to map or show location details
-          console.log('Location pressed:', location);
-          // TODO: Navigate to location details or show on map
-        }}
       />
     );
   };

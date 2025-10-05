@@ -42,7 +42,6 @@ export default function ExpenseForm({
   const [description, setDescription] = useState(initialData?.description || '');
   const [amount, setAmount] = useState(initialData?.amount?.toString() || '');
   const [category, setCategory] = useState(initialData?.category || 'Food');
-  const [location, setLocation] = useState(initialData?.location || '');
   const [tags, setTags] = useState(initialData?.tags?.join(', ') || '');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isRecurring, setIsRecurring] = useState(false);
@@ -98,7 +97,6 @@ export default function ExpenseForm({
     setDescription('');
     setAmount('');
     setCategory('Food');
-    setLocation('');
     setTags('');
     setPaymentMethod('Cash');
     setIsRecurring(false);
@@ -143,7 +141,6 @@ export default function ExpenseForm({
       amount: expenseAmount,
       category,
       tags: tagArray,
-      location: location.trim() || undefined,
       paymentMethod,
       isRecurring,
       recurringFrequency: isRecurring ? recurringFrequency : undefined,
@@ -210,14 +207,6 @@ export default function ExpenseForm({
             <CategorySelector
               selectedCategory={category}
               onCategoryChange={setCategory}
-            />
-
-            <FormInput
-              label="📍 Location"
-              value={location}
-              onChangeText={setLocation}
-              placeholder="Where did you make this purchase?"
-              maxLength={50}
             />
 
             <TagsInput

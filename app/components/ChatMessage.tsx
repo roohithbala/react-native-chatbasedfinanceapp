@@ -8,28 +8,18 @@ import { MultimediaMessage } from './MultimediaMessage';
 import { MessageFooter } from './MessageFooter';
 import { MessageBubble } from './MessageBubble';
 
-interface LocationMention {
-  locationId: string;
-  locationName: string;
-  coordinates: {
-    latitude: number;
-    longitude: number;
-  };
-}
-
 interface ChatMessageProps {
   text: string;
   createdAt: string;
   isOwnMessage: boolean;
   status: 'sent' | 'delivered' | 'read';
   senderName?: string;
-  locationMentions?: LocationMention[];
-  onLocationMentionPress?: (location: LocationMention) => void;
   type?: 'text' | 'image' | 'video' | 'audio' | 'document' | 'system' | 'command' | 'split_bill';
   splitBillData?: any;
   currentUserId?: string;
   onPayBill?: (splitBillId: string) => void;
   onViewSplitBillDetails?: (splitBillId: string) => void;
+  onPaymentSuccess?: () => void;
   // Multimedia fields
   mediaUrl?: string;
   mediaType?: 'image' | 'video' | 'audio' | 'document';
@@ -49,13 +39,12 @@ export default function ChatMessage({
   isOwnMessage,
   status,
   senderName,
-  locationMentions = [],
-  onLocationMentionPress,
   type = 'text',
   splitBillData,
   currentUserId,
   onPayBill,
   onViewSplitBillDetails,
+  onPaymentSuccess,
   // Multimedia props
   mediaUrl,
   mediaType,
@@ -89,6 +78,7 @@ export default function ChatMessage({
             currentUserId={currentUserId}
             onPayBill={onPayBill}
             onViewDetails={onViewSplitBillDetails}
+            onPaymentSuccess={onPaymentSuccess}
           />
         ) : (
           <View>
@@ -109,8 +99,6 @@ export default function ChatMessage({
             {(!mediaUrl || !mediaType) && text && text.trim() && (
               <MessageContent
                 text={text}
-                locationMentions={locationMentions}
-                onLocationMentionPress={onLocationMentionPress}
                 isOwnMessage={isOwnMessage}
                 theme={theme}
               />

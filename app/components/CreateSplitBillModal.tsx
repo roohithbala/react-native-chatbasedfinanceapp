@@ -12,6 +12,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { View as ThemedView, Card } from '@/app/components/ThemedComponents';
+import BudgetImpactAnalysis from './BudgetImpactAnalysis';
+import ReminderSettings from './ReminderSettings';
+import { useBudgetsStore } from '@/lib/store/budgetsStore';
 import { useGroupContext } from '@/app/context/GroupContext';
 
 interface GroupMember {
@@ -37,12 +40,25 @@ export default function CreateSplitBillModal({
   const [description, setDescription] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
   const [category, setCategory] = useState('Other');
-  const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
+  const [splitType, setSplitType] = useState<'equal' | 'custom' | 'percentage' | 'itemized'>('equal');
+  const [items, setItems] = useState<Array<{name: string, amount: string, assignedTo: string[]}>>([]);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemAmount, setNewItemAmount] = useState('');
   const [participants, setParticipants] = useState<ParticipantInput[]>([]);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [reminderSettings, setReminderSettings] = useState({
+    enablePaymentDueReminders: true,
+    enableSettlementReminders: true,
+    enableOverdueReminders: true,
+    paymentDueReminderHours: 24,
+    settlementReminderDays: 7,
+    overdueReminderDays: 3,
+  });
 
   const { currentUser, selectedGroup, createSplitBill } = useFinanceStore();
+  const { loadBudgets } = useBudgetsStore();
   const { groupMembers } = useGroupContext();
 
   // Initialize participants with current user and other group members
@@ -69,7 +85,14 @@ export default function CreateSplitBillModal({
     }
   }, [currentUser, groupMembers]);
 
-  const handleSplitTypeChange = (type: 'equal' | 'custom') => {
+  // Load budgets when modal opens
+  React.useEffect(() => {
+    if (visible) {
+      loadBudgets();
+    }
+  }, [visible, loadBudgets]);
+
+  const handleSplitTypeChange = (type: 'equal' | 'custom' | 'percentage' | 'itemized') => {
     setSplitType(type);
     if (type === 'equal' && totalAmount) {
       const amount = parseFloat(totalAmount);
@@ -78,6 +101,15 @@ export default function CreateSplitBillModal({
         participants.map(p => ({
           ...p,
           amount: equalShare,
+        }))
+      );
+    } else if (type === 'percentage') {
+      // Initialize with equal percentages
+      const equalPercentage = (100 / participants.length).toFixed(1);
+      setParticipants(
+        participants.map(p => ({
+          ...p,
+          amount: equalPercentage,
         }))
       );
     }
@@ -131,6 +163,25 @@ export default function CreateSplitBillModal({
       }
     }
 
+    if (splitType === 'percentage') {
+      const sum = participants.reduce(
+        (acc, p) => acc + (parseFloat(p.amount) || 0),
+        0
+      );
+      if (Math.abs(sum - 100) > 0.1) {
+        Alert.alert(
+          'Error',
+          'Sum of participant percentages must equal 100%'
+        );
+        return false;
+      }
+    }
+
+    if (splitType === 'itemized' && items.length === 0) {
+      Alert.alert('Error', 'Please add at least one item for itemized split');
+      return false;
+    }
+
     return true;
   };
 
@@ -149,12 +200,21 @@ export default function CreateSplitBillModal({
       setLoading(true);
       
       // Filter out participants with invalid data and ensure amounts are valid numbers
-      const validParticipants = participants
+      let validParticipants = participants
         .filter(p => p.userId && p.amount && !isNaN(parseFloat(p.amount)) && parseFloat(p.amount) > 0)
-        .map(p => ({
-          userId: p.userId,
-          amount: parseFloat(p.amount),
-        }));
+        .map(p => {
+          let amount = parseFloat(p.amount);
+          
+          // Convert percentage to actual amount if split type is percentage
+          if (splitType === 'percentage') {
+            amount = (amount / 100) * parseFloat(totalAmount);
+          }
+          
+          return {
+            userId: p.userId,
+            amount: amount,
+          };
+        });
 
       if (validParticipants.length === 0) {
         Alert.alert('Error', 'No valid participants found');
@@ -176,6 +236,8 @@ export default function CreateSplitBillModal({
         splitType,
         category,
         notes: notes.trim() || undefined,
+        reminderSettings,
+        ...(splitType === 'itemized' && { items }),
       };
 
       console.log('Creating split bill with data:', JSON.stringify(billData, null, 2));
@@ -298,6 +360,21 @@ export default function CreateSplitBillModal({
               </View>
             </View>
 
+            {/* Budget Impact Analysis */}
+            {totalAmount && category && (
+              <BudgetImpactAnalysis
+                category={category}
+                totalAmount={parseFloat(totalAmount) || 0}
+                participantsCount={participants.length}
+              />
+            )}
+
+            {/* Reminder Settings */}
+            <ReminderSettings
+              settings={reminderSettings}
+              onSettingsChange={setReminderSettings}
+            />
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Split Type</Text>
               <View style={styles.splitTypes}>
@@ -333,6 +410,38 @@ export default function CreateSplitBillModal({
                     Custom Split
                   </Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.splitTypeButton,
+                    splitType === 'percentage' && styles.splitTypeActive,
+                  ]}
+                  onPress={() => handleSplitTypeChange('percentage')}
+                >
+                  <Text
+                    style={[
+                      styles.splitTypeText,
+                      splitType === 'percentage' && styles.splitTypeTextActive,
+                    ]}
+                  >
+                    Percentage
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.splitTypeButton,
+                    splitType === 'itemized' && styles.splitTypeActive,
+                  ]}
+                  onPress={() => handleSplitTypeChange('itemized')}
+                >
+                  <Text
+                    style={[
+                      styles.splitTypeText,
+                      splitType === 'itemized' && styles.splitTypeTextActive,
+                    ]}
+                  >
+                    Itemized
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -342,21 +451,149 @@ export default function CreateSplitBillModal({
                 participants.map((participant, index) => (
                   <View key={participant?.userId || index} style={styles.participantRow}>
                     <Text style={styles.participantName}>{participant?.name || 'Unknown User'}</Text>
-                    <TextInput
-                      style={styles.participantAmount}
-                      value={participant?.amount || ''}
-                      onChangeText={(value) => handleParticipantAmountChange(value, index)}
-                      keyboardType="decimal-pad"
-                      placeholder="0.00"
-                      placeholderTextColor="#94A3B8"
-                      editable={splitType === 'custom'}
-                    />
+                    <View style={styles.amountInputContainer}>
+                      <TextInput
+                        style={styles.participantAmount}
+                        value={participant?.amount || ''}
+                        onChangeText={(value) => handleParticipantAmountChange(value, index)}
+                        keyboardType="decimal-pad"
+                        placeholder={splitType === 'percentage' ? "0.0" : "0.00"}
+                        placeholderTextColor="#94A3B8"
+                        editable={splitType === 'custom' || splitType === 'percentage'}
+                      />
+                      {splitType === 'percentage' && (
+                        <Text style={styles.percentageSymbol}>%</Text>
+                      )}
+                    </View>
                   </View>
                 ))
               ) : (
                 <Text style={styles.noParticipantsText}>No participants available</Text>
               )}
             </View>
+
+            {splitType === 'itemized' && (
+              <View style={styles.inputGroup}>
+                <View style={styles.itemizedHeader}>
+                  <Text style={styles.label}>Items</Text>
+                  <TouchableOpacity
+                    style={styles.addItemButton}
+                    onPress={() => setShowAddItem(true)}
+                  >
+                    <Ionicons name="add" size={20} color="#2563EB" />
+                    <Text style={styles.addItemText}>Add Item</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {items.length > 0 ? (
+                  items.map((item, index) => (
+                    <View key={`item-${index}-${item.name}`} style={styles.itemRow}>
+                      <View style={styles.itemInfo}>
+                        <Text style={styles.itemName}>{item.name}</Text>
+                        <Text style={styles.itemAmount}>₹{parseFloat(item.amount).toFixed(2)}</Text>
+                      </View>
+                      <Text style={styles.itemAssignees}>
+                        {item.assignedTo.length} {item.assignedTo.length === 1 ? 'person' : 'people'}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.removeItemButton}
+                        onPress={() => {
+                          const updatedItems = [...items];
+                          updatedItems.splice(index, 1);
+                          setItems(updatedItems);
+                        }}
+                      >
+                        <Ionicons name="trash" size={16} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.noItemsText}>No items added yet</Text>
+                )}
+
+                <Text style={styles.itemsTotal}>
+                  Total: ₹{items.reduce((sum, item) => sum + parseFloat(item.amount), 0).toFixed(2)}
+                </Text>
+              </View>
+            )}
+
+            {/* Add Item Modal */}
+            {showAddItem && (
+              <View style={styles.addItemModal}>
+                <View style={styles.addItemContent}>
+                  <Text style={styles.addItemTitle}>Add Item</Text>
+                  
+                  <TextInput
+                    style={styles.input}
+                    value={newItemName}
+                    onChangeText={setNewItemName}
+                    placeholder="Item name (e.g., Pizza, Drinks)"
+                    placeholderTextColor="#94A3B8"
+                  />
+                  
+                  <TextInput
+                    style={styles.input}
+                    value={newItemAmount}
+                    onChangeText={setNewItemAmount}
+                    keyboardType="decimal-pad"
+                    placeholder="0.00"
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={styles.assignLabel}>Assign to:</Text>
+                  {participants.map((participant, index) => (
+                    <TouchableOpacity
+                      key={participant.userId}
+                      style={styles.assignParticipant}
+                      onPress={() => {
+                        // Toggle assignment logic would go here
+                        // For now, just assign to all participants equally
+                      }}
+                    >
+                      <Text style={styles.participantName}>{participant.name}</Text>
+                      <View style={styles.checkbox}>
+                        <Ionicons name="checkmark" size={16} color="#2563EB" />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+
+                  <View style={styles.addItemActions}>
+                    <TouchableOpacity
+                      style={styles.cancelButton}
+                      onPress={() => {
+                        setShowAddItem(false);
+                        setNewItemName('');
+                        setNewItemAmount('');
+                      }}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.saveItemButton}
+                      onPress={() => {
+                        if (!newItemName.trim() || !newItemAmount || parseFloat(newItemAmount) <= 0) {
+                          Alert.alert('Error', 'Please enter valid item name and amount');
+                          return;
+                        }
+                        
+                        const newItem = {
+                          name: newItemName.trim(),
+                          amount: newItemAmount,
+                          assignedTo: participants.map(p => p.userId), // Assign to all for now
+                        };
+                        
+                        setItems([...items, newItem]);
+                        setShowAddItem(false);
+                        setNewItemName('');
+                        setNewItemAmount('');
+                      }}
+                    >
+                      <Text style={styles.saveItemButtonText}>Add Item</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
           </ScrollView>
         </Card>
       </ThemedView>
@@ -444,10 +681,12 @@ const styles = StyleSheet.create({
   },
   splitTypes: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   splitTypeButton: {
     flex: 1,
+    minWidth: '45%',
     paddingVertical: 12,
     borderRadius: 8,
     backgroundColor: '#F1F5F9',
@@ -476,8 +715,12 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     flex: 1,
   },
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   participantAmount: {
-    width: 100,
+    width: 80,
     padding: 8,
     borderRadius: 6,
     backgroundColor: '#F8FAFC',
@@ -485,11 +728,155 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     textAlign: 'right',
   },
+  percentageSymbol: {
+    fontSize: 16,
+    color: '#64748B',
+    marginLeft: 4,
+  },
   noParticipantsText: {
     fontSize: 14,
     color: '#64748B',
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 16,
+  },
+  itemizedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addItemButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EBF4FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  addItemText: {
+    color: '#2563EB',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  itemInfo: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 16,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  itemAmount: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  itemAssignees: {
+    fontSize: 14,
+    color: '#64748B',
+    marginRight: 8,
+  },
+  removeItemButton: {
+    padding: 4,
+  },
+  noItemsText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  itemsTotal: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'right',
+    marginTop: 8,
+  },
+  addItemModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addItemContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  addItemTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    marginBottom: 16,
+  },
+  assignLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  assignParticipant: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addItemActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  saveItemButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  saveItemButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });

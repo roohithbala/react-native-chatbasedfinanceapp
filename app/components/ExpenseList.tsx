@@ -137,9 +137,6 @@ export default function ExpenseList({
                       <Text style={styles.expenseDate}>
                         {new Date(expense.createdAt).toLocaleDateString()}
                       </Text>
-                      {expense.location && (
-                        <Text style={styles.expenseLocation}>📍 {expense.location}</Text>
-                      )}
                     </View>
                     <View style={styles.expenseMeta}>
                       <Text style={styles.expenseCategory}>{expense.category}</Text>
@@ -221,9 +218,6 @@ export default function ExpenseList({
                         </Text>
                       </View>
                     </View>
-                    {expense.location && (
-                      <Text style={styles.expenseLocation}>📍 {expense.location}</Text>
-                    )}
                     {expense.tags && expense.tags.length > 0 && (
                       <View style={styles.tagsContainer}>
                         {expense.tags.slice(0, 3).map((tag, index) => (
@@ -289,9 +283,6 @@ export default function ExpenseList({
                     </Text>
                   </View>
                 </View>
-                {expense.location && (
-                  <Text style={styles.expenseLocation}>📍 {expense.location}</Text>
-                )}
                 {expense.tags && expense.tags.length > 0 && (
                   <View style={styles.tagsContainer}>
                     {expense.tags.slice(0, 3).map((tag, index) => (
@@ -441,10 +432,6 @@ const getStyles = (theme: any) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
-  },
-  expenseLocation: {
-    fontSize: 12,
-    color: theme.textSecondary || '#64748B',
   },
   tagsContainer: {
     flexDirection: 'row',

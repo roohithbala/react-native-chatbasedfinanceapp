@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { usersAPI } from '../lib/services/api';
 import { ChatUser } from '@/app/types/chat';
 
-export const useMentions = (activeGroup: any) => {
+export const useMentions = (activeGroup: any, isDirectChat: boolean = false, otherUser?: any) => {
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionResults, setMentionResults] = useState<ChatUser[]>([]);
   const [showMentions, setShowMentions] = useState(false);
@@ -22,7 +22,26 @@ export const useMentions = (activeGroup: any) => {
 
     mentionTimeout.current = setTimeout(async () => {
       try {
-        // First try to search from group members
+        // For direct chats, only show the other user
+        if (isDirectChat && otherUser) {
+          const matchesQuery = otherUser.name.toLowerCase().includes(query.toLowerCase()) ||
+                              otherUser.username.toLowerCase().includes(query.toLowerCase());
+
+          if (matchesQuery) {
+            setMentionResults([{
+              _id: otherUser._id || otherUser.id,
+              name: otherUser.name,
+              username: otherUser.username
+            }]);
+            setShowMentions(true);
+            return;
+          } else {
+            setShowMentions(false);
+            return;
+          }
+        }
+
+        // For group chats, first try to search from group members
         if (activeGroup?.members) {
           const groupMembers = activeGroup.members
             .filter((member: any) => member?.userId)

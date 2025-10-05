@@ -11,6 +11,7 @@ import {
   TextInput,
   Platform,
   Share,
+  RefreshControl,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
@@ -22,7 +23,6 @@ import AccountSection from '@/app/components/AccountSection';
 import SettingsSection from '@/app/components/SettingsSection';
 import SecuritySection from '@/app/components/SecuritySection';
 import LogoutButton from '@/app/components/LogoutButton';
-import CreateGroupModal from '@/app/components/CreateGroupModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import biometricAuthService from '@/lib/services/biometricAuthService';
@@ -32,10 +32,9 @@ export default function ProfileScreen() {
   const [notifications, setNotifications] = useState(true);
   const [biometric, setBiometric] = useState(false);
   const [autoSync, setAutoSync] = useState(true);
-  const [showGroupModal, setShowGroupModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
-  const [groupName, setGroupName] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const { 
     currentUser, 
     expenses, 
@@ -43,11 +42,14 @@ export default function ProfileScreen() {
     groups, 
     selectedGroup, 
     selectGroup, 
-    createGroup, 
     generateInviteLink,
     logout,
     updateBiometricPreference,
-    isLoading 
+    isLoading,
+    loadExpenses,
+    loadGroups,
+    getSplitBills,
+    loadBudgets
   } = useFinanceStore();
 
   const { themeMode, setThemeMode, theme } = useTheme();
@@ -74,22 +76,21 @@ export default function ProfileScreen() {
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const totalSplitBills = splitBills.length;
 
-  const handleCreateGroup = async () => {
-    if (!groupName.trim()) {
-      Alert.alert('Error', 'Please enter a group name');
-      return;
-    }
-
+  const handleRefresh = async () => {
+    setRefreshing(true);
     try {
-      await createGroup({ name: groupName.trim() });
-      setGroupName('');
-      setShowGroupModal(false);
-      Alert.alert('Success', 'Group created successfully!');
+      await Promise.all([
+        loadExpenses(),
+        loadGroups(),
+        getSplitBills(),
+        loadBudgets()
+      ]);
     } catch (error) {
-      Alert.alert('Error', 'Failed to create group');
+      console.error('Error refreshing profile data:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
-
 
   const handleShareInvite = async (groupId: string) => {
     const group = groups.find(g => g._id === groupId);
@@ -140,11 +141,8 @@ export default function ProfileScreen() {
       case 'editProfile':
         setShowEditProfileModal(true);
         break;
-      case 'manageGroups':
-        setShowGroupModal(true);
-        break;
-      case 'joinGroup':
-        setShowJoinModal(true);
+      case 'reminders':
+        router.push('/reminders');
         break;
       default:
         break;
@@ -200,13 +198,36 @@ export default function ProfileScreen() {
         groupsCount={(groups || []).length}
       />
 
-      <ScrollView style={[styles.content, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={[styles.content, { backgroundColor: theme.background }]} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
         <GroupsSection
           groups={groups}
           selectedGroup={selectedGroup}
           onSelectGroup={selectGroup}
           onShareInvite={handleShareInvite}
           onJoinGroup={() => setShowJoinModal(true)}
+          onEditGroup={(group) => {
+            router.push(`/group-settings?groupId=${group._id}&mode=edit`);
+          }}
+          onDeleteGroup={async (groupId) => {
+            router.push(`/group-settings?groupId=${groupId}&mode=settings`);
+          }}
+          onManageMembers={(group) => {
+            router.push(`/group-settings?groupId=${group._id}&mode=members`);
+          }}
+          onGroupSettings={(group) => {
+            router.push(`/group-settings?groupId=${group._id}&mode=settings`);
+          }}
         />
 
         <AccountSection onMenuAction={handleMenuAction} />
@@ -219,18 +240,6 @@ export default function ProfileScreen() {
 
         <Text style={styles.versionText}>Version 1.0.0</Text>
       </ScrollView>
-
-      {/* Create Group Modal */}
-      <CreateGroupModal
-        visible={showGroupModal}
-        onClose={() => setShowGroupModal(false)}
-        groupName={groupName}
-        onGroupNameChange={setGroupName}
-        onCreate={handleCreateGroup}
-        groups={groups}
-        selectedGroup={selectedGroup}
-        onSelectGroup={selectGroup}
-      />
 
       {/* Join Group Modal */}
       <Modal

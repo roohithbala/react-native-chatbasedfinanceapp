@@ -6,11 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { useGroupChat } from '@/hooks/useGroupChat';
-import { useMentions } from '@/hooks/useMentions';
 import { useTyping } from '@/hooks/useTyping';
 import { useCommandHandlers } from '@/hooks/useCommandHandlers';
 import ChatMessage from '../components/ChatMessage';
-import MentionsList from '../components/MentionsList';
 import TypingIndicator from '../components/TypingIndicator';
 import SplitBillModal from '../components/SplitBillModal';
 import AddMemberModal from '../components/AddMemberModal';
@@ -42,6 +40,7 @@ export default function GroupChatScreen() {
     connectionStatus,
     activeGroup,
     sendMessage: sendMessageFromHook,
+    loadMessages,
   } = useGroupChat();
 
   // Set selected group when activeGroup is loaded
@@ -51,13 +50,6 @@ export default function GroupChatScreen() {
       useFinanceStore.getState().selectGroup(activeGroup);
     }
   }, [activeGroup?._id]);
-
-  const {
-    mentionResults,
-    showMentions,
-    handleMentionSearch,
-    insertMention,
-  } = useMentions(activeGroup);
 
   const {
     typingUsers,
@@ -76,16 +68,7 @@ export default function GroupChatScreen() {
 
   const handleMessageChange = (text: string) => {
     setMessage(text);
-
-    // Check for @ mentions
-    const lastAtIndex = text.lastIndexOf('@');
-    if (lastAtIndex !== -1) {
-      const query = text.slice(lastAtIndex + 1);
-      const spaceAfterAt = query.includes(' ');
-      if (!spaceAfterAt) {
-        handleMentionSearch(query);
-      }
-    }
+    // MessageInput component handles mentions internally
   };
 
   const handleSendMessage = async () => {
@@ -95,12 +78,17 @@ export default function GroupChatScreen() {
     // Check if the message is a command
     const commandData = CommandParser.parse(trimmedMessage);
 
-    if (commandData && commandData.type !== 'unknown') {
+    if (commandData && commandData.type !== 'unknown' &&
+        (trimmedMessage.startsWith('@addexpense ') ||
+         trimmedMessage.startsWith('@predict'))) {
       // Send the command message
       await sendMessageFromHook(trimmedMessage);
 
       // Process the command
       await processCommand(commandData, trimmedMessage);
+    } else if (commandData && (commandData.type === 'split' || commandData.type === 'summary')) {
+      // For @split and @summary, just send the message and let backend handle it
+      await sendMessageFromHook(trimmedMessage);
     } else {
       // Send as regular message
       await sendMessageFromHook(trimmedMessage);
@@ -141,10 +129,6 @@ export default function GroupChatScreen() {
         status={msg.status === 'error' ? 'sent' : msg.status}
         type={msg.type}
         senderName={!isOwnMessage ? msg.user.name : undefined}
-        locationMentions={msg.locationMentions}
-        onLocationMentionPress={(location: any) => {
-          console.log('Location pressed:', location);
-        }}
         splitBillData={msg.splitBillData}
         currentUserId={currentUser._id}
         onPayBill={async (splitBillId: string) => {
@@ -165,6 +149,7 @@ export default function GroupChatScreen() {
             Alert.alert('Error', error.message || 'Failed to mark payment');
           }
         }}
+        onPaymentSuccess={() => loadMessages()}
         onViewSplitBillDetails={(splitBillId: string) => {
           console.log('View split bill details:', splitBillId);
           // TODO: Implement view details functionality
@@ -292,13 +277,6 @@ export default function GroupChatScreen() {
             )}
           </ScrollView>
 
-          {/* Mentions List */}
-          <MentionsList
-            showMentions={showMentions}
-            mentionResults={mentionResults}
-            onMentionPress={insertMention}
-          />
-
           {/* Typing Indicators */}
           <TypingIndicator typingUsers={typingUsers} />
 
@@ -327,6 +305,14 @@ export default function GroupChatScreen() {
               setShowSplitBillModal(true);
             }}
             onMediaSelect={handleMediaSelect}
+            groupId={validGroupId || undefined}
+            activeGroup={activeGroup}
+            isDirectChat={false}
+            otherUser={undefined}
+            onUserMention={(user) => {
+              console.log('User mentioned in group chat:', user);
+              // Handle user mention - could show user profile or add to context
+            }}
           />
         </KeyboardAvoidingView>
 

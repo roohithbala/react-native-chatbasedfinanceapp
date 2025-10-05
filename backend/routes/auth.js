@@ -32,6 +32,26 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Google authentication
+router.post('/google', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({
+        message: 'Google ID token is required'
+      });
+    }
+
+    const result = await authController.googleAuth(idToken);
+    res.json(result);
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(500).json({
+      message: error.message
+    });
+  }
+});
+
 // Get current user
 router.get('/me', auth, async (req, res) => {
   try {

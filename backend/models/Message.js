@@ -49,7 +49,7 @@ const messageSchema = new mongoose.Schema({
   }],
   type: {
     type: String,
-    enum: ['text', 'image', 'video', 'audio', 'document', 'system', 'command'],
+    enum: ['text', 'image', 'video', 'audio', 'document', 'system', 'command', 'split_bill'],
     default: 'text'
   },
   // For financial commands and AI features
@@ -90,6 +90,26 @@ const messageSchema = new mongoose.Schema({
     code: String,
     details: mongoose.Schema.Types.Mixed
   },
+  // For split bill messages
+  splitBillData: {
+    splitBillId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SplitBill'
+    },
+    description: String,
+    totalAmount: Number,
+    userShare: Number,
+    isPaid: Boolean,
+    participants: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      name: String,
+      amount: Number,
+      isPaid: Boolean
+    }]
+  },
   // For media messages
   mediaUrl: String,
   mediaType: {
@@ -107,17 +127,6 @@ const messageSchema = new mongoose.Schema({
   mentions: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }],
-  locationMentions: [{
-    locationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Location'
-    },
-    locationName: String,
-    coordinates: {
-      latitude: Number,
-      longitude: Number
-    }
   }],
   reactions: [{
     userId: {

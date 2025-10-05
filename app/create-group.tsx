@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
+import { useTheme } from './context/ThemeContext';
 import GroupTemplateSelector from './components/GroupTemplateSelector';
 import GroupForm from './components/GroupForm';
 import GroupInfoSection from './components/GroupInfoSection';
@@ -92,6 +93,8 @@ export default function CreateGroupScreen() {
   const [isCreating, setIsCreating] = useState(false);
 
   const { createGroup } = useFinanceStore();
+  const { theme } = useTheme();
+  // const styles = getStyles(theme);
 
   const handleTemplateSelect = (template: GroupTemplate) => {
     setSelectedTemplate(template);

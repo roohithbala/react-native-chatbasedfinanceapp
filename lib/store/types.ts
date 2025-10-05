@@ -32,7 +32,6 @@ export interface Expense {
   groupId?: string;
   createdAt: Date;
   tags?: string[];
-  location?: string;
 }
 
 export interface CreateExpenseData {
@@ -42,7 +41,6 @@ export interface CreateExpenseData {
   userId: string;
   groupId?: string;
   tags?: string[];
-  location?: string;
 }
 
 export interface SplitBillParticipant {

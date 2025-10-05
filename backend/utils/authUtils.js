@@ -82,6 +82,9 @@ const validateProfileUpdate = (data, currentUser) => {
 
 // Generate JWT token
 const generateToken = (userId) => {
+  if (!userId || userId === 'undefined') {
+    throw new Error('Invalid userId provided to generateToken');
+  }
   return jwt.sign(
     { userId },
     process.env.JWT_SECRET,

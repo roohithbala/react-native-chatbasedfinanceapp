@@ -24,7 +24,7 @@ export interface SplitBill {
       avatar?: string;
     };
   })[];
-  splitType: 'equal' | 'custom' | 'percentage';
+  splitType: 'equal' | 'custom' | 'percentage' | 'itemized';
   category: string;
   currency: string;
   notes?: string;
@@ -42,7 +42,7 @@ export interface CreateSplitBillParams {
     userId: string;
     amount: number;
   }[];
-  splitType?: 'equal' | 'custom' | 'percentage';
+  splitType?: 'equal' | 'custom' | 'percentage' | 'itemized';
   category?: string;
   currency?: string;
   notes?: string;

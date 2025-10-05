@@ -11,16 +11,10 @@ const menuItems = [
     action: 'editProfile',
   },
   {
-    icon: 'people-outline',
-    title: 'Manage Groups',
-    subtitle: 'View and manage your groups',
-    action: 'manageGroups',
-  },
-  {
-    icon: 'add-circle-outline',
-    title: 'Join Group',
-    subtitle: 'Join a group with invite code',
-    action: 'joinGroup',
+    icon: 'notifications-outline',
+    title: 'Payment Reminders',
+    subtitle: 'Manage split bill payment reminders',
+    action: 'reminders',
   },
   {
     icon: 'card-outline',

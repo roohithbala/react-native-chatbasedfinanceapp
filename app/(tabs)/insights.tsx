@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { InsightsHeader } from '../components/InsightsHeader';
 import { SpendingTrendChart } from '../components/SpendingTrendChart';
@@ -8,12 +8,14 @@ import { EmotionalAnalysis } from '../components/EmotionalAnalysis';
 import { AIInsightsSection } from '../components/AIInsightsSection';
 import { BudgetUtilization } from '../components/BudgetUtilization';
 import { QuickStats } from '../components/QuickStats';
+import PreviousMonthSpendings from '../components/PreviousMonthSpendings';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useInsightsCalculations } from '@/hooks/useInsightsCalculations';
 import { useTheme } from '../context/ThemeContext';
 
 export default function InsightsScreen() {
   const { theme } = useTheme();
+  const [refreshing, setRefreshing] = React.useState(false);
   const {
     expenses,
     budgets,
@@ -31,12 +33,29 @@ export default function InsightsScreen() {
     realInsights,
   } = useInsightsCalculations(expenses, budgets, groups);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadAIInsights();
+    } catch (error) {
+      console.error('Error refreshing insights:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <InsightsHeader />
 
-      <ScrollView style={{ flex: 1, padding: 20, backgroundColor: theme.background }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1, padding: 20, backgroundColor: theme.background }} showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
         <SpendingTrendChart data={spendingTrend} />
+
+        <PreviousMonthSpendings expenses={expenses} />
 
         <CategoryBreakdownChart data={categorySpending} />
 

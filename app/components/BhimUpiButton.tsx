@@ -10,7 +10,8 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import bhimUpiService, { BhimUpiPaymentData } from '@/lib/services/bhimUpiService';
+import bhimUpiService from '@/lib/services/bhimUpiService';
+import { BhimUpiPaymentData } from '@/lib/services/types';
 import { useTheme } from '../context/ThemeContext';
 
 interface BhimUpiButtonProps {

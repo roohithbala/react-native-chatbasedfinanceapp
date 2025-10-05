@@ -23,6 +23,7 @@ import { format } from 'date-fns';
 import SplitBillModal from '../components/SplitBillModal';
 import { directMessagesAPI } from '@/lib/services/api';
 import { useFinanceStore } from '../../lib/store/financeStore';
+import { useMentions } from '@/hooks/useMentions';
 import { CommandParser } from '../../lib/components/CommandParser';
 import { useTheme } from '../context/ThemeContext';
 import MessageInput from '../components/MessageInput';
@@ -95,6 +96,7 @@ export default function ChatDetailScreen() {
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [otherUser, setOtherUser] = useState<{
+    _id: string;
     name: string;
     username: string;
     avatar: string;
@@ -108,9 +110,6 @@ export default function ChatDetailScreen() {
     fileSize?: number;
     mimeType?: string;
   } | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showMenuModal, setShowMenuModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Message[]>([]);
@@ -146,8 +145,9 @@ export default function ChatDetailScreen() {
         }
 
         // Ensure we have the required fields
-        if (otherUserInfo && otherUserInfo.name && otherUserInfo.username) {
+        if (otherUserInfo && otherUserInfo.name && otherUserInfo.username && otherUserInfo._id) {
           setOtherUser({
+            _id: otherUserInfo._id,
             name: otherUserInfo.name,
             username: otherUserInfo.username,
             avatar: otherUserInfo.avatar || otherUserInfo.name.charAt(0).toUpperCase()
@@ -163,7 +163,7 @@ export default function ChatDetailScreen() {
       console.error('Error loading messages:', error);
       setIsLoading(false);
       // Show error to user
-      Alert.alert('Error', 'Failed to load messages. Please check your connection and try again.');
+      Alert.alert('Error', 'Failed to load messages. Please try again.');
     }
   };
 
@@ -193,8 +193,22 @@ export default function ChatDetailScreen() {
       let participants = [];
       let description = data.description || 'Split Bill';
 
-      if (data.username) {
-        // New format: @split @username category amount
+      if (data.isAll) {
+        // New format: @split @all reason and amount - split with all chat members
+        // In direct chat, this means splitting with the other user
+        participants = [
+          {
+            userId: currentUser._id,
+            amount: data.amount / 2,
+          },
+          {
+            userId: userId,
+            amount: data.amount / 2,
+          }
+        ];
+        description = data.description;
+      } else if (data.username) {
+        // New format: @split @username reason and amount
         // We need to find the user ID for the username
         // For now, assume the username matches the other user's username
         if (otherUser && otherUser.username === data.username) {
@@ -331,27 +345,26 @@ export default function ChatDetailScreen() {
     if (!selectedMedia) return;
 
     try {
-      // Create FormData for the file
-      const formData = new FormData();
-      formData.append(selectedMedia.type, {
+      // Prepare the file object for upload
+      const fileObject = {
         uri: selectedMedia.uri,
         type: selectedMedia.mimeType || `application/octet-stream`,
         name: selectedMedia.fileName || `file-${Date.now()}`,
-      } as any);
+      };
 
       let uploadResponse;
       switch (selectedMedia.type) {
         case 'image':
-          uploadResponse = await directMessagesAPI.uploadImage(userId, formData);
+          uploadResponse = await directMessagesAPI.uploadImage(userId, fileObject);
           break;
         case 'video':
-          uploadResponse = await directMessagesAPI.uploadVideo(userId, formData);
+          uploadResponse = await directMessagesAPI.uploadVideo(userId, fileObject);
           break;
         case 'audio':
-          uploadResponse = await directMessagesAPI.uploadAudio(userId, formData);
+          uploadResponse = await directMessagesAPI.uploadAudio(userId, fileObject);
           break;
         case 'document':
-          uploadResponse = await directMessagesAPI.uploadDocument(userId, formData);
+          uploadResponse = await directMessagesAPI.uploadDocument(userId, fileObject);
           break;
         default:
           throw new Error('Unsupported media type');
@@ -373,6 +386,11 @@ export default function ChatDetailScreen() {
 
   const handleMediaCancel = () => {
     setSelectedMedia(null);
+  };
+
+  const handleUserMention = (user: any) => {
+    console.log('User mentioned:', user);
+    // Handle user mention - could show user profile or add to context
   };
 
   const handleSearchMessages = () => {
@@ -410,19 +428,9 @@ export default function ChatDetailScreen() {
     setSearchResults([]);
   };
 
-  const handleClearChat = async () => {
-    try {
-      // Call API to clear chat messages
-      await directMessagesAPI.clearChat(userId);
-      
-      // Clear local messages state
-      setMessages([]);
-      
-      Alert.alert('Success', 'Chat cleared successfully!');
-    } catch (error: any) {
-      console.error('Error clearing chat:', error);
-      Alert.alert('Error', error.message || 'Failed to clear chat');
-    }
+  const handleMessageChange = (text: string) => {
+    setNewMessage(text);
+    // MessageInput component handles mentions internally
   };
 
   const handleBlockUser = async () => {
@@ -441,50 +449,41 @@ export default function ChatDetailScreen() {
   };
 
   const handleHamburgerMenu = () => {
-    setShowMenuModal(true);
+    router.push('/expenses');
   };
 
   const handleSend = async () => {
-    if (!newMessage.trim()) {
-      console.log('Cannot send empty message');
-      return;
-    }
-
-    setIsSending(true);
-    setError(null);
+    if (!newMessage.trim()) return;
 
     try {
       const messageToSend = newMessage.trim();
-      console.log('Processing message:', JSON.stringify(messageToSend));
-      console.log('Message length:', messageToSend.length);
-      console.log('Message starts with @:', messageToSend.startsWith('@'));
 
       // Check if the message is a command
       const commandData = CommandParser.parse(messageToSend);
-      console.log('Command parsing result:', JSON.stringify(commandData));
-      console.log('Command type:', commandData.type);
-      console.log('Is command type unknown?', commandData.type === 'unknown');
-      console.log('Command data exists?', !!commandData);
 
-      if (commandData && commandData.type !== 'unknown') {
-        console.log('DETECTED COMMAND - Processing as command');
+      // Additional validation: ensure it's a proper command format
+      const isValidCommand = commandData && commandData.type !== 'unknown' && 
+                            (messageToSend.toLowerCase().startsWith('@split ') || 
+                             messageToSend.toLowerCase().startsWith('@addexpense ') ||
+                             messageToSend === '@predict' ||
+                             messageToSend === '@summary');
+
+      if (isValidCommand) {
+        console.log('Direct Chat: Processing command:', commandData.type);
         // Send the original command message first
         const sentCommand = await directMessagesAPI.sendMessage(userId, messageToSend);
         setMessages(prev => [...prev, sentCommand]);
 
         // Then handle the command
         if (commandData.type === 'split') {
-          console.log('Processing split command');
           await handleSplitBillCommand(commandData.data);
         } else if (commandData.type === 'expense') {
-          console.log('Processing expense command');
           await handleExpenseCommand(commandData.data);
         }
       } else {
-        console.log('SENDING AS REGULAR MESSAGE');
+        console.log('Direct Chat: Sending as regular message');
         // Send as regular message
         const sent = await directMessagesAPI.sendMessage(userId, messageToSend);
-        console.log('Message sent successfully:', sent);
         setMessages(prev => [...prev, sent]);
       }
 
@@ -492,10 +491,7 @@ export default function ChatDetailScreen() {
       Keyboard.dismiss();
     } catch (error: any) {
       console.error('Error sending message:', error);
-      setError(error.message || 'Failed to send message');
       Alert.alert('Error', error.message || 'Failed to send message');
-    } finally {
-      setIsSending(false);
     }
   };
 
@@ -523,18 +519,7 @@ export default function ChatDetailScreen() {
             isOwnMessage ? styles.ownBubble : styles.otherBubble,
           ]}
         >
-          {item.splitBillData && 
-            typeof item.splitBillData === 'object' && 
-            item.splitBillData._id && 
-            typeof item.splitBillData._id === 'string' && 
-            item.splitBillData._id.length > 0 &&
-            item.splitBillData.description && 
-            typeof item.splitBillData.description === 'string' &&
-            item.splitBillData.totalAmount && 
-            typeof item.splitBillData.totalAmount === 'number' &&
-            item.splitBillData.totalAmount > 0 &&
-            Array.isArray(item.splitBillData.participants) &&
-            item.splitBillData.participants.length > 0 ? (() => {
+          {item.splitBillData && item.text.startsWith('✅') ? (() => {
             const transformedParticipants = item.splitBillData.participants.map(p => ({
               userId: typeof p.userId === 'object' ? p.userId._id : p.userId,
               name: typeof p.userId === 'object' ? p.userId.name : 'Unknown',
@@ -560,30 +545,22 @@ export default function ChatDetailScreen() {
                   // Refresh messages to show updated payment status
                   loadMessages();
                 }}
-                onRejectBill={(splitBillId) => {
-                  // Remove the rejected split bill message from the chat
-                  setMessages(prev => prev.filter(msg => 
-                    !msg.splitBillData || msg.splitBillData._id !== splitBillId
-                  ));
-                }}
               />
             );
           })() : (
-            <>
-              <Text style={[
-                styles.messageText,
-                isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-              ]}>
-                {item.text}
-              </Text>
-              <Text style={[
-                styles.messageTime,
-                isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
-              ]}>
-                {format(new Date(item.createdAt), 'HH:mm')}
-              </Text>
-            </>
+            <Text style={[
+              styles.messageText,
+              isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+            ]}>
+              {item.text}
+            </Text>
           )}
+          <Text style={[
+            styles.messageTime,
+            isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
+          ]}>
+            {format(new Date(item.createdAt), 'HH:mm')}
+          </Text>
         </View>
       </View>
     );
@@ -599,7 +576,7 @@ export default function ChatDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#6366F1" />
       <LinearGradient
         colors={['#6366F1', '#8B5CF6', '#EC4899']}
         start={{ x: 0, y: 0 }}
@@ -621,7 +598,7 @@ export default function ChatDetailScreen() {
               </View>
               <View style={styles.userDetails}>
                 <Text style={styles.userName}>{otherUser.name}</Text>
-                <Text style={styles.userStatus}>Online</Text>
+                <Text style={styles.userStatus}>Active now</Text>
               </View>
             </View>
           )}
@@ -643,8 +620,7 @@ export default function ChatDetailScreen() {
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        enabled={true}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <FlatList
           ref={flatListRef}
@@ -669,15 +645,18 @@ export default function ChatDetailScreen() {
 
         <MessageInput
           message={newMessage}
-          onMessageChange={setNewMessage}
+          onMessageChange={handleMessageChange}
           onSendPress={handleSend}
           onSplitBillPress={startSplitBill}
           onMediaSelect={handleMediaSelect}
           selectedMedia={selectedMedia}
           onMediaSend={handleMediaSend}
           onMediaCancel={handleMediaCancel}
-          isSending={isSending}
-          error={error}
+          groupId={undefined}
+          activeGroup={undefined}
+          isDirectChat={true}
+          otherUser={otherUser}
+          onUserMention={handleUserMention}
         />
       </KeyboardAvoidingView>
 
@@ -758,71 +737,6 @@ export default function ChatDetailScreen() {
           />
         </SafeAreaView>
       </Modal>
-
-      {/* Menu Modal */}
-      <Modal
-        visible={showMenuModal}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setShowMenuModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={() => setShowMenuModal(false)}
-        >
-          <View style={styles.menuContainer}>
-            <View style={styles.menuContent}>
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenuModal(false);
-                  handleSearchMessages();
-                }}
-              >
-                <Ionicons name="search" size={20} color={theme.text} />
-                <Text style={[styles.menuItemText, { color: theme.text }]}>Search Messages</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenuModal(false);
-                  Alert.alert(
-                    'Clear Chat',
-                    `Are you sure you want to clear your chat with ${otherUser?.name}? This action cannot be undone.`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Clear', style: 'destructive', onPress: handleClearChat }
-                    ]
-                  );
-                }}
-              >
-                <Ionicons name="trash-outline" size={20} color={theme.text} />
-                <Text style={[styles.menuItemText, { color: theme.text }]}>Clear Chat</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenuModal(false);
-                  Alert.alert(
-                    'Block User',
-                    `Are you sure you want to block ${otherUser?.name}? You won't be able to send or receive messages from this user.`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Block', style: 'destructive', onPress: handleBlockUser }
-                    ]
-                  );
-                }}
-              >
-                <Ionicons name="ban-outline" size={20} color="#EF4444" />
-                <Text style={[styles.menuItemText, { color: "#EF4444" }]}>Block User</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -833,7 +747,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.background,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 30,
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -1335,40 +1249,5 @@ const getStyles = (theme: any) => StyleSheet.create({
   settledText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: Platform.OS === 'ios' ? 100 : 60,
-    paddingRight: 16,
-  },
-  menuContainer: {
-    minWidth: 200,
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  menuContent: {
-    paddingVertical: 8,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  menuItemText: {
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

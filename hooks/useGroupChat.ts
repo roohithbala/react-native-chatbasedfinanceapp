@@ -8,7 +8,6 @@ import chatAPI from '../lib/services/chatAPI';
 import { groupsAPI } from '../lib/services/api';
 import { Message, ChatUser } from '../app/types/chat';
 import { API_BASE_URL } from '../lib/services/api';
-import { CommandParser } from '@/lib/components/CommandParser';
 
 export const useGroupChat = () => {
   const { groupId, groupName } = useLocalSearchParams<{ groupId: string; groupName: string }>();
@@ -215,7 +214,7 @@ export const useGroupChat = () => {
           if (msg._id === data.messageId) {
             const readReceipt = {
               userId: data.userId,
-              readAt: new Date(data.readAt)
+              readAt: data.readAt ? new Date(data.readAt) : new Date()
             };
             if (!msg.readBy.find(r => r.userId === data.userId)) {
               return { ...msg, readBy: [...msg.readBy, readReceipt] };
@@ -228,7 +227,7 @@ export const useGroupChat = () => {
       // Handle split bill updates
       socketService.onSplitBillUpdate((data) => {
         console.log('Split bill updated via socket:', data);
-        if (data.type === 'payment-made') {
+        if (data.type === 'payment-made' || data.type === 'bill-rejected') {
           // Update messages that contain this split bill
           setMessages(prev => prev.map(msg => {
             if (msg.type === 'split_bill' && msg.splitBillData?.splitBillId === data.splitBillId) {
@@ -439,325 +438,31 @@ export const useGroupChat = () => {
           Alert.alert('Upload Error', uploadError.message || 'Failed to upload media');
         }
       } else {
-        // Handle text message
-        // Check if the message is a command
-        const commandData = CommandParser.parse(trimmedMessage);
-        if (commandData && commandData.type !== 'unknown') {
-          await processCommand(commandData, trimmedMessage);
-        } else {
-          // Send regular text message
-          const response = await chatAPI.sendMessage(groupId, {
-            text: trimmedMessage,
-            type: 'text',
-            status: 'sent'
-          });
+        // Handle text message - just send it, backend will handle command parsing
+        const response = await chatAPI.sendMessage(groupId, {
+          text: trimmedMessage,
+          type: 'text',
+          status: 'sent'
+        });
 
-          if (response && response.status === 'success') {
-            // Update the temporary message with the real one, avoiding duplicates
-            setMessages(prev => prev.map(msg =>
-              msg._id === tempMessageId ? { ...response.data.message, isTemp: false } : msg
-            ).filter((msg, index, arr) => 
-              // Remove any duplicates by _id, keeping the first occurrence
-              arr.findIndex(m => m._id === msg._id) === index
-            ));
-          } else {
-            // Mark message as error
-            setMessages(prev => prev.map(msg =>
-              msg._id === tempMessageId ? { ...msg, status: 'error' as const, isTemp: false } : msg
-            ));
-          }
+        if (response && response.status === 'success') {
+          // Update the temporary message with the real one, avoiding duplicates
+          setMessages(prev => prev.map(msg =>
+            msg._id === tempMessageId ? { ...response.data.message, isTemp: false } : msg
+          ).filter((msg, index, arr) => 
+            // Remove any duplicates by _id, keeping the first occurrence
+            arr.findIndex(m => m._id === msg._id) === index
+          ));
+        } else {
+          // Mark message as error
+          setMessages(prev => prev.map(msg =>
+            msg._id === tempMessageId ? { ...msg, status: 'error' as const, isTemp: false } : msg
+          ));
         }
       }
     } catch (error: any) {
       console.error('Error sending message:', error);
       Alert.alert('Error', error.message || 'Failed to send message');
-    }
-  };
-
-  const processCommand = async (commandData: any, originalMessage: string) => {
-    try {
-      console.log('Processing command:', commandData.type, 'with data:', commandData);
-
-      switch (commandData.type) {
-        case 'split':
-          await handleSplitBillCommand(commandData);
-          break;
-        case 'expense':
-          await handleExpenseCommand(commandData);
-          break;
-        case 'predict':
-          await handlePredictCommand();
-          break;
-        case 'summary':
-          await handleSummaryCommand();
-          break;
-        case 'unknown':
-          console.log('Unknown command type, will be sent as regular message');
-          // This will be handled as a regular message in sendMessage
-          break;
-      }
-    } catch (error: any) {
-      console.error('Error processing command:', commandData?.type, error);
-      console.error('Command data:', commandData);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-
-      // Show user-friendly error message
-      const errorMessage = error.message || `Failed to process ${commandData?.type || 'command'}`;
-      Alert.alert('Command Error', errorMessage);
-    }
-  };
-
-  const handleSplitBillCommand = async (data: any) => {
-    console.log('handleSplitBillCommand called with data:', data);
-    console.log('Data type checks:', {
-      data: !!data,
-      dataAmount: !!data?.amount,
-      dataAmountValue: data?.amount,
-      dataAmountType: typeof data?.amount,
-      amountGreaterThanZero: data?.amount > 0
-    });
-
-    try {
-      if (!data || !data.amount || data.amount <= 0) {
-        throw new Error('Invalid amount for split bill');
-      }
-
-      if (!currentUser?._id) {
-        throw new Error('User not authenticated');
-      }
-
-      if (!validGroupId) {
-        throw new Error('No group selected');
-      }
-
-      // Handle both old and new command formats
-      let participants = [];
-      let description = data.description || 'Split Bill';
-
-      if (data.username) {
-        // Old format: @split description $amount @username
-        const member = activeGroup?.members?.find((m: any) =>
-          m.userId?.username === data.username.replace('@', '')
-        );
-        if (member) {
-          participants = [{
-            userId: member.userId._id,
-            name: member.userId.name || data.username
-          }];
-        } else {
-          throw new Error(`User @${data.username} not found in this group`);
-        }
-      } else if (data.participants && data.participants.length > 0) {
-        // New format: @split description $amount @user1 @user2
-        participants = data.participants.map((username: string) => {
-          // Find user by username in group members
-          const member = activeGroup?.members?.find((m: any) =>
-            m.userId?.username === username.replace('@', '')
-          );
-          if (member) {
-            return {
-              userId: member.userId._id,
-              name: member.userId.name || username
-            };
-          } else {
-            throw new Error(`User ${username} not found in this group`);
-          }
-        }).filter((p: any) => p.userId); // Filter out any invalid entries
-      } else {
-        // Default: split with all group members except current user
-        participants = activeGroup?.members
-          ?.filter((member: any) => member?.userId && member.userId._id !== currentUser._id)
-          ?.map((member: any) => ({
-            userId: member.userId._id,
-            name: member.userId.name || 'Unknown'
-          })) || [];
-      }
-
-      if (participants.length === 0) {
-        throw new Error('No participants found for split bill');
-      }
-
-      // Create the split bill
-      const splitBillData = {
-        description: description,
-        totalAmount: data.amount,
-        groupId: validGroupId,
-        participants: participants,
-        splitType: 'equal' as const,
-        category: data.category || 'Split',
-        currency: 'INR'
-      };
-
-      console.log('Creating split bill with data:', splitBillData);
-      const result = await useFinanceStore.getState().createSplitBill(splitBillData);
-
-      // Create individual expenses for each participant (only for valid user IDs)
-      for (const participant of participants) {
-        // Skip if userId is not a valid ObjectId (e.g., username string)
-        if (!participant.userId || typeof participant.userId !== 'string' || participant.userId.length !== 24) {
-          console.warn('Skipping expense creation for invalid userId:', participant.userId);
-          continue;
-        }
-
-        const expenseData = {
-          description: `${description} (split with ${participants.length} people)`,
-          amount: data.amount / participants.length,
-          category: data.category || 'Split',
-          userId: participant.userId,
-          groupId: validGroupId
-        };
-
-        try {
-          await useFinanceStore.getState().addExpense(expenseData);
-        } catch (expenseError) {
-          console.error('Error creating individual expense for participant:', participant, expenseError);
-          // Continue with other participants even if one fails
-        }
-      }
-
-      // Send confirmation message
-      const participantNames = participants
-        .filter((p: any) => p.userId !== currentUser._id)
-        .map((p: any) => p.name)
-        .join(', ');
-
-      const confirmationMessage = `✅ Split bill created!\n📝 ${description}\n💰 Total: $${(data.amount || 0).toFixed(2)}\n🤝 Each pays: $${((data.amount || 0) / participants.length).toFixed(2)}\n👥 Participants: ${participantNames || 'All group members'}\n💾 Data saved to database`;
-
-      await sendMessage(confirmationMessage);
-
-      Alert.alert('Success', 'Split bill created successfully and expenses added to database!');
-    } catch (error: any) {
-      console.error('Error creating split bill:', error);
-      Alert.alert('Error', error.message || 'Failed to create split bill');
-    }
-  };
-
-  const handleExpenseCommand = async (data: any) => {
-    try {
-      if (!data || !data.amount || data.amount <= 0) {
-        throw new Error('Invalid amount for expense');
-      }
-
-      if (!currentUser?._id) {
-        throw new Error('User not authenticated');
-      }
-
-      // Create expense data
-      const expenseData = {
-        description: data.description,
-        amount: data.amount,
-        category: data.category,
-        userId: currentUser._id,
-        groupId: validGroupId || undefined
-      };
-
-      // Add the expense
-      const { addExpense } = useFinanceStore.getState();
-      await addExpense(expenseData);
-
-      // Send confirmation message
-      const confirmationMessage = `✅ Expense added!\n📝 ${data.description}\n💰 Amount: $${(data.amount || 0).toFixed(2)}\n📂 Category: ${data.category}`;
-      await sendMessage(confirmationMessage);
-
-      Alert.alert('Success', 'Expense added successfully!');
-    } catch (error: any) {
-      console.error('Error adding expense:', error);
-      Alert.alert('Error', error.message || 'Failed to add expense');
-    }
-  };
-
-  const handlePredictCommand = async () => {
-    try {
-      console.log('Handling @predict command');
-      const response = await fetch(`${API_BASE_URL}/ai/predict`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await AsyncStorage.getItem('authToken')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get predictions');
-      }
-
-      const data = await response.json();
-      console.log('AI prediction response:', data);
-
-      // Create AI response message
-      const aiMessage: Message = {
-        _id: `ai-${Date.now()}`,
-        text: `🤖 AI Predictions:\n\n${data.predictions?.map((p: any) =>
-          `• ${p.message}${p.suggestion ? `\n  💡 ${p.suggestion}` : ''}`
-        ).join('\n\n') || 'No predictions available'}`,
-        createdAt: new Date().toISOString(),
-        user: {
-          _id: 'ai-assistant',
-          name: 'AI Assistant',
-          username: 'ai',
-          avatar: '🤖'
-        },
-        type: 'text' as const,
-        status: 'sent' as const,
-        readBy: [],
-        groupId: groupId!,
-        isTemp: false
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error handling predict command:', error);
-      Alert.alert('Error', 'Failed to get AI predictions. Please try again.');
-    }
-  };
-
-  const handleSummaryCommand = async () => {
-    try {
-      console.log('Handling @summary command');
-      const response = await fetch(`${API_BASE_URL}/ai/summary`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await AsyncStorage.getItem('authToken')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get summary');
-      }
-
-      const data = await response.json();
-      console.log('AI summary response:', data);
-
-      // Create AI response message
-      const aiMessage: Message = {
-        _id: `ai-${Date.now()}`,
-        text: `📊 Financial Summary:\n\n💰 Total Expenses: $${data.totalExpenses?.toFixed(2) || '0.00'}\n💵 Personal: $${data.totalPersonalExpenses?.toFixed(2) || '0.00'}\n🤝 Split Bills: $${data.totalSplitExpenses?.toFixed(2) || '0.00'}\n\n📈 Expense Count: ${data.expenseCount || 0}\n🔄 Split Bills: ${data.splitBillCount || 0}\n\n📂 Top Categories:\n${Object.entries(data.categoryBreakdown || {}).map(([cat, amount]: [string, any]) =>
-          `• ${cat}: $${Number(amount).toFixed(2)}`
-        ).join('\n') || 'No category data'}`,
-        createdAt: new Date().toISOString(),
-        user: {
-          _id: 'ai-assistant',
-          name: 'AI Assistant',
-          username: 'ai',
-          avatar: '🤖'
-        },
-        type: 'text' as const,
-        status: 'sent' as const,
-        readBy: [],
-        groupId: groupId!,
-        isTemp: false
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error handling summary command:', error);
-      Alert.alert('Error', 'Failed to get financial summary. Please try again.');
     }
   };
 

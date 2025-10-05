@@ -50,7 +50,6 @@ export interface Expense {
   groupId?: string;
   createdAt: Date;
   tags?: string[];
-  location?: string;
 }
 
 export interface CreateExpenseData {
@@ -60,7 +59,6 @@ export interface CreateExpenseData {
   userId: string;
   groupId?: string;
   tags?: string[];
-  location?: string;
 }
 
 export interface SplitBillParticipant {
@@ -118,6 +116,7 @@ interface FinanceState {
   updateProfile: (userData: User) => Promise<void>;
   biometricLogin: () => Promise<void>;
   updateBiometricPreference: (enabled: boolean) => Promise<void>;
+  googleAuth: (idToken: string) => Promise<void>;
   
   // Expense actions
   addExpense: (expense: CreateExpenseData) => Promise<void>;
@@ -141,10 +140,13 @@ interface FinanceState {
   // Group actions
   loadGroups: () => Promise<void>;
   createGroup: (groupData: any) => Promise<void>;
+  updateGroup: (groupId: string, groupData: any) => Promise<void>;
+  deleteGroup: (groupId: string) => Promise<void>;
   joinGroupByCode: (inviteCode: string) => Promise<void>;
   selectGroup: (group: Group) => void;
   generateInviteLink: (groupId: string) => string;
   addMemberToGroup: (groupId: string, identifier: string, searchType?: 'email' | 'username') => Promise<void>;
+  removeMemberFromGroup: (groupId: string, memberId: string) => Promise<void>;
   
   // Chat actions
   loadMessages: (groupId: string) => Promise<void>;
@@ -463,6 +465,66 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       set({
         error: error.message || 'Failed to update biometric preference',
         isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  googleAuth: async (idToken: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const response = await authAPI.googleAuth(idToken);
+
+      if (response.token && response.user) {
+        await AsyncStorage.setItem('authToken', response.token);
+        await AsyncStorage.setItem('userData', JSON.stringify(response.user));
+
+        set({
+          isAuthenticated: true,
+          authToken: response.token,
+          currentUser: response.user,
+          groups: Array.isArray(response.user.groups) ? response.user.groups : [],
+          selectedGroup: Array.isArray(response.user.groups) ? response.user.groups[0] || null : null,
+          isLoading: false,
+        });
+
+        // Load all user data after successful Google authentication
+        try {
+          console.log('Loading user data after Google auth...');
+
+          // Load groups first
+          await get().loadGroups();
+
+          // After loading groups, set the first group as selected if available
+          const groups = get().groups;
+          if (Array.isArray(groups) && groups.length > 0) {
+            set({ selectedGroup: groups[0] });
+          }
+
+          // Load other data in parallel
+          await Promise.all([
+            get().loadExpenses(),
+            get().loadBudgets(),
+            get().getSplitBills()
+          ]);
+
+          console.log('All user data loaded successfully after Google auth');
+
+          // Initialize socket listeners for real-time updates
+          get().initializeSocketListeners();
+        } catch (error) {
+          console.error('Error loading data after Google auth:', error);
+          // Don't throw error, just log it - user can still use the app
+        }
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Google authentication failed',
+        isLoading: false,
+        groups: [], // Ensure groups is always an array
       });
       throw error;
     }
@@ -892,6 +954,41 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         }
       }
 
+      // Automatically create an expense for the split bill
+      try {
+        const currentUser = get().currentUser;
+        if (currentUser) {
+          // Find the current user's share in the split bill
+          const userParticipant = response.splitBill.participants.find(
+            p => {
+              if (typeof p.userId === 'object' && p.userId && '_id' in p.userId) {
+                return (p.userId as any)._id === currentUser._id;
+              } else if (typeof p.userId === 'string') {
+                return p.userId === currentUser._id;
+              }
+              return false;
+            }
+          );
+
+          if (userParticipant) {
+            const expenseData: CreateExpenseData = {
+              description: `Split bill: ${response.splitBill.description}`,
+              amount: userParticipant.amount,
+              category: response.splitBill.category || 'Other',
+              userId: currentUser._id,
+              groupId: response.splitBill.groupId,
+              tags: ['split-bill', response.splitBill._id]
+            };
+
+            console.log('Creating expense for split bill:', expenseData);
+            await get().addExpense(expenseData);
+          }
+        }
+      } catch (expenseError) {
+        console.error('Error creating expense for split bill:', expenseError);
+        // Don't throw error for expense creation failure - split bill was created successfully
+      }
+
       return response.splitBill;
     } catch (error: any) {
       console.log('Store createSplitBill error:', error);
@@ -1043,6 +1140,49 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         ) : [],
         isLoading: false
       }));
+
+      // Automatically create or update expense when user pays their share
+      try {
+        const currentUser = get().currentUser;
+        if (currentUser) {
+          // Find the current user's share in the updated split bill
+          const userParticipant = response.splitBill.participants.find(
+            p => {
+              if (typeof p.userId === 'object' && p.userId && '_id' in p.userId) {
+                return (p.userId as any)._id === currentUser._id;
+              } else if (typeof p.userId === 'string') {
+                return p.userId === currentUser._id;
+              }
+              return false;
+            }
+          );
+
+          if (userParticipant && userParticipant.isPaid) {
+            // Check if expense already exists for this split bill
+            const existingExpense = get().expenses.find(
+              exp => exp.tags?.includes(response.splitBill._id)
+            );
+
+            if (!existingExpense) {
+              // Create new expense
+              const expenseData: CreateExpenseData = {
+                description: `Split bill payment: ${response.splitBill.description}`,
+                amount: userParticipant.amount,
+                category: response.splitBill.category || 'Other',
+                userId: currentUser._id,
+                groupId: response.splitBill.groupId,
+                tags: ['split-bill-payment', response.splitBill._id]
+              };
+
+              console.log('Creating expense for split bill payment:', expenseData);
+              await get().addExpense(expenseData);
+            }
+          }
+        }
+      } catch (expenseError) {
+        console.error('Error creating expense for split bill payment:', expenseError);
+        // Don't throw error for expense creation failure - payment was successful
+      }
 
       return response.splitBill;
     } catch (error: any) {
@@ -1362,6 +1502,94 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
 
+  updateGroup: async (groupId: string, groupData: any) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await groupsAPI.updateGroup(groupId, groupData);
+      
+      if (!response || !response.group) {
+        throw new Error('Invalid response from server');
+      }
+
+      set((state) => ({
+        groups: Array.isArray(state.groups) ? state.groups.map(group =>
+          group._id === groupId ? response.group : group
+        ) : [],
+        selectedGroup: state.selectedGroup?._id === groupId 
+          ? response.group 
+          : state.selectedGroup,
+        isLoading: false,
+        error: null
+      }));
+
+      Alert.alert('Success', 'Group updated successfully');
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to update group';
+      set({ 
+        error: errorMsg,
+        isLoading: false 
+      });
+      Alert.alert('Error', errorMsg);
+      throw error;
+    }
+  },
+
+  deleteGroup: async (groupId: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      await groupsAPI.deleteGroup(groupId);
+      
+      set((state) => ({
+        groups: Array.isArray(state.groups) ? state.groups.filter(group => group._id !== groupId) : [],
+        selectedGroup: state.selectedGroup?._id === groupId ? null : state.selectedGroup,
+        isLoading: false,
+        error: null
+      }));
+
+      Alert.alert('Success', 'Group deleted successfully');
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to delete group';
+      set({ 
+        error: errorMsg,
+        isLoading: false 
+      });
+      Alert.alert('Error', errorMsg);
+      throw error;
+    }
+  },
+
+  removeMemberFromGroup: async (groupId: string, memberId: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await groupsAPI.removeMember(groupId, memberId);
+      
+      if (!response || !response.group) {
+        throw new Error('Invalid response from server');
+      }
+
+      set((state) => ({
+        groups: Array.isArray(state.groups) ? state.groups.map(group =>
+          group._id === groupId ? response.group : group
+        ) : [],
+        selectedGroup: state.selectedGroup?._id === groupId 
+          ? response.group 
+          : state.selectedGroup,
+        isLoading: false,
+        error: null
+      }));
+
+      Alert.alert('Success', 'Member removed successfully');
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to remove member';
+      set({ 
+        error: errorMsg,
+        isLoading: false 
+      });
+      Alert.alert('Error', errorMsg);
+      throw error;
+    }
+  },
+
   // Chat actions
   loadMessages: async (groupId: string) => {
     try {
@@ -1629,7 +1857,39 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
               ...g,
               members: [...(g.members || []), member]
             } : g
-          )
+          ),
+          selectedGroup: state.selectedGroup && state.selectedGroup._id === groupId ? {
+            ...state.selectedGroup,
+            members: [...(state.selectedGroup.members || []), member]
+          } : state.selectedGroup
+        }));
+      } else if (type === 'member-removed' && groupId) {
+        const memberId = data.memberId;
+        set((state) => ({
+          groups: state.groups.map(g =>
+            g._id === groupId ? {
+              ...g,
+              members: (g.members || []).filter(m => m.userId !== memberId)
+            } : g
+          ),
+          selectedGroup: state.selectedGroup && state.selectedGroup._id === groupId ? {
+            ...state.selectedGroup,
+            members: (state.selectedGroup.members || []).filter(m => m.userId !== memberId)
+          } : state.selectedGroup
+        }));
+      } else if (type === 'member-left' && groupId) {
+        const memberId = data.memberId;
+        set((state) => ({
+          groups: state.groups.map(g =>
+            g._id === groupId ? {
+              ...g,
+              members: (g.members || []).filter(m => m.userId !== memberId)
+            } : g
+          ),
+          selectedGroup: state.selectedGroup && state.selectedGroup._id === groupId ? {
+            ...state.selectedGroup,
+            members: (state.selectedGroup.members || []).filter(m => m.userId !== memberId)
+          } : state.selectedGroup
         }));
       }
     });

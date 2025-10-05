@@ -8,7 +8,7 @@ import { isMessageResponse, isMessagesResponse } from '../../app/utils/typeGuard
 // API Configuration
 const getApiBaseUrl = () => {
   // Try to get the server IP from environment or use localhost as fallback
-  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.255.29.172';
+  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.27.93.172';
   const serverPort = process.env.EXPO_PUBLIC_BACKEND_PORT || '3001';
   
   if (__DEV__) {
@@ -21,7 +21,7 @@ const getApiBaseUrl = () => {
 export const API_BASE_URL = getApiBaseUrl();
 
 console.log('API Base URL:', API_BASE_URL);
-console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.255.29.172');
+console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.27.93.172');
 console.log('Server Port:', process.env.EXPO_PUBLIC_BACKEND_PORT || '3001');
 
 // Network connectivity check
@@ -49,7 +49,7 @@ export const checkServerConnectivity = async (): Promise<boolean> => {
 // Auto-detect server IP (useful for development)
 export const detectServerIP = async (): Promise<string | null> => {
   const commonIPs = [
-    '10.255.29.172', // New configured IP
+    '10.27.93.172', // New configured IP
     '10.42.112.172', // Previous configured IP
     '10.40.155.172', // Previous configured IP
     '192.168.1.100',
@@ -217,6 +217,23 @@ export const authAPI = {
         error.response?.data?.message ||
         error.message ||
         'Failed to update profile'
+      );
+    }
+  },
+
+  googleAuth: async (idToken: string) => {
+    try {
+      const response = await api.post('/auth/google', { idToken });
+      if (!response.data || !response.data.user || !response.data.token) {
+        throw new Error('Invalid response from server');
+      }
+      return response.data;
+    } catch (error: any) {
+      console.error('Google auth error:', error);
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'Google authentication failed'
       );
     }
   },
@@ -560,6 +577,16 @@ export const expensesAPI = {
     const response = await api.get('/expenses/stats', { params: { period } });
     return response.data;
   },
+
+  resetExpenses: async () => {
+    try {
+      const response = await api.delete('/expenses/reset');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error resetting expenses:', error);
+      throw error;
+    }
+  },
 };
 
 // Groups API
@@ -630,6 +657,12 @@ export const groupsAPI = {
       // More flexible validation - handle various response formats
       if (!response.data) {
         throw new Error('No response data from server');
+      }
+      
+      // Handle error responses first
+      if (response.data.status === 'error' || (response.data.message && response.data.status !== 'success')) {
+        console.warn('Server returned error for add member:', response.data.message);
+        throw new Error(response.data.message || 'Failed to add member');
       }
       
       // Check for success status and data
@@ -929,6 +962,64 @@ export const groupsAPI = {
       return response.data;
     } catch (error) {
       console.error('Leave group error:', error);
+      throw error;
+    }
+  },
+
+  updateGroup: async (groupId: string, groupData: any) => {
+    try {
+      console.log('Calling updateGroup with:', { groupId, groupData });
+      const response = await api.put(`/groups/${groupId}`, groupData);
+      console.log('updateGroup response:', response.data);
+      console.log('Response status:', response.status);
+      
+      if (!response.data) {
+        throw new Error('No response data from server');
+      }
+      
+      if (response.data.status === 'success') {
+        return response.data.data || response.data;
+      }
+      
+      // Handle error responses
+      if (response.data.status === 'error') {
+        throw new Error(response.data.message || 'Server returned an error');
+      }
+      
+      throw new Error(response.data.message || 'Invalid response format from server');
+    } catch (error: any) {
+      console.error('Update group error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
+  },
+
+  deleteGroup: async (groupId: string) => {
+    try {
+      console.log('Calling deleteGroup with:', { groupId });
+      const response = await api.delete(`/groups/${groupId}`);
+      console.log('deleteGroup response:', response.data);
+      console.log('Response status:', response.status);
+      
+      if (!response.data) {
+        throw new Error('No response data from server');
+      }
+      
+      if (response.data.status === 'success') {
+        return response.data.data || response.data;
+      }
+      
+      // Handle error responses
+      if (response.data.status === 'error') {
+        throw new Error(response.data.message || 'Server returned an error');
+      }
+      
+      throw new Error(response.data.message || 'Invalid response format from server');
+    } catch (error: any) {
+      console.error('Delete group error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
       throw error;
     }
   },
@@ -1248,6 +1339,58 @@ export const budgetsAPI = {
       return response;
     } catch (error) {
       console.error('Error fetching budget alerts:', error);
+      throw error;
+    }
+  },
+
+  getHistoricalBudgets: async (params: { period?: string; year?: number; month?: number }) => {
+    try {
+      const response = await api.get('/budgets/historical', { params });
+      if (!response.data || !response.data.status || response.data.status !== 'success' || !response.data.data) {
+        throw new Error('Invalid response from server when fetching historical budgets');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching historical budgets:', error);
+      throw error;
+    }
+  },
+
+  getBudgetTrends: async (params: { months?: number } = {}) => {
+    try {
+      const response = await api.get('/budgets/trends', { params });
+      if (!response.data || !response.data.status || response.data.status !== 'success' || !response.data.data) {
+        throw new Error('Invalid response from server when fetching budget trends');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching budget trends:', error);
+      throw error;
+    }
+  },
+
+  rolloverBudgets: async (params: { rolloverUnused?: boolean; rolloverPercentage?: number }) => {
+    try {
+      const response = await api.post('/budgets/rollover', params);
+      if (!response.data || !response.data.status || response.data.status !== 'success') {
+        throw new Error('Invalid response from server when rolling over budgets');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error rolling over budgets:', error);
+      throw error;
+    }
+  },
+
+  resetBudgets: async (params: { period?: string; resetAmount?: number }) => {
+    try {
+      const response = await api.post('/budgets/reset', params);
+      if (!response.data || !response.data.status || response.data.status !== 'success') {
+        throw new Error('Invalid response from server when resetting budgets');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error resetting budgets:', error);
       throw error;
     }
   },

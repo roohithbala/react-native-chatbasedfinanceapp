@@ -3,7 +3,7 @@ const Expense = require('../models/Expense');
 
 /**
  * Validates budget input data
- * @param {Object} data - Budget data to validate
+ * @param {
  * @returns {Object} - Validation result with isValid and errors
  */
 function validateBudgetData(data) {
@@ -109,7 +109,24 @@ function buildExpenseQuery(budget) {
 async function calculateBudgetMetrics(budget) {
   const expenseQuery = buildExpenseQuery(budget);
   const expenses = await Expense.find(expenseQuery);
-  const spent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  let spent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+  // Include split bills as expenses for budget tracking
+  const SplitBill = require('../models/SplitBill');
+  const splitBillQuery = {
+    category: budget.category,
+    createdAt: expenseQuery.createdAt,
+    'participants.userId': budget.userId,
+    'participants.status': 'pending' // Only count pending split bills as they represent outstanding expenses
+  };
+
+  const splitBills = await SplitBill.find(splitBillQuery);
+  const splitBillSpent = splitBills.reduce((sum, bill) => {
+    const userParticipant = bill.participants.find(p => p.userId.toString() === budget.userId.toString());
+    return sum + (userParticipant ? userParticipant.amount : 0);
+  }, 0);
+
+  spent += splitBillSpent;
 
   return {
     ...budget.toObject(),
@@ -205,6 +222,167 @@ async function checkBudgetAlerts(budget, spent) {
   return alerts;
 }
 
+/**
+ * Groups budgets by period for historical view
+ * @param {Array} budgets - Array of budget objects with metrics
+ * @param {string} period - Period type (monthly, yearly)
+ * @returns {Object} - Grouped budgets by period
+ */
+function groupBudgetsByPeriod(budgets, period) {
+  const grouped = {};
+
+  budgets.forEach(budget => {
+    let periodKey;
+
+    if (period === 'yearly') {
+      periodKey = budget.startDate.getFullYear().toString();
+    } else if (period === 'monthly') {
+      const month = budget.startDate.getMonth() + 1;
+      const year = budget.startDate.getFullYear();
+      periodKey = `${year}-${month.toString().padStart(2, '0')}`;
+    } else {
+      periodKey = 'current';
+    }
+
+    if (!grouped[periodKey]) {
+      grouped[periodKey] = {
+        period: periodKey,
+        startDate: budget.startDate,
+        endDate: budget.endDate,
+        budgets: {},
+        totals: {
+          totalAmount: 0,
+          totalSpent: 0,
+          totalRemaining: 0,
+          categories: 0
+        }
+      };
+    }
+
+    grouped[periodKey].budgets[budget.category] = {
+      amount: budget.amount,
+      spent: budget.spent,
+      remaining: budget.remaining,
+      percentage: budget.percentage,
+      period: budget.period,
+      startDate: budget.startDate,
+      endDate: budget.endDate
+    };
+
+    grouped[periodKey].totals.totalAmount += budget.amount;
+    grouped[periodKey].totals.totalSpent += budget.spent;
+    grouped[periodKey].totals.totalRemaining += budget.remaining;
+    grouped[periodKey].totals.categories += 1;
+  });
+
+  return grouped;
+}
+
+/**
+ * Calculates budget trends and analytics
+ * @param {Array} budgets - Array of budget objects with metrics
+ * @returns {Object} - Budget trends data
+ */
+function calculateBudgetTrends(budgets) {
+  if (budgets.length === 0) {
+    return {
+      monthlyTrends: [],
+      categoryTrends: {},
+      overallMetrics: {
+        averageBudgetUtilization: 0,
+        totalBudgets: 0,
+        totalOverspent: 0,
+        bestCategory: null,
+        worstCategory: null
+      }
+    };
+  }
+
+  // Group by month
+  const monthlyTrends = [];
+  const categoryTrends = {};
+  const monthlyData = {};
+
+  budgets.forEach(budget => {
+    const monthKey = `${budget.startDate.getFullYear()}-${(budget.startDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+    if (!monthlyData[monthKey]) {
+      monthlyData[monthKey] = {
+        month: monthKey,
+        totalBudget: 0,
+        totalSpent: 0,
+        categories: 0,
+        overspentCategories: 0
+      };
+    }
+
+    monthlyData[monthKey].totalBudget += budget.amount;
+    monthlyData[monthKey].totalSpent += budget.spent;
+    monthlyData[monthKey].categories += 1;
+
+    if (budget.spent > budget.amount) {
+      monthlyData[monthKey].overspentCategories += 1;
+    }
+
+    // Category trends
+    if (!categoryTrends[budget.category]) {
+      categoryTrends[budget.category] = {
+        category: budget.category,
+        totalBudget: 0,
+        totalSpent: 0,
+        averageUtilization: 0,
+        overspentCount: 0,
+        periods: 0
+      };
+    }
+
+    categoryTrends[budget.category].totalBudget += budget.amount;
+    categoryTrends[budget.category].totalSpent += budget.spent;
+    categoryTrends[budget.category].periods += 1;
+
+    if (budget.spent > budget.amount) {
+      categoryTrends[budget.category].overspentCount += 1;
+    }
+  });
+
+  // Convert monthly data to array and calculate utilization
+  Object.values(monthlyData).forEach(month => {
+    month.utilization = month.totalBudget > 0 ? (month.totalSpent / month.totalBudget) * 100 : 0;
+    monthlyTrends.push(month);
+  });
+
+  // Sort monthly trends by date
+  monthlyTrends.sort((a, b) => a.month.localeCompare(b.month));
+
+  // Calculate category metrics
+  Object.values(categoryTrends).forEach(cat => {
+    cat.averageUtilization = cat.totalBudget > 0 ? (cat.totalSpent / cat.totalBudget) * 100 : 0;
+  });
+
+  // Overall metrics
+  const totalBudgets = budgets.length;
+  const totalOverspent = budgets.filter(b => b.spent > b.amount).length;
+  const averageUtilization = budgets.reduce((sum, b) => sum + b.percentage, 0) / budgets.length;
+
+  const categoryArray = Object.values(categoryTrends);
+  const bestCategory = categoryArray.reduce((best, cat) =>
+    !best || cat.averageUtilization < best.averageUtilization ? cat : best, null);
+  const worstCategory = categoryArray.reduce((worst, cat) =>
+    !worst || cat.averageUtilization > worst.averageUtilization ? cat : worst, null);
+
+  return {
+    monthlyTrends,
+    categoryTrends,
+    overallMetrics: {
+      averageBudgetUtilization: averageUtilization,
+      totalBudgets,
+      totalOverspent,
+      bestCategory: bestCategory ? bestCategory.category : null,
+      worstCategory: worstCategory ? worstCategory.category : null
+    }
+  };
+}
+
 module.exports = {
   validateBudgetData,
   calculatePeriodDates,
@@ -215,5 +393,7 @@ module.exports = {
   transformBudgetsToDetailedObject,
   calculateBudgetTotals,
   createDefaultAlerts,
-  checkBudgetAlerts
+  checkBudgetAlerts,
+  groupBudgetsByPeriod,
+  calculateBudgetTrends
 };
