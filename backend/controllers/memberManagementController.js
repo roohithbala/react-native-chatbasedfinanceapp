@@ -23,7 +23,10 @@ const joinGroup = async (inviteCode, userId) => {
   }
 
   // Check if user is already a member
-  const isMember = group.members.some(m => m.userId.toString() === userId && m.isActive);
+  const isMember = group.members.some(m => {
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === userId.toString() && m.isActive;
+  });
   if (isMember) {
     throw new Error('Already a member of this group');
   }
@@ -124,13 +127,19 @@ const updateMemberRole = async (groupId, memberId, role, userId, io) => {
   const group = await validateGroupMembership(groupId, userId);
 
   // Check if user is admin
-  const updater = group.members.find(m => m.userId.toString() === userId);
+  const updater = group.members.find(m => {
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === userId.toString();
+  });
   if (!updater || updater.role !== 'admin') {
     throw new Error('Only group admins can update member roles');
   }
 
   // Find member to update
-  const member = group.members.find(m => m.userId.toString() === memberId);
+  const member = group.members.find(m => {
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === memberId.toString();
+  });
   if (!member) {
     throw new Error('Member not found in group');
   }
@@ -174,14 +183,14 @@ const removeMemberFromGroup = async (groupId, memberId, userId, io) => {
   // Check if user is admin or removing themselves
   const userIdStr = userId.toString();
   const remover = group.members.find(m => {
-    const memberUserIdStr = m.userId.toString();
-    return memberUserIdStr === userIdStr || memberUserIdStr === userId;
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === userIdStr;
   });
   const isSelfRemoval = memberId === userIdStr || memberId === userId;
   let isAdmin = remover && remover.role === 'admin';
   
   // Additional check: if user is not found as admin but is the first member (likely the creator), grant admin privileges
-  const isGroupCreator = !isAdmin && group.members.length > 0 && group.members[0].userId.toString() === userIdStr;
+  const isGroupCreator = !isAdmin && group.members.length > 0 && (group.members[0].userId._id || group.members[0].userId).toString() === userIdStr;
   
   // If user is the group creator, ensure they have admin role
   if (isGroupCreator && remover) {
@@ -197,8 +206,8 @@ const removeMemberFromGroup = async (groupId, memberId, userId, io) => {
   // Find member to remove
   const memberIdStr = memberId.toString();
   const memberIndex = group.members.findIndex(m => {
-    const memberUserIdStr = m.userId.toString();
-    return memberUserIdStr === memberIdStr || memberUserIdStr === memberId;
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === memberIdStr;
   });
   if (memberIndex === -1) {
     throw new Error('Member not found in group');
@@ -241,7 +250,10 @@ const leaveGroup = async (groupId, userId, io) => {
 
   // Check if user is the only admin
   const adminCount = group.members.filter(m => m.role === 'admin' && m.isActive).length;
-  const isAdmin = group.members.some(m => m.userId.toString() === userId && m.role === 'admin');
+  const isAdmin = group.members.some(m => {
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === userId.toString() && m.role === 'admin';
+  });
 
   if (isAdmin && adminCount === 1) {
     throw new Error('Cannot leave group as the only admin. Transfer admin role first or delete the group');

@@ -33,13 +33,14 @@ router.get('/recent', auth, async (req, res) => {
           unreadCount: {
             $sum: {
               $cond: [
-                { 
-                  $and: [
-                    { $eq: ['$receiver', req.user._id] },
-                    { $eq: ['$read', false] }
+                { $eq: ['$receiver', req.user._id] },
+                {
+                  $cond: [
+                    { $in: [req.user._id, { $ifNull: ['$readBy.userId', []] }] },
+                    0,
+                    1
                   ]
                 },
-                1,
                 0
               ]
             }
@@ -122,7 +123,11 @@ router.post('/:userId', auth, async (req, res) => {
       sender: req.user._id,
       receiver: receiver._id,
       text: text.trim(),
-      splitBillData: shouldIncludeSplitBillData ? splitBillData : undefined
+      splitBillData: shouldIncludeSplitBillData ? splitBillData : undefined,
+      readBy: [{
+        userId: req.user._id,
+        readAt: new Date()
+      }]
     });
 
     await message.save();
@@ -143,11 +148,15 @@ router.put('/:userId/read', auth, async (req, res) => {
       {
         sender: req.params.userId,
         receiver: req.user._id,
-        read: false
+        'readBy.userId': { $ne: req.user._id }
       },
       {
-        read: true,
-        readAt: new Date()
+        $push: {
+          readBy: {
+            userId: req.user._id,
+            readAt: new Date()
+          }
+        }
       }
     );
 

@@ -44,11 +44,13 @@ export interface SplitBillData {
   totalAmount: number;
   userShare: number;
   isPaid: boolean;
+  isRejected?: boolean;
   participants: {
     userId: string;
     name: string;
     amount: number;
     isPaid: boolean;
+    isRejected?: boolean;
   }[];
 }
 

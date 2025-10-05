@@ -41,7 +41,7 @@ export default function ExpensesHeader({
     selectGroup(group);
   };
   return (
-    <LinearGradient colors={['#10B981', '#059669']} style={styles.header}>
+    <LinearGradient colors={['#2563EB', '#1D4ED8']} style={styles.header}>
       <View style={styles.headerTop}>
         <Text style={styles.headerTitle}>💰 My Spending</Text>
         {onReload && (
@@ -88,7 +88,7 @@ export default function ExpensesHeader({
           <Ionicons
             name="wallet-outline"
             size={20}
-            color={activeTab === 'expenses' ? '#10B981' : '#64748B'}
+            color={activeTab === 'expenses' ? theme.primary : '#64748B'}
           />
           <Text style={[styles.mainTabText, activeTab === 'expenses' && styles.mainTabTextActive]}>
             My Expenses

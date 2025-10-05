@@ -43,7 +43,10 @@ export const BudgetAnalytics: React.FC<BudgetAnalyticsProps> = ({ onClose }) => 
   const { theme } = useTheme();
   const { budgetTrends } = useBudgetsStore();
 
-  if (!budgetTrends || !budgetTrends.overallMetrics) {
+  // The budgetTrends from the store contains the API response structure
+  const trendsData = budgetTrends?.trends;
+
+  if (!trendsData || !trendsData.overallMetrics) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={[styles.header, { backgroundColor: theme.card }]}>
@@ -60,7 +63,7 @@ export const BudgetAnalytics: React.FC<BudgetAnalyticsProps> = ({ onClose }) => 
     );
   }
 
-  const { monthlyTrends, categoryTrends, overallMetrics } = budgetTrends as BudgetTrends;
+  const { monthlyTrends, categoryTrends, overallMetrics } = trendsData as BudgetTrends;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

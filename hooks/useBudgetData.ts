@@ -57,7 +57,7 @@ export const useBudgetData = () => {
         bill && typeof bill === 'object' &&
         bill.category === category &&
         bill.participants?.some((participant: any) =>
-          participant.userId === currentUser?._id && participant.status === 'pending'
+          participant.userId === currentUser?._id && participant.isPaid === true
         )
       );
 
@@ -119,7 +119,7 @@ export const useBudgetData = () => {
     if (splitBills && Array.isArray(splitBills) && currentUser) {
       const userSplitBills = splitBills.filter(bill =>
         bill.participants?.some((participant: any) =>
-          participant.userId === currentUser._id && participant.status === 'pending'
+          participant.userId === currentUser._id && participant.isPaid === true
         )
       );
 
@@ -188,7 +188,7 @@ export const useBudgetData = () => {
         const billDate = new Date(bill.createdAt);
         return billDate.getMonth() === currentMonth && billDate.getFullYear() === currentYear &&
                bill.participants?.some((participant: any) =>
-                 participant.userId === currentUser._id && participant.status === 'pending'
+                 participant.userId === currentUser._id && participant.isPaid === true
                );
       });
 

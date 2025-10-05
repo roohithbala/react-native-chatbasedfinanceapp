@@ -80,7 +80,10 @@ const getGroupSplitBills = async (groupId, userId, pagination = {}) => {
     throw new Error('Group not found');
   }
 
-  if (!group.members.some(m => m.userId.toString() === userId && m.isActive)) {
+  if (!group.members.some(m => {
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === userId.toString() && m.isActive;
+  })) {
     throw new Error('Access denied');
   }
 

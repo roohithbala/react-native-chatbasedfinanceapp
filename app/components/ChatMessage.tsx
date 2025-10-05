@@ -76,6 +76,8 @@ export default function ChatMessage({
           <SplitBillMessage
             splitBillData={splitBillData}
             currentUserId={currentUserId}
+            messageId={splitBillData.splitBillId || 'unknown'}
+            canReject={false}
             onPayBill={onPayBill}
             onViewDetails={onViewSplitBillDetails}
             onPaymentSuccess={onPaymentSuccess}

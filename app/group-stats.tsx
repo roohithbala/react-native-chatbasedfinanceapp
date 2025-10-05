@@ -6,6 +6,7 @@ import { TouchableOpacity } from 'react-native';
 import GroupExpenseStats from './components/GroupExpenseStats';
 import { useTheme } from './context/ThemeContext';
 import { default as api } from '@/lib/services/api';
+import ExpenseScreenHeader from '@/app/components/ExpenseScreenHeader';
 
 export default function GroupStatsScreen() {
   const { groupId, groupName } = useLocalSearchParams<{
@@ -107,18 +108,11 @@ export default function GroupStatsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Group Statistics</Text>
-          <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
-            {groupName || 'Group'}
-          </Text>
-        </View>
-        <View style={styles.placeholder} />
-      </View>
+      <ExpenseScreenHeader
+        title="Group Statistics"
+        subtitle={groupName || 'Group'}
+        variant="surface"
+      />
 
       <GroupExpenseStats groupId={groupId} />
     </SafeAreaView>
@@ -127,6 +121,9 @@ export default function GroupStatsScreen() {
 
 const getStyles = (theme: any) => StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  content: {
     flex: 1,
   },
   centerContent: {
@@ -138,30 +135,13 @@ const getStyles = (theme: any) => StyleSheet.create({
     fontSize: 16,
     color: theme.textSecondary,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
   backButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
     padding: 8,
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  placeholder: {
-    width: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   errorContainer: {
     flex: 1,

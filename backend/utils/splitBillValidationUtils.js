@@ -129,7 +129,24 @@ const validateDirectSplitBill = async (participants, userId) => {
  */
 const validateParticipantAmounts = (participants, totalAmount) => {
   try {
+    console.log('🔍 Validating participant amounts:', {
+      totalAmount,
+      participantsCount: participants.length,
+      participants: participants.map(p => ({
+        userId: p.userId ? (typeof p.userId === 'object' ? p.userId.toString() : p.userId) : 'undefined',
+        amount: p.amount
+      }))
+    });
+    
     const totalParticipantAmount = participants.reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    console.log('💰 Amount validation:', {
+      totalAmount,
+      totalParticipantAmount,
+      difference: Math.abs(totalAmount - totalParticipantAmount),
+      isValid: Math.abs(totalAmount - totalParticipantAmount) <= 0.01
+    });
+    
     if (Math.abs(totalAmount - totalParticipantAmount) > 0.01) {
       return { isValid: false, message: 'Sum of participant amounts must equal total amount' };
     }

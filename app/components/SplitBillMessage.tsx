@@ -8,17 +8,21 @@ import SplitBillService from '../../lib/services/splitBillService';
 interface SplitBillMessageProps {
   splitBillData: SplitBillData;
   currentUserId: string;
+  messageId: string;
+  canReject: boolean;
+  onPaymentSuccess?: (updatedSplitBill: any, messageId: string) => void;
   onPayBill?: (splitBillId: string) => void;
   onViewDetails?: (splitBillId: string) => void;
-  onPaymentSuccess?: () => void;
 }
 
 export default function SplitBillMessage({
   splitBillData,
   currentUserId,
+  messageId,
+  canReject,
+  onPaymentSuccess,
   onPayBill,
-  onViewDetails,
-  onPaymentSuccess
+  onViewDetails
 }: SplitBillMessageProps) {
   const { theme } = useTheme();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -26,7 +30,6 @@ export default function SplitBillMessage({
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const successAnim = React.useRef(new Animated.Value(0)).current;
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
-  const [paymentStatus, setPaymentStatus] = React.useState<'pending' | 'paid' | 'rejected'>('pending');
   const [showSuccessAnimation, setShowSuccessAnimation] = React.useState(false);
 
   React.useEffect(() => {
@@ -45,21 +48,15 @@ export default function SplitBillMessage({
   }, []);
 
   const userParticipant = splitBillData.participants.find(p => {
-    // Handle both string and object userId formats
-    const participantUserId = typeof p.userId === 'object' && p.userId && '_id' in p.userId ? (p.userId as any)._id : p.userId;
-    return participantUserId === currentUserId;
+    // userId is already a string from the backend
+    return p.userId === currentUserId;
   });
   const isPaid = userParticipant?.isPaid || false;
+  const isRejected = userParticipant?.isRejected || false;
   const userShare = userParticipant?.amount || 0;
 
-  React.useEffect(() => {
-    // Initialize payment status based on current data
-    if (userParticipant?.isPaid) {
-      setPaymentStatus('paid');
-    } else {
-      setPaymentStatus('pending');
-    }
-  }, [userParticipant?.isPaid]);
+  // Derive payment status from props
+  const paymentStatus = isRejected ? 'rejected' : (isPaid ? 'paid' : 'pending');
 
   const handlePayBill = async () => {
     if (onPayBill && splitBillData.splitBillId) {
@@ -235,43 +232,18 @@ export default function SplitBillMessage({
 
       const result = await SplitBillService.markAsPaid(splitBillData.splitBillId);
       
-      // Update local state to reflect payment completion
-      setPaymentStatus('paid');
-      
-      // Trigger success animation
-      setShowSuccessAnimation(true);
-      Vibration.vibrate([0, 100, 50, 100]); // Success vibration pattern
-      
-      // Animate success checkmark
-      Animated.timing(successAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }).start();
-      
-      // Hide success animation after delay
-      setTimeout(() => {
-        setShowSuccessAnimation(false);
-        Animated.timing(successAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-      }, 2000);
-      
       Alert.alert('✅ Payment Successful', 'Your payment has been recorded!');
       
       // Call success callback if provided
       if (onPaymentSuccess) {
-        onPaymentSuccess();
+        onPaymentSuccess(result.splitBill, messageId);
       }
     } catch (error: any) {
       console.error('Mark as paid error:', error);
       
       // Handle "already paid" error more gracefully
       if (error.message && error.message.includes('already marked this payment as paid')) {
-        // Update local state to reflect that payment is already completed
-        setPaymentStatus('paid');
+        // Payment is already completed
         Alert.alert('ℹ️ Payment Already Completed', 'This payment has already been marked as paid.');
         return;
       }
@@ -310,14 +282,11 @@ export default function SplitBillMessage({
       setIsProcessingPayment(true);
       const result = await SplitBillService.rejectBill(splitBillData.splitBillId);
       
-      // Update local state to reflect rejection
-      setPaymentStatus('rejected');
-      
       Alert.alert('Bill Rejected', 'You have rejected this split bill.');
       
       // Call success callback if provided
       if (onPaymentSuccess) {
-        onPaymentSuccess();
+        onPaymentSuccess(result.splitBill, messageId);
       }
     } catch (error: any) {
       console.error('Reject bill error:', error);
@@ -387,7 +356,7 @@ export default function SplitBillMessage({
         <View style={styles.amountSection}>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Total Amount</Text>
-            <Text style={styles.totalAmount}>₹{splitBillData.totalAmount.toFixed(2)}</Text>
+            <Text style={styles.totalAmount}>₹{splitBillData.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           </View>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Your Share</Text>
@@ -396,7 +365,7 @@ export default function SplitBillMessage({
               paymentStatus === 'paid' || isPaid ? styles.paidAmount : 
               paymentStatus === 'rejected' ? styles.rejectedAmount : null
             ]}>
-              ₹{userShare.toFixed(2)}
+              ₹{userShare.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
           </View>
         </View>
@@ -404,26 +373,20 @@ export default function SplitBillMessage({
         {/* Participants Preview */}
         <View style={styles.participantsPreview}>
           <Text style={styles.participantsLabel}>
-            Split with {splitBillData.participants.length - 1} other{splitBillData.participants.length > 2 ? 's' : ''}
+            Split with {splitBillData.participants.length - 1} other{splitBillData.participants.length - 1 === 1 ? '' : 's'}
           </Text>
           <View style={styles.participantsList}>
             {splitBillData.participants
-              .filter(p => {
-                const participantUserId = typeof p.userId === 'object' && p.userId && '_id' in p.userId ? (p.userId as any)._id : p.userId;
-                return participantUserId !== currentUserId;
-              })
+              .filter(p => p.userId !== currentUserId)
               .slice(0, 3)
-              .map((participant, index) => {
-                const participantUserId = typeof participant.userId === 'object' && participant.userId && '_id' in participant.userId ? (participant.userId as any)._id : participant.userId;
-                return (
-                  <View key={`${participantUserId}-${index}`} style={styles.participantChip}>
-                    <Text style={styles.participantName}>{participant.name}</Text>
-                    {participant.isPaid && (
-                      <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                    )}
-                  </View>
-                );
-              })}
+              .map((participant, index) => (
+                <View key={`${participant.userId}-${index}`} style={styles.participantChip}>
+                  <Text style={styles.participantName}>{participant.name}</Text>
+                  {participant.isPaid && (
+                    <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                  )}
+                </View>
+              ))}
           </View>
         </View>
       </View>
@@ -440,19 +403,21 @@ export default function SplitBillMessage({
               <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
                 <Ionicons name="card" size={18} color="white" />
                 <Text style={styles.payButtonText}>
-                  {isProcessingPayment ? 'Processing...' : `Pay ₹${userShare.toFixed(2)}`}
+                  {isProcessingPayment ? 'Processing...' : `Pay ₹${userShare.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </Text>
               </Animated.View>
             </TouchableOpacity>
             <View style={styles.secondaryButtonsRow}>
-              <TouchableOpacity
-                style={[styles.secondaryButton, styles.rejectButton]}
-                onPress={handleRejectBill}
-                disabled={isProcessingPayment}
-              >
-                <Ionicons name="close" size={16} color="#EF4444" />
-                <Text style={styles.rejectButtonText}>Reject</Text>
-              </TouchableOpacity>
+              {canReject && (
+                <TouchableOpacity
+                  style={[styles.secondaryButton, styles.rejectButton]}
+                  onPress={handleRejectBill}
+                  disabled={isProcessingPayment}
+                >
+                  <Ionicons name="close" size={16} color="#EF4444" />
+                  <Text style={styles.rejectButtonText}>Reject</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={[styles.secondaryButton]}
                 onPress={handleViewDetails}

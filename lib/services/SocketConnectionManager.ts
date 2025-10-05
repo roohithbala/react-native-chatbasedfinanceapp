@@ -7,6 +7,7 @@ export class SocketConnectionManager {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectTimeout: any = null;
+  private connectionStatusCallbacks: ((status: any) => void)[] = [];
 
   async connect(): Promise<Socket | null> {
     try {
@@ -20,7 +21,7 @@ export class SocketConnectionManager {
       }
 
       console.log('🔌 Initializing socket connection...');
-      const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.27.93.172:8081/api';
+      const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.120.178.172:8081/api';
       const SOCKET_URL = EXPO_PUBLIC_API_URL.replace('/api', '');
 
       console.log('🔌 Connecting to socket server:', SOCKET_URL);
@@ -44,11 +45,13 @@ export class SocketConnectionManager {
         console.log('✅ Socket connected successfully');
         this.isConnected = true;
         this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+        this.emitConnectionStatusChange();
       });
 
       this.socket.on('disconnect', (reason: string) => {
         console.log('❌ Socket disconnected:', reason);
         this.isConnected = false;
+        this.emitConnectionStatusChange();
 
         // Try to reconnect if not intentionally disconnected
         if (reason !== 'io client disconnect' && this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -63,6 +66,7 @@ export class SocketConnectionManager {
       this.socket.on('connect_error', (error: Error) => {
         console.error('Socket connection error:', error.message);
         this.isConnected = false;
+        this.emitConnectionStatusChange();
 
         // Don't retry automatically in React Native to avoid excessive retries
         // The connection will be re-established when the app comes back online
@@ -90,6 +94,7 @@ export class SocketConnectionManager {
       this.socket = null;
       this.isConnected = false;
       this.reconnectAttempts = 0;
+      this.emitConnectionStatusChange();
     }
   }
 
@@ -113,11 +118,23 @@ export class SocketConnectionManager {
     if (this.socket) {
       this.socket.removeAllListeners();
     }
+    this.connectionStatusCallbacks = [];
+  }
+
+  private emitConnectionStatusChange() {
+    const status = this.getConnectionStatus();
+    this.connectionStatusCallbacks.forEach(callback => {
+      try {
+        callback(status);
+      } catch (error) {
+        console.error('Error in connection status callback:', error);
+      }
+    });
   }
 
   onConnectionStatusChange(callback: (status: any) => void) {
-    // This would be called when connection status changes
-    // For now, just return current status
+    this.connectionStatusCallbacks.push(callback);
+    // Immediately call with current status
     callback(this.getConnectionStatus());
   }
 

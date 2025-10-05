@@ -48,7 +48,7 @@ export default function InsightsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <InsightsHeader />
 
-      <ScrollView style={{ flex: 1, padding: 20, backgroundColor: theme.background }} showsVerticalScrollIndicator={false}
+      <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }

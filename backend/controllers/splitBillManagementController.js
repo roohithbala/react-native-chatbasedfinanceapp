@@ -230,8 +230,11 @@ const markPaymentAsPaid = async (splitBillId, userId, io) => {
 
   await splitBill.save();
 
+  // Re-fetch the split bill to ensure we have a fresh document for population
+  const updatedSplitBill = await SplitBill.findById(splitBillId);
+
   // Populate the response
-  await splitBill
+  await updatedSplitBill
     .populate('createdBy', 'name avatar')
     .populate('participants.userId', 'name avatar')
     .populate({
@@ -245,16 +248,17 @@ const markPaymentAsPaid = async (splitBillId, userId, io) => {
     try {
       // Transform split bill data for frontend
       const splitBillData = {
-        splitBillId: splitBill._id.toString(),
-        description: splitBill.description,
-        totalAmount: splitBill.totalAmount,
+        splitBillId: updatedSplitBill._id.toString(),
+        description: updatedSplitBill.description,
+        totalAmount: updatedSplitBill.totalAmount,
         userShare: participant.amount, // The current user's share
         isPaid: participant.isPaid,
-        participants: splitBill.participants.map(p => ({
+        participants: updatedSplitBill.participants.map(p => ({
           userId: p.userId._id ? p.userId._id.toString() : p.userId.toString(),
           name: p.userId.name || 'Unknown',
           amount: p.amount,
-          isPaid: p.isPaid
+          isPaid: p.isPaid,
+          isRejected: p.isRejected || false
         }))
       };
 
@@ -295,7 +299,7 @@ const markPaymentAsPaid = async (splitBillId, userId, io) => {
     }
   }
 
-  return splitBill;
+  return updatedSplitBill;
 };
 
 /**
@@ -347,8 +351,11 @@ const rejectSplitBill = async (splitBillId, userId, io) => {
 
   await splitBill.save();
 
+  // Re-fetch the split bill to ensure we have a fresh document for population
+  const updatedSplitBill = await SplitBill.findById(splitBillId);
+
   // Populate the response
-  await splitBill
+  await updatedSplitBill
     .populate('createdBy', 'name avatar')
     .populate('participants.userId', 'name avatar')
     .populate({
@@ -362,16 +369,17 @@ const rejectSplitBill = async (splitBillId, userId, io) => {
     try {
       // Transform split bill data for frontend
       const splitBillData = {
-        splitBillId: splitBill._id.toString(),
-        description: splitBill.description,
-        totalAmount: splitBill.totalAmount,
+        splitBillId: updatedSplitBill._id.toString(),
+        description: updatedSplitBill.description,
+        totalAmount: updatedSplitBill.totalAmount,
         userShare: participant.amount, // The current user's share
         isPaid: participant.isPaid,
-        participants: splitBill.participants.map(p => ({
+        participants: updatedSplitBill.participants.map(p => ({
           userId: p.userId._id ? p.userId._id.toString() : p.userId.toString(),
           name: p.userId.name || 'Unknown',
           amount: p.amount,
-          isPaid: p.isPaid
+          isPaid: p.isPaid,
+          isRejected: p.isRejected || false
         }))
       };
 
@@ -412,7 +420,7 @@ const rejectSplitBill = async (splitBillId, userId, io) => {
     }
   }
 
-  return splitBill;
+  return updatedSplitBill;
 };
 
 module.exports = {

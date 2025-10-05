@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
-import RelationshipsAPI from '../lib/services/relationshipsAPI';
+import RelationshipsAPI from '../app/lib/services/relationshipsAPI';
+import ReportsAPI from '../app/lib/services/reportsAPI';
 
 export const useMenuActions = () => {
   const [showMenu, setShowMenu] = useState(false);
@@ -11,9 +12,11 @@ export const useMenuActions = () => {
   const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
   const [archivedChats, setArchivedChats] = useState<Set<string>>(new Set());
 
-  const handleMenuPress = (chat: any, event: any) => {
+  const handleMenuPress = (chat: any) => {
     setSelectedChat(chat);
-    setMenuPosition({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+    // For React Native, we can use a default position or calculate it differently
+    // Since we can't reliably get touch coordinates from onPress events
+    setMenuPosition({ x: 150, y: 200 }); // Default position, can be improved later
     setShowMenu(true);
   };
 
@@ -151,14 +154,25 @@ export const useMenuActions = () => {
         case 'report':
           Alert.alert(
             'Report User',
-            'Are you sure you want to report this user?',
+            'Are you sure you want to report this user? This will send a notification to our development team.',
             [
               { text: 'Cancel', style: 'cancel' },
               {
                 text: 'Report',
                 style: 'destructive',
-                onPress: () => {
-                  Alert.alert('Success', 'User reported. Our team will review this report.');
+                onPress: async () => {
+                  try {
+                    await ReportsAPI.reportUser(
+                      selectedChat._id,
+                      selectedChat.user?.username || selectedChat.username || 'Unknown',
+                      'User reported via chat menu',
+                      `User ${selectedChat.user?.name || selectedChat.name || 'Unknown'} was reported for inappropriate behavior.`
+                    );
+                    Alert.alert('Success', 'Report submitted successfully. Our team will review this report and take appropriate action.');
+                  } catch (error: any) {
+                    console.error('Error submitting report:', error);
+                    Alert.alert('Error', error.message || 'Failed to submit report. Please try again.');
+                  }
                 }
               }
             ]

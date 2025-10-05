@@ -8,7 +8,7 @@ import { isMessageResponse, isMessagesResponse } from '../../app/utils/typeGuard
 // API Configuration
 const getApiBaseUrl = () => {
   // Try to get the server IP from environment or use localhost as fallback
-  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.27.93.172';
+  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.120.178.172';
   const serverPort = process.env.EXPO_PUBLIC_BACKEND_PORT || '3001';
   
   if (__DEV__) {
@@ -21,7 +21,7 @@ const getApiBaseUrl = () => {
 export const API_BASE_URL = getApiBaseUrl();
 
 console.log('API Base URL:', API_BASE_URL);
-console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.27.93.172');
+console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.120.178.172');
 console.log('Server Port:', process.env.EXPO_PUBLIC_BACKEND_PORT || '3001');
 
 // Network connectivity check
@@ -49,7 +49,8 @@ export const checkServerConnectivity = async (): Promise<boolean> => {
 // Auto-detect server IP (useful for development)
 export const detectServerIP = async (): Promise<string | null> => {
   const commonIPs = [
-    '10.27.93.172', // New configured IP
+    '10.120.178.172', // Current configured IP
+    '10.27.93.172', // Previous configured IP
     '10.42.112.172', // Previous configured IP
     '10.40.155.172', // Previous configured IP
     '192.168.1.100',
@@ -780,6 +781,14 @@ export const groupsAPI = {
 
       const requestData = { settings };
       console.log('Request data being sent:', JSON.stringify(requestData, null, 2));
+
+      // Get current user for debugging
+      try {
+        const currentUser = await authAPI.getCurrentUser();
+        console.log('Current user from API:', currentUser);
+      } catch (userError) {
+        console.warn('Could not get current user for debugging:', userError);
+      }
 
       const response = await api.put(`/groups/${groupId}/settings`, requestData);
       console.log('updateGroupSettings response:', response.data);

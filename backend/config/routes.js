@@ -13,6 +13,7 @@ const relationshipRoutes = require('../routes/relationships');
 const uploadRoutes = require('../routes/uploads');
 const callRoutes = require('../routes/calls');
 const reminderRoutes = require('../routes/reminders');
+const reportRoutes = require('../routes/reports');
 
 const configureRoutes = (app, io) => {
   // Mount routes
@@ -48,14 +49,20 @@ const configureRoutes = (app, io) => {
   }, uploadRoutes);
   app.use('/api/calls', callRoutes);
   app.use('/api/reminders', reminderRoutes);
+  app.use('/api/reports', reportRoutes);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {
-    res.json({
+    const health = {
       status: 'OK',
       timestamp: new Date().toISOString(),
-      mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Offline Mode'
-    });
+      uptime: process.uptime(),
+      mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Offline Mode',
+      memory: process.memoryUsage(),
+      version: process.version,
+      platform: process.platform
+    };
+    res.json(health);
   });
 
   // Test endpoint

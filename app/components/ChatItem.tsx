@@ -40,7 +40,7 @@ interface ChatItemProps {
   blockedUsers: Set<string>;
   archivedChats: Set<string>;
   onPress: () => void;
-  onLongPress?: (event: any) => void;
+  onLongPress?: (item: User | ChatPreview | Group) => void;
   onAddMembers?: (groupId: string, groupName: string) => void;
 }
 
@@ -98,7 +98,6 @@ export const ChatItem: React.FC<ChatItemProps> = ({
       <TouchableOpacity
         style={[styles.chatItem, { backgroundColor: theme.surface }]}
         onPress={onPress}
-        onLongPress={onLongPress}
       >
         <View style={[styles.avatarContainer, styles.groupAvatar]}>
           <Ionicons name="people" size={24} color="#FFFFFF" />
@@ -111,10 +110,11 @@ export const ChatItem: React.FC<ChatItemProps> = ({
               {isArchived && <Ionicons name="archive" size={16} color="#64748B" style={styles.statusIcon} />}
               <TouchableOpacity
                 style={styles.menuButton}
-                onPress={(event) => {
-                  event.stopPropagation();
-                  onLongPress?.(event);
+                onPress={() => {
+                  // Prevent navigation by not passing event
+                  onLongPress?.(item);
                 }}
+                activeOpacity={0.7}
               >
                 <Ionicons name="ellipsis-vertical" size={16} color="#64748B" />
               </TouchableOpacity>
@@ -147,7 +147,6 @@ export const ChatItem: React.FC<ChatItemProps> = ({
       <TouchableOpacity
         style={[styles.chatItem, { backgroundColor: theme.surface }]}
         onPress={onPress}
-        onLongPress={onLongPress}
       >
         <View style={styles.avatarContainer}>
           {chat.user.avatar && chat.user.avatar.length > 0 ? (
@@ -167,10 +166,11 @@ export const ChatItem: React.FC<ChatItemProps> = ({
               {isArchived && <Ionicons name="archive" size={16} color="#64748B" style={styles.statusIcon} />}
               <TouchableOpacity
                 style={styles.menuButton}
-                onPress={(event) => {
-                  event.stopPropagation();
-                  onLongPress?.(event);
+                onPress={() => {
+                  // Prevent navigation by not passing event
+                  onLongPress?.(chat);
                 }}
+                activeOpacity={0.7}
               >
                 <Ionicons name="ellipsis-vertical" size={16} color="#64748B" />
               </TouchableOpacity>

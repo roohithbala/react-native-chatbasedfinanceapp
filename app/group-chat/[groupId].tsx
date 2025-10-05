@@ -7,7 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { useGroupChat } from '@/hooks/useGroupChat';
 import { useTyping } from '@/hooks/useTyping';
-import { useCommandHandlers } from '@/hooks/useCommandHandlers';
 import ChatMessage from '../components/ChatMessage';
 import TypingIndicator from '../components/TypingIndicator';
 import SplitBillModal from '../components/SplitBillModal';
@@ -56,10 +55,6 @@ export default function GroupChatScreen() {
     handleMessageChange: handleTypingMessageChange,
   } = useTyping(validGroupId, currentUser?._id);
 
-  const {
-    processCommand,
-  } = useCommandHandlers(validGroupId || '');
-
   const [message, setMessage] = useState('');
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
@@ -84,8 +79,31 @@ export default function GroupChatScreen() {
       // Send the command message
       await sendMessageFromHook(trimmedMessage);
 
-      // Process the command
-      await processCommand(commandData, trimmedMessage);
+      // Process the command on frontend for addexpense and predict
+      if (commandData.type === 'expense') {
+        // Handle add expense command
+        try {
+          if (!currentUser?._id) {
+            console.error('No current user for expense command');
+            return;
+          }
+
+          const expenseData = {
+            description: commandData.data.description,
+            amount: commandData.data.amount,
+            category: commandData.data.category,
+            userId: currentUser._id,
+            groupId: validGroupId || undefined
+          };
+
+          const { addExpense } = useFinanceStore.getState();
+          await addExpense(expenseData);
+        } catch (error) {
+          console.error('Error adding expense:', error);
+        }
+      } else if (commandData.type === 'predict') {
+        // Predict command is handled by backend
+      }
     } else if (commandData && (commandData.type === 'split' || commandData.type === 'summary')) {
       // For @split and @summary, just send the message and let backend handle it
       await sendMessageFromHook(trimmedMessage);

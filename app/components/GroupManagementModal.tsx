@@ -62,7 +62,7 @@ export default function GroupManagementModal({
     setIsLoading(true);
     try {
       const response = await groupsAPI.getGroup(groupId);
-      setGroupDetails(response.group);
+      setGroupDetails(response);
     } catch (error: any) {
       console.error('Error loading group details:', error);
       Alert.alert('Error', 'Failed to load group details');

@@ -10,7 +10,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.securefinance.app",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs camera access for video calls",
+        "NSMicrophoneUsageDescription": "This app needs microphone access for voice calls"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +22,12 @@
         "backgroundColor": "#2563EB"
       },
       "package": "com.securefinance.app",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/images/logo.png"
@@ -34,9 +43,9 @@
       "eas": {
         "projectId": "eadbdbb7-4aea-4077-b627-3d61cb465198"
       },
-      "API_URL": "http://10.27.93.172:3001/api",
-      "SOCKET_URL": "http://10.27.93.172:3001",
-      "FRONTEND_URL": "http://10.27.93.172:8081"
+      "API_URL": "http://10.120.178.172:3001/api",
+      "SOCKET_URL": "http://10.120.178.172:3001",
+      "FRONTEND_URL": "http://10.120.178.172:8081"
     }
   }
 }

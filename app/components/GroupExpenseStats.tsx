@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Text, StyleSheet, ScrollView } from 'react-native';
+import { Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { View, Card } from '@/app/components/ThemedComponents';
 import { BarChart, PieChart } from 'react-native-chart-kit';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import GroupExpenseService from '@/lib/services/groupExpenseService';
 import { useTheme } from '../context/ThemeContext';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 interface GroupExpenseStatsProps {
   groupId: string;
@@ -46,17 +50,43 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
     loadStats();
   }, [groupId, period]);
 
-  if (loading || !stats) {
-    return <Text>Loading statistics...</Text>;
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Analyzing group expenses...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="stats-chart-outline" size={64} color={theme.textSecondary} />
+        <Text style={[styles.errorText, { color: theme.text }]}>
+          Unable to load statistics
+        </Text>
+        <Text style={[styles.errorSubtext, { color: theme.textSecondary }]}>
+          Please try again later
+        </Text>
+      </View>
+    );
   }
 
   const categoryData = {
     labels: (stats.byCategory || [])
       .filter((cat: any) => cat && (cat.amount > 0 || cat.totalAmount > 0))
-      .map((cat: any) => cat.category || cat._id || 'Other') || [],
+      .slice(0, 6) // Limit to top 6 categories
+      .map((cat: any) => {
+        const label = cat.category || cat._id || 'Other';
+        return label.length > 8 ? label.substring(0, 8) + '...' : label;
+      }) || [],
     datasets: [{
       data: (stats.byCategory || [])
         .filter((cat: any) => cat && (cat.amount > 0 || cat.totalAmount > 0))
+        .slice(0, 6)
         .map((cat: any) => {
           const amount = cat.amount || cat.totalAmount || 0;
           return isNaN(amount) ? 0 : Number(amount);
@@ -66,8 +96,8 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
 
   const participantData = (stats.byParticipant || [])
     .filter((part: any) => part && (part.amount > 0 || part.totalAmount > 0))
-    .map((part: any) => {
-      // Safely extract participant information
+    .slice(0, 8) // Limit to top 8 participants
+    .map((part: any, index: number) => {
       let name = 'Unknown';
       let amount = 0;
 
@@ -76,83 +106,229 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
         amount = isNaN(part.amount || part.totalAmount) ? 0 : Number(part.amount || part.totalAmount);
       }
 
+      const colors = [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+        '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+      ];
+
       return {
-        name,
+        name: name.length > 10 ? name.substring(0, 10) + '...' : name,
         amount,
-        color: theme.primary || `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`,
+        color: colors[index % colors.length],
         legendFontColor: theme.textSecondary || "#7F7F7F",
         legendFontSize: 12
       };
     })
-    .filter((part: any) => part && part.amount > 0); // Only show participants with amounts > 0
+    .filter((part: any) => part && part.amount > 0);
 
   const chartConfig = {
-    backgroundColor: theme.surface || "#ffffff",
+    backgroundColor: 'transparent',
     backgroundGradientFrom: theme.surface || "#ffffff",
     backgroundGradientTo: theme.surface || "#ffffff",
     color: (opacity = 1) => `rgba(${theme.primary ? parseInt(theme.primary.slice(1, 3), 16) : 37}, ${theme.primary ? parseInt(theme.primary.slice(3, 5), 16) : 99}, ${theme.primary ? parseInt(theme.primary.slice(5, 7), 16) : 235}, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(${theme.text ? parseInt(theme.text.slice(1, 3), 16) : 0}, ${theme.text ? parseInt(theme.text.slice(3, 5), 16) : 0}, ${theme.text ? parseInt(theme.text.slice(5, 7), 16) : 0}, ${opacity})`,
     style: {
       borderRadius: 16
+    },
+    propsForLabels: {
+      fontSize: 12,
+      fontWeight: '600'
     }
   };
 
+  const periodOptions = [
+    { key: 'week', label: 'Week', icon: 'calendar-outline' },
+    { key: 'month', label: 'Month', icon: 'calendar' },
+    { key: 'year', label: 'Year', icon: 'calendar-clear' }
+  ];
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Card style={styles.card}>
-        <Text style={styles.title}>Overview</Text>
-        <View style={styles.stats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{theme.currency}{(stats.overview?.totalAmount || 0).toFixed(2)}</Text>
-            <Text style={styles.statLabel}>Total Amount</Text>
+      {/* Period Selector */}
+      <View style={styles.periodSelector}>
+        {periodOptions.map((option) => (
+          <TouchableOpacity
+            key={option.key}
+            style={[
+              styles.periodButton,
+              period === option.key && styles.periodButtonActive
+            ]}
+            onPress={() => setPeriod(option.key as 'week' | 'month' | 'year')}
+          >
+            <Ionicons
+              name={option.icon as any}
+              size={16}
+              color={period === option.key ? 'white' : theme.textSecondary}
+            />
+            <Text style={[
+              styles.periodButtonText,
+              period === option.key && styles.periodButtonTextActive
+            ]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Overview Cards */}
+      <View style={styles.overviewGrid}>
+        <LinearGradient
+          colors={['#667EEA', '#764BA2']}
+          style={styles.overviewCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.cardContent}>
+            <Ionicons name="cash" size={24} color="white" />
+            <Text style={styles.overviewValue}>
+              ₹{(stats.overview?.totalAmount || 0).toFixed(2)}
+            </Text>
+            <Text style={styles.overviewLabel}>Total Spent</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.overview?.count || 0}</Text>
-            <Text style={styles.statLabel}>Total Expenses</Text>
+        </LinearGradient>
+
+        <LinearGradient
+          colors={['#F093FB', '#F5576C']}
+          style={styles.overviewCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.cardContent}>
+            <Ionicons name="receipt" size={24} color="white" />
+            <Text style={styles.overviewValue}>
+              {stats.overview?.count || 0}
+            </Text>
+            <Text style={styles.overviewLabel}>Transactions</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.overview?.settled || 0}</Text>
-            <Text style={styles.statLabel}>Settled</Text>
+        </LinearGradient>
+
+        <LinearGradient
+          colors={['#4ECDC4', '#44A08D']}
+          style={styles.overviewCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.cardContent}>
+            <Ionicons name="checkmark-circle" size={24} color="white" />
+            <Text style={styles.overviewValue}>
+              {stats.overview?.settled || 0}
+            </Text>
+            <Text style={styles.overviewLabel}>Settled</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.overview?.pending || 0}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
+        </LinearGradient>
+
+        <LinearGradient
+          colors={['#FF9A9E', '#FECFEF']}
+          style={styles.overviewCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.cardContent}>
+            <Ionicons name="time" size={24} color="white" />
+            <Text style={styles.overviewValue}>
+              {stats.overview?.pending || 0}
+            </Text>
+            <Text style={styles.overviewLabel}>Pending</Text>
           </View>
+        </LinearGradient>
+      </View>
+
+      {/* Category Breakdown */}
+      <View style={styles.chartCard}>
+        <View style={styles.chartHeader}>
+          <Ionicons name="pie-chart" size={20} color={theme.primary} />
+          <Text style={[styles.chartTitle, { color: theme.text }]}>Spending by Category</Text>
         </View>
-      </Card>
+        {categoryData.datasets[0].data.length > 0 ? (
+          <BarChart
+            data={categoryData}
+            width={screenWidth - 64}
+            height={240}
+            chartConfig={chartConfig}
+            verticalLabelRotation={30}
+            showValuesOnTopOfBars
+            yAxisLabel="₹"
+            yAxisSuffix=""
+            style={styles.chart}
+          />
+        ) : (
+          <View style={styles.emptyChart}>
+            <Ionicons name="bar-chart-outline" size={48} color={theme.textSecondary} />
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              No category data available
+            </Text>
+            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+              Add some expenses to see category breakdown
+            </Text>
+          </View>
+        )}
+      </View>
 
-      <Card style={styles.card}>
-        <Text style={styles.title}>Expenses by Category</Text>
-        <BarChart
-          data={categoryData}
-          width={300}
-          height={220}
-          chartConfig={chartConfig}
-          verticalLabelRotation={30}
-          showValuesOnTopOfBars
-          yAxisLabel={theme.currency}
-          yAxisSuffix=""
-        />
-      </Card>
-
-      <Card style={styles.card}>
-        <Text style={styles.title}>Expenses by Participant</Text>
+      {/* Participant Breakdown */}
+      <View style={styles.chartCard}>
+        <View style={styles.chartHeader}>
+          <Ionicons name="people" size={20} color={theme.primary} />
+          <Text style={[styles.chartTitle, { color: theme.text }]}>Spending by Member</Text>
+        </View>
         {participantData.length > 0 ? (
           <PieChart
             data={participantData}
-            width={300}
-            height={220}
+            width={screenWidth - 64}
+            height={240}
             chartConfig={chartConfig}
             accessor="amount"
             backgroundColor="transparent"
             paddingLeft="15"
+            style={styles.chart}
           />
         ) : (
           <View style={styles.emptyChart}>
-            <Text style={styles.emptyText}>No participant data available</Text>
-            <Text style={styles.emptySubtext}>Add some split bills to see participant breakdown</Text>
+            <Ionicons name="people-outline" size={48} color={theme.textSecondary} />
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              No member data available
+            </Text>
+            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+              Add some split bills to see member breakdown
+            </Text>
           </View>
         )}
-      </Card>
+      </View>
+
+      {/* Insights Section */}
+      {stats.overview?.totalAmount > 0 && (
+        <View style={styles.insightsCard}>
+          <View style={styles.chartHeader}>
+            <Ionicons name="bulb" size={20} color={theme.primary} />
+            <Text style={[styles.chartTitle, { color: theme.text }]}>Quick Insights</Text>
+          </View>
+          <View style={styles.insightsList}>
+            {stats.overview?.pending > stats.overview?.settled && (
+              <View style={styles.insightItem}>
+                <Ionicons name="warning" size={16} color="#F59E0B" />
+                <Text style={[styles.insightText, { color: theme.text }]}>
+                  {stats.overview.pending} bills are still pending settlement
+                </Text>
+              </View>
+            )}
+            {stats.byCategory?.length > 3 && (
+              <View style={styles.insightItem}>
+                <Ionicons name="trending-up" size={16} color="#10B981" />
+                <Text style={[styles.insightText, { color: theme.text }]}>
+                  Expenses span {stats.byCategory.length} different categories
+                </Text>
+              </View>
+            )}
+            {stats.overview?.totalAmount > 10000 && (
+              <View style={styles.insightItem}>
+                <Ionicons name="cash" size={16} color="#8B5CF6" />
+                <Text style={[styles.insightText, { color: theme.text }]}>
+                  High spending period - consider reviewing budget
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -160,7 +336,178 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
 const getStyles = (theme: any) => StyleSheet.create({
   container: {
     padding: 16,
+    paddingTop: 20, // Additional top padding to prevent hiding behind headers
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  periodSelector: {
+    flexDirection: 'row',
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  periodButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 6,
+  },
+  periodButtonActive: {
+    backgroundColor: theme.primary,
+    shadowColor: theme.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  periodButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.textSecondary,
+  },
+  periodButtonTextActive: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  overviewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  overviewCard: {
+    flex: 1,
+    minWidth: (screenWidth - 64) / 2,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  cardContent: {
+    alignItems: 'center',
+  },
+  overviewValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  overviewLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  chartCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  chart: {
+    borderRadius: 12,
+    marginVertical: 8,
+  },
+  emptyChart: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.surfaceSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderStyle: 'dashed',
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  insightsCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  insightsList: {
+    gap: 12,
+  },
+  insightItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    backgroundColor: theme.surfaceSecondary,
+    borderRadius: 8,
+  },
+  insightText: {
+    fontSize: 14,
+    flex: 1,
+    lineHeight: 20,
+  },
+  // Legacy styles (keeping for compatibility)
   card: {
     padding: 16,
     marginBottom: 16,
@@ -195,24 +542,6 @@ const getStyles = (theme: any) => StyleSheet.create({
     color: theme.textSecondary || '#666',
     marginTop: 4,
   },
-  emptyChart: {
-    height: 220,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.surfaceSecondary || '#F8FAFC',
-    borderRadius: 8,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.textSecondary || '#64748B',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 12,
-    color: theme.textSecondary || '#94A3B8',
-    textAlign: 'center',
-  }
 });
 
 export default GroupExpenseStats;

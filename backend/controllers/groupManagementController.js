@@ -106,8 +106,12 @@ const getGroupDetails = async (groupId, userId) => {
 const updateGroupInfo = async (groupId, updates, userId) => {
   const group = await validateGroupMembership(groupId, userId);
 
-  // Check if user is admin
-  const member = group.members.find(m => m.userId.toString() === userId);
+  // Check if user is admin - handle both populated and non-populated userId
+  const member = group.members.find(m => {
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === userId.toString();
+  });
+  
   if (!member || member.role !== 'admin') {
     throw new Error('Only group admins can update group information');
   }
@@ -144,8 +148,23 @@ const updateGroupInfo = async (groupId, updates, userId) => {
 const updateGroupSettings = async (groupId, settings, userId) => {
   const group = await validateGroupMembership(groupId, userId);
 
-  // Check if user is admin
-  const member = group.members.find(m => m.userId.toString() === userId);
+  // Check if user is admin - handle both populated and non-populated userId
+  const member = group.members.find(m => {
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === userId.toString();
+  });
+  
+  console.log('Admin check:', {
+    userId: userId.toString(),
+    memberFound: !!member,
+    memberRole: member?.role,
+    isAdmin: member?.role === 'admin',
+    allMembers: group.members.map(m => ({
+      userId: (m.userId._id || m.userId).toString(),
+      role: m.role
+    }))
+  });
+  
   if (!member || member.role !== 'admin') {
     throw new Error('Only group admins can update group settings');
   }

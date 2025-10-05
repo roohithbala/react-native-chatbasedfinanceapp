@@ -33,7 +33,10 @@ export default function PendingPayments({ splitBills, currentUserId }: PendingPa
       </View>
       {splitBills.length > 0 ? (
         splitBills.map((bill, index) => {
-          const userParticipant = bill.participants.find(p => p.userId === currentUserId);
+          const userParticipant = bill.participants.find(p => {
+            const participantUserId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+            return participantUserId === currentUserId;
+          });
           return (
             <View key={bill._id || index} style={styles.billItem}>
               <View style={styles.billIcon}>
@@ -48,7 +51,7 @@ export default function PendingPayments({ splitBills, currentUserId }: PendingPa
                 </Text>
               </View>
               <Text style={styles.billAmount}>
-                {theme.currency}{userParticipant?.amount.toFixed(2) || '0.00'}
+                {theme.currency}{userParticipant?.amount?.toFixed(2) || '0.00'}
               </Text>
             </View>
           );

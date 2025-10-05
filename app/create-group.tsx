@@ -11,9 +11,9 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { useTheme } from './context/ThemeContext';
+import ExpenseScreenHeader from '@/app/components/ExpenseScreenHeader';
 import GroupTemplateSelector from './components/GroupTemplateSelector';
 import GroupForm from './components/GroupForm';
 import GroupInfoSection from './components/GroupInfoSection';
@@ -136,19 +136,7 @@ export default function CreateGroupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#2563EB', '#1D4ED8']} style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            disabled={isCreating}
-          >
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create Group</Text>
-          <View style={styles.placeholder} />
-        </View>
-      </LinearGradient>
+      <ExpenseScreenHeader title="Create Group" />
 
       <View style={styles.content}>
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -200,29 +188,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-  },
-  header: {
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  placeholder: {
-    width: 40,
   },
   content: {
     flex: 1,

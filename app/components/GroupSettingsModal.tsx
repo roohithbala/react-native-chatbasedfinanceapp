@@ -89,6 +89,16 @@ export default function GroupSettingsModal({
         throw new Error(`Invalid split method: ${splitMethod}`);
       }
 
+      // Debug logging
+      console.log('GroupSettingsModal - Current user and group details:');
+      console.log('Group ID:', groupId);
+      console.log('Group Details:', JSON.stringify(groupDetails, null, 2));
+      console.log('Group Members:', groupDetails?.members?.map((m: any) => ({
+        userId: m.userId,
+        name: m.userId?.name || 'Unknown',
+        role: m.role
+      })));
+
       // Prepare data for API calls
       const updateData = {
         name: groupNameInput.trim(),

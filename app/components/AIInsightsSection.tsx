@@ -41,10 +41,24 @@ const sampleInsights = [
   },
 ];
 
+const getInsightIcon = (type: string): string => {
+  switch (type) {
+    case 'warning': return '⚠️';
+    case 'success': return '✅';
+    case 'danger': return '🚨';
+    case 'info': return '💡';
+    case 'tip': return '💡';
+    case 'prediction': return '🔮';
+    default: return '📊';
+  }
+};
+
 const getInsightColor = (type: string): [ColorValue, ColorValue] => {
   switch (type) {
     case 'warning': return ['#F59E0B', '#FBBF24'] as [ColorValue, ColorValue];
     case 'success': return ['#10B981', '#34D399'] as [ColorValue, ColorValue];
+    case 'danger': return ['#EF4444', '#F87171'] as [ColorValue, ColorValue];
+    case 'info': return ['#3B82F6', '#60A5FA'] as [ColorValue, ColorValue];
     case 'tip': return ['#3B82F6', '#60A5FA'] as [ColorValue, ColorValue];
     case 'prediction': return ['#8B5CF6', '#A78BFA'] as [ColorValue, ColorValue];
     default: return ['#64748B', '#94A3B8'] as [ColorValue, ColorValue];
@@ -80,7 +94,11 @@ export const AIInsightsSection: React.FC<AIInsightsSectionProps> = ({
           <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Analyzing your spending patterns...</Text>
         </View>
       ) : (
-        (insights.length > 0 ? insights : sampleInsights).map((insight: any) => (
+        (insights.length > 0 ? insights.map((insight: any, index: number) => ({
+          ...insight,
+          id: insight.id || `insight-${index}`,
+          icon: insight.icon || getInsightIcon(insight.type)
+        })) : sampleInsights).map((insight: any) => (
           <TouchableOpacity key={insight.id || insight.title} style={styles.insightCard}>
             <LinearGradient
               colors={getInsightColor(insight.type)}

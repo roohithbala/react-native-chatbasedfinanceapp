@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import biometricAuthService from '@/lib/services/biometricAuthService';
 import { useTheme } from '../context/ThemeContext';
+import AppFooter from '../components/AppFooter';
 
 export default function ProfileScreen() {
   const [notifications, setNotifications] = useState(true);
@@ -240,6 +241,8 @@ export default function ProfileScreen() {
 
         <Text style={styles.versionText}>Version 1.0.0</Text>
       </ScrollView>
+
+      <AppFooter />
 
       {/* Join Group Modal */}
       <Modal

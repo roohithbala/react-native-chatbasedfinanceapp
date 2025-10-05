@@ -195,7 +195,7 @@ async function handleDirectMediaUpload(req, res, mediaType) {
   }
 
   // Create media URL (relative path for serving)
-  const mediaUrl = `/uploads/${mediaType}s/${file.filename}`;
+  const mediaUrl = `/uploads/${mediaType === 'audio' ? 'audio' : mediaType + 's'}/${file.filename}`;
 
   // Get file metadata
   const stats = fs.statSync(file.path);
@@ -210,7 +210,7 @@ async function handleDirectMediaUpload(req, res, mediaType) {
       username: sender.username,
       avatar: sender.avatar
     },
-    recipient: recipientId,
+    receiver: recipientId,
     type: mediaType,
     status: 'sent',
     mediaUrl,
@@ -313,7 +313,7 @@ async function handleMediaUpload(req, res, mediaType) {
   }
 
   // Create media URL (relative path for serving)
-  const mediaUrl = `/uploads/${mediaType}s/${file.filename}`;
+  const mediaUrl = `/uploads/${mediaType === 'audio' ? 'audio' : mediaType + 's'}/${file.filename}`;
 
   // Get file metadata
   const stats = fs.statSync(file.path);

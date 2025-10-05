@@ -24,7 +24,7 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
 
   // If no participants are mentioned, split with all group members
   let participants;
-  if (mentions.length <= 1) { // Only @split command
+  if (mentions.length <= 1) { // Only @split command, no @user mentions
     const group = await Group.findById(groupId);
     if (!group) {
       throw new Error('Group not found');
@@ -34,9 +34,11 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
       .map(m => m.userId);
   } else {
     // For mentioned participants, get their user IDs
-    const usernames = mentions.slice(1).map(p => p.replace('@', ''));
+    // Remove the @split command from mentions if present
+    const userMentions = mentions.filter(mention => mention.toLowerCase() !== '@split');
+    const usernames = userMentions.map(p => p.replace('@', ''));
     const users = await User.find({ username: { $in: usernames } });
-    if (users.length !== mentions.length - 1) {
+    if (users.length !== usernames.length) {
       throw new Error('One or more mentioned users not found');
     }
     participants = users.map(u => u._id);
@@ -50,34 +52,68 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
     throw new Error('No participants mentioned for split bill');
   }
 
-  // Get participant user IDs
-  const usernames = participants.map(p => p.replace('@', ''));
-  const users = await User.find({ username: { $in: usernames } })
+  // Get participant details for split bill creation
+  const participantUsers = await User.find({ _id: { $in: participants } })
     .select('_id username name');
 
-  if (users.length !== participants.length) {
-    const foundUsernames = users.map(u => u.username);
-    const missingUsers = usernames.filter(u => !foundUsernames.includes(u));
-    throw new Error(`User(s) not found: ${missingUsers.join(', ')}`);
+  if (participantUsers.length !== participants.length) {
+    throw new Error('Some participants could not be found');
   }
 
-  // Calculate split amount for participants (excluding creator who paid)
-  const totalParticipants = users.length; // Only the mentioned users, not including creator
-  const splitAmount = totalParticipants > 0 ? Number((amount / totalParticipants).toFixed(2)) : 0;
+  // Include the creator as a participant - when you split with someone, everyone pays their share
+  const creatorUser = await User.findById(userId).select('_id username name');
+  const allSplitParticipants = [creatorUser, ...participantUsers];
+
+  // Calculate split amount for all participants (including creator) - everyone pays equally
+  const totalParticipants = allSplitParticipants.length;
+  const splitAmount = amount / totalParticipants; // Amount each participant owes
+  
+  // Use more precise calculation to avoid floating point issues
+  const baseAmount = Math.floor((amount * 100) / totalParticipants) / 100; // Amount in rupees with 2 decimal precision
+  const remainder = amount - (baseAmount * totalParticipants);
+  
+  // Create participant data with precise amounts
+  const participantsData = allSplitParticipants.map((u, index) => {
+    let participantAmount = baseAmount;
+    // Distribute remainder to first participants to ensure sum equals total
+    if (index < remainder * 100) {
+      participantAmount += 0.01;
+    }
+    return {
+      userId: u._id,
+      amount: Number(participantAmount.toFixed(2)) // Ensure exactly 2 decimal places
+    };
+  });
+
+  console.log('🔄 Precise split calculation:', {
+    amount,
+    totalParticipants,
+    baseAmount,
+    remainder,
+    participantsData: participantsData.map(p => ({ userId: p.userId.toString(), amount: p.amount })),
+    totalFromParticipants: participantsData.reduce((sum, p) => sum + p.amount, 0)
+  });
 
   // Prepare split bill data for the controller
   const splitBillData = {
     description,
     totalAmount: amount,
     groupId: groupId, // Use the provided groupId
-    participants: users.map(u => ({
-      userId: u._id,
-      amount: splitAmount,
-    })),
+    participants: participantsData,
     splitType: 'equal',
     category: 'Split',
     currency: 'INR'
   };
+
+  console.log('📋 Split bill data for controller:', {
+    description: splitBillData.description,
+    totalAmount: splitBillData.totalAmount,
+    participantsCount: splitBillData.participants.length,
+    participants: splitBillData.participants.map(p => ({
+      userId: p.userId.toString(),
+      amount: p.amount
+    }))
+  });
 
   // Use the split bill management controller to create the split bill
   const splitBill = await splitBillManagementController.createSplitBill(userId, splitBillData);
@@ -94,9 +130,10 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
   });
   await groupExpense.save();
 
-  // Get participant details for the response
+  // Get participant details for the response (including creator)
+  const allParticipantIds = [userId, ...participants];
   const participantDetails = await User.find({
-    _id: { $in: [...participants, userId] }
+    _id: { $in: allParticipantIds }
   }).select('username name');
 
   const participantMap = participantDetails.reduce((acc, p) => {
@@ -109,11 +146,11 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
     data: {
       description,
       amount,
-      splitAmount: splitAmount,
+      splitAmount: splitAmount, // This is the amount each participant owes (including creator)
       participants: participantDetails.map(p => ({
         username: p.username || 'unknown',
         name: p.name || 'Unknown',
-        amount: (isNaN(splitAmount) ? '0.00' : splitAmount.toFixed(2))
+        amount: isNaN(splitAmount) ? '0.00' : splitAmount.toFixed(2) // Everyone owes the same amount
       })),
       groupId: groupId,
       groupName: 'Current Group', // We don't need to create a separate group for command-based splits

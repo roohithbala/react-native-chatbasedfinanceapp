@@ -28,6 +28,7 @@ import { CommandParser } from '../../lib/components/CommandParser';
 import { useTheme } from '../context/ThemeContext';
 import MessageInput from '../components/MessageInput';
 import SplitBillMessage from '../components/SplitBillMessage';
+import ReportsAPI from '../lib/services/reportsAPI';
 
 interface Message {
   _id: string;
@@ -57,6 +58,7 @@ interface Message {
       amount: number;
       isPaid: boolean;
       paidAt?: string;
+      isRejected?: boolean;
     }>;
     isSettled: boolean;
   };
@@ -116,10 +118,101 @@ export default function ChatDetailScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
+  const updateMessageSplitBill = (messageId: string, updatedSplitBill: any) => {
+    setMessages(prev => prev.map(msg => {
+      if (msg._id === messageId && msg.splitBillData) {
+        // Update the splitBillData with the updated split bill data
+        const updatedSplitBillData = {
+          ...msg.splitBillData,
+          participants: updatedSplitBill.participants.map((p: any) => ({
+            userId: {
+              _id: p.userId._id || p.userId,
+              name: p.userId.name || 'Unknown',
+              username: p.userId.name ? p.userId.name.toLowerCase().replace(/\s+/g, '') : 'unknown'
+            },
+            amount: p.amount,
+            isPaid: p.isPaid,
+            isRejected: p.isRejected || false
+          }))
+        };
+        return {
+          ...msg,
+          splitBillData: updatedSplitBillData
+        };
+      }
+      return msg;
+    }));
+  };
+
   useEffect(() => {
     loadMessages();
     const interval = setInterval(loadMessages, 5000); // Poll for new messages
     return () => clearInterval(interval);
+  }, [userId]);
+
+  // Set up socket listeners for real-time updates
+  useEffect(() => {
+    // Import socket service
+    const socketService = require('../../lib/services/socketService').socketService;
+    
+    const handleSplitBillUpdate = (data: any) => {
+      console.log('Direct chat - Split bill updated via socket:', data);
+      if (data.type === 'payment-made' || data.type === 'bill-rejected') {
+        // Update messages that contain this split bill
+        setMessages(prev => prev.map(msg => {
+          if (msg.splitBillData && msg.splitBillData._id === data.splitBillId) {
+            console.log('Updating message with split bill data:', data.splitBill);
+            // Create a completely new splitBillData object to ensure React detects the change
+            const updatedSplitBillData = {
+              ...msg.splitBillData,
+              participants: data.splitBill.participants.map((p: any) => ({
+                userId: {
+                  _id: p.userId,
+                  name: p.name,
+                  username: p.name.toLowerCase().replace(/\s+/g, '')
+                },
+                amount: p.amount,
+                isPaid: p.isPaid,
+                isRejected: p.isRejected || false
+              }))
+            };
+            return {
+              ...msg,
+              splitBillData: updatedSplitBillData
+            };
+          }
+          return msg;
+        }));
+      }
+    };
+
+    const setupSocketListeners = () => {
+      console.log('Setting up socket listeners for direct chat');
+      socketService.onSplitBillUpdate(handleSplitBillUpdate);
+    };
+
+    const handleConnectionStatusChange = (status: any) => {
+      console.log('Socket connection status changed:', status);
+      if (status.isConnected) {
+        // Re-register listeners when socket reconnects
+        setupSocketListeners();
+      }
+    };
+
+    // Initial setup
+    socketService.connect().then(() => {
+      setupSocketListeners();
+    }).catch((error: any) => {
+      console.error('Failed to connect socket in direct chat:', error);
+    });
+
+    // Listen for connection status changes to re-register listeners on reconnection
+    socketService.onConnectionStatusChange(handleConnectionStatusChange);
+
+    // Cleanup - remove all listeners when component unmounts
+    return () => {
+      socketService.removeAllListeners();
+    };
   }, [userId]);
 
   const loadMessages = async () => {
@@ -270,7 +363,28 @@ export default function ChatDetailScreen() {
           _id: result._id,
           description: description,
           totalAmount: data.amount,
-          participants: result.participants,
+          participants: [
+            {
+              userId: {
+                _id: currentUser._id,
+                name: currentUser.name,
+                username: currentUser.username
+              },
+              amount: data.amount / 2,
+              isPaid: true, // Current user has paid their share
+              isRejected: false
+            },
+            {
+              userId: {
+                _id: userId,
+                name: otherUser?.name || 'Friend',
+                username: otherUser?.username || 'friend'
+              },
+              amount: data.amount / 2,
+              isPaid: false, // Other user hasn't paid yet
+              isRejected: false
+            }
+          ],
           isSettled: result.isSettled
         }
       };
@@ -449,7 +563,67 @@ export default function ChatDetailScreen() {
   };
 
   const handleHamburgerMenu = () => {
-    router.push('/expenses');
+    Alert.alert(
+      'Chat Options',
+      `What would you like to do with ${otherUser?.name || 'this user'}?`,
+      [
+        {
+          text: 'Block User',
+          style: 'destructive',
+          onPress: handleBlockUser,
+        },
+        {
+          text: 'Report User',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Report User',
+              'Are you sure you want to report this user? This will send a notification to our development team.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Report',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      console.log('🔍 Starting report submission...');
+                      console.log('📊 Report data:', {
+                        userId,
+                        username: otherUser?.username || 'Unknown',
+                        name: otherUser?.name || 'Unknown'
+                      });
+
+                      await ReportsAPI.reportUser(
+                        userId,
+                        otherUser?.username || 'Unknown',
+                        'User reported via chat menu',
+                        `User ${otherUser?.name || 'Unknown'} was reported for inappropriate behavior.`
+                      );
+
+                      console.log('✅ Report submitted successfully');
+                      Alert.alert('Success', 'Report submitted successfully. Our team will review this report and take appropriate action.');
+                    } catch (error: any) {
+                      console.error('❌ Error submitting report:', error);
+                      console.error('❌ Error details:', error.message);
+                      console.error('❌ Full error:', error);
+                      Alert.alert('Error', error.message || 'Failed to submit report. Please try again.');
+                    }
+                  }
+                }
+              ]
+            );
+          },
+        },
+        {
+          text: 'View Profile',
+          onPress: () => router.push(`/profile/${userId}`),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   const handleSend = async () => {
@@ -524,11 +698,13 @@ export default function ChatDetailScreen() {
               userId: typeof p.userId === 'object' ? p.userId._id : p.userId,
               name: typeof p.userId === 'object' ? p.userId.name : 'Unknown',
               amount: p.amount,
-              isPaid: p.isPaid
+              isPaid: p.isPaid,
+              isRejected: p.isRejected || false
             }));
 
             const currentUserShare = transformedParticipants.find(p => p.userId === currentUser?._id)?.amount || 0;
             const currentUserPaid = transformedParticipants.find(p => p.userId === currentUser?._id)?.isPaid || false;
+            const currentUserRejected = transformedParticipants.find(p => p.userId === currentUser?._id)?.isRejected || false;
 
             return (
               <SplitBillMessage
@@ -538,13 +714,13 @@ export default function ChatDetailScreen() {
                   totalAmount: item.splitBillData.totalAmount,
                   participants: transformedParticipants,
                   userShare: currentUserShare,
-                  isPaid: currentUserPaid
+                  isPaid: currentUserPaid,
+                  isRejected: currentUserRejected
                 }}
                 currentUserId={currentUser?._id || ''}
-                onPaymentSuccess={() => {
-                  // Refresh messages to show updated payment status
-                  loadMessages();
-                }}
+                messageId={item._id}
+                canReject={item.sender._id !== currentUser?._id}
+                onPaymentSuccess={(updatedSplitBill, msgId) => updateMessageSplitBill(msgId, updatedSplitBill)}
               />
             );
           })() : (

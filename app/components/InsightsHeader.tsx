@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export const InsightsHeader: React.FC = () => {
   return (
-    <LinearGradient colors={['#1E293B', '#334155']} style={styles.header}>
+    <LinearGradient colors={['#2563EB', '#1D4ED8']} style={styles.header}>
       <Text style={styles.headerTitle}>AI Insights</Text>
       <Text style={styles.headerSubtitle}>Powered by financial intelligence</Text>
     </LinearGradient>

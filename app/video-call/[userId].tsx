@@ -18,6 +18,15 @@ import { useCallStore } from '../../lib/store/callStore';
 import { useFinanceStore } from '../../lib/store/financeStore';
 import socketService from '../../lib/services/socketService';
 
+// Import WebRTC components conditionally
+let RTCView: any = null;
+try {
+  const webrtcModule = require('react-native-webrtc');
+  RTCView = webrtcModule.RTCView;
+} catch (error) {
+  console.warn('RTCView not available, video will not be displayed');
+}
+
 const { width, height } = Dimensions.get('window');
 
 export default function VideoCallScreen() {
@@ -33,6 +42,10 @@ export default function VideoCallScreen() {
   const [callDuration, setCallDuration] = useState(0);
   const [isInitializing, setIsInitializing] = useState(true);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Video streams
+  const [localStream, setLocalStream] = useState<any>(null);
+  const [remoteStream, setRemoteStream] = useState<any>(null);
 
   // Get call data from store
   const currentCall = callStore.currentCall;
@@ -85,6 +98,8 @@ export default function VideoCallScreen() {
         },
         onCallEnded: (callData) => {
           callStore.endCall();
+          setLocalStream(null);
+          setRemoteStream(null);
           router.back();
         },
         onParticipantJoined: (participant) => {
@@ -96,8 +111,15 @@ export default function VideoCallScreen() {
         onStreamReceived: (participantId, stream) => {
           // Handle remote video stream
           console.log('Remote video stream received:', participantId);
+          setRemoteStream(stream);
         }
       });
+
+      // Get local stream if available
+      const localStreamData = callService.getLocalStream();
+      if (localStreamData) {
+        setLocalStream(localStreamData);
+      }
 
       // Check if there's an incoming call to answer
       const incomingCall = callStore.incomingCall;
@@ -119,9 +141,24 @@ export default function VideoCallScreen() {
         callStore.setCallStatus('connecting');
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to initialize video call:', error);
-      Alert.alert('Error', 'Failed to start video call. Please check your connection and try again.');
+      
+      // Provide specific error messages based on error type
+      let errorMessage = 'Failed to start video call.';
+      let errorTitle = 'Call Error';
+      
+      if (error.message?.includes('Permissions not granted')) {
+        errorMessage = 'Camera and microphone permissions are required for video calls. Please grant permissions and try again.';
+        errorTitle = 'Permissions Required';
+      } else if (error.message?.includes('network') || error.message?.includes('connection')) {
+        errorMessage = 'Network connection issue. Please check your internet connection and try again.';
+        errorTitle = 'Connection Error';
+      } else {
+        errorMessage = 'An unexpected error occurred. Please try again.';
+      }
+      
+      Alert.alert(errorTitle, errorMessage);
       router.back();
     } finally {
       setIsInitializing(false);
@@ -150,6 +187,8 @@ export default function VideoCallScreen() {
     if (callStore.isInCall) {
       callService.endCall();
     }
+    setLocalStream(null);
+    setRemoteStream(null);
   };
 
   const formatDuration = (seconds: number) => {
@@ -231,7 +270,14 @@ export default function VideoCallScreen() {
           {/* Video Area */}
           <View style={styles.videoContainer}>
             <View style={styles.mainVideo}>
-              {callStatus === 'connected' ? (
+              {remoteStream && RTCView ? (
+                <RTCView
+                  streamURL={remoteStream.toURL()}
+                  style={styles.videoStream}
+                  objectFit="cover"
+                  mirror={false}
+                />
+              ) : callStatus === 'connected' ? (
                 <View style={styles.videoPlaceholder}>
                   <Ionicons name="videocam" size={80} color="rgba(255, 255, 255, 0.5)" />
                   <Text style={styles.videoText}>Video Call Active</Text>
@@ -249,7 +295,17 @@ export default function VideoCallScreen() {
             </View>
 
             {/* Self Video */}
-            {callStatus === 'connected' && !isVideoOff && (
+            {localStream && !isVideoOff && RTCView && (
+              <View style={styles.selfVideo}>
+                <RTCView
+                  streamURL={localStream.toURL()}
+                  style={styles.selfVideoStream}
+                  objectFit="cover"
+                  mirror={true}
+                />
+              </View>
+            )}
+            {!localStream && callStatus === 'connected' && !isVideoOff && (
               <View style={styles.selfVideo}>
                 <View style={styles.selfVideoPlaceholder}>
                   <Ionicons name="person" size={30} color="rgba(255, 255, 255, 0.7)" />
@@ -357,6 +413,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  videoStream: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
   videoPlaceholder: {
     alignItems: 'center',
   },
@@ -375,6 +436,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderWidth: 2,
     borderColor: 'white',
+  },
+  selfVideoStream: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
   },
   selfVideoPlaceholder: {
     flex: 1,

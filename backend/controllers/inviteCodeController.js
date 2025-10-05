@@ -11,7 +11,10 @@ const generateNewInviteCode = async (groupId, userId) => {
   const group = await validateGroupMembership(groupId, userId);
 
   // Check if user is admin
-  const member = group.members.find(m => m.userId.toString() === userId);
+  const member = group.members.find(m => {
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString() === userId.toString();
+  });
   if (!member || member.role !== 'admin') {
     throw new Error('Only group admins can generate new invite codes');
   }

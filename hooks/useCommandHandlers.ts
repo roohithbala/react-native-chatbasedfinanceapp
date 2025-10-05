@@ -10,6 +10,9 @@ export const useCommandHandlers = (groupId: string) => {
         case 'expense':
           await handleExpenseCommand(commandData);
           break;
+        case 'split':
+          await handleSplitCommand(commandData);
+          break;
         case 'predict':
           await handlePredictCommand();
           break;
@@ -47,12 +50,52 @@ export const useCommandHandlers = (groupId: string) => {
       await addExpense(expenseData);
 
       // Send confirmation message
-      const confirmationMessage = `✅ Expense added!\n📝 ${data.description}\n💰 Amount: $${(data.amount || 0).toFixed(2)}\n📂 Category: ${data.category}`;
+      const confirmationMessage = `✅ Expense added!\n📝 ${data.description}\n💰 Amount: ₹${(data.amount || 0).toFixed(2)}\n📂 Category: ${data.category}`;
 
       return confirmationMessage;
     } catch (error: any) {
       console.error('Error adding expense:', error);
       Alert.alert('Error', error.message || 'Failed to add expense');
+      throw error;
+    }
+  };
+
+  const handleSplitCommand = async (data: any) => {
+    try {
+      if (!data || !data.amount || data.amount <= 0) {
+        throw new Error('Invalid amount for split bill');
+      }
+
+      const { currentUser } = useFinanceStore.getState();
+      if (!currentUser?._id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Create split bill data
+      const splitBillData = {
+        description: data.description,
+        totalAmount: data.amount,
+        groupId: groupId || undefined,
+        participants: data.participants.map((username: string) => ({
+          userId: username, // This will be resolved to user ID on the backend
+          amount: data.splitType === 'equal' ? data.amount / data.participants.length : 0 // Backend will calculate amounts
+        })),
+        splitType: data.splitType || 'equal',
+        category: data.category || 'Other',
+        currency: 'INR'
+      };
+
+      // Create the split bill
+      const { createSplitBill } = useFinanceStore.getState();
+      const result = await createSplitBill(splitBillData);
+
+      // Send confirmation message
+      const confirmationMessage = `✅ Split bill created!\n📝 ${data.description}\n💰 Total: ₹${(data.amount || 0).toFixed(2)}\n👥 Split with: ${data.participants.join(', ')}\n📂 Category: ${data.category || 'Other'}`;
+
+      return confirmationMessage;
+    } catch (error: any) {
+      console.error('Error creating split bill:', error);
+      Alert.alert('Error', error.message || 'Failed to create split bill');
       throw error;
     }
   };
@@ -91,6 +134,7 @@ export const useCommandHandlers = (groupId: string) => {
   return {
     processCommand,
     handleExpenseCommand,
+    handleSplitCommand,
     handlePredictCommand
   };
 };

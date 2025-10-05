@@ -53,20 +53,53 @@ app.use('*', (req, res) => {
 // Global error handlers
 process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err);
-  process.exit(1);
+  console.error('Stack trace:', err.stack);
+  // Don't exit immediately, try to keep server running
+  setTimeout(() => {
+    console.log('🔄 Attempting to keep server alive after uncaught exception...');
+  }, 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  console.error('Stack trace:', reason?.stack || reason);
+  // Don't exit immediately, try to keep server running
+  setTimeout(() => {
+    console.log('🔄 Attempting to keep server alive after unhandled rejection...');
+  }, 1000);
 });
+
+// Handle process termination gracefully
+process.on('SIGINT', () => {
+  console.log('🛑 Received SIGINT, shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGTERM', () => {
+  console.log('🛑 Received SIGTERM, shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+// Keep server alive with periodic health checks
+setInterval(() => {
+  console.log(`💓 Server heartbeat - ${new Date().toISOString()} - Port: ${PORT}`);
+}, 300000); // Every 5 minutes
 
 const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.27.93.172:8081'}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.120.178.172:8081'}`);
+  console.log(`🔗 API Health Check: http://localhost:${PORT}/api/health`);
+  console.log(`🕐 Server started at: ${new Date().toISOString()}`);
 }).on('error', (err) => {
   console.error('❌ Failed to start server:', err.message);
+  console.error('Full error:', err);
   process.exit(1);
 });
 

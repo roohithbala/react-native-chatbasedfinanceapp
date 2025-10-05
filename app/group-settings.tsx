@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { useTheme } from './context/ThemeContext';
 import { groupsAPI } from '@/lib/services/api';
+import ExpenseScreenHeader from '@/app/components/ExpenseScreenHeader';
 
 export default function GroupSettingsScreen() {
   const { groupId, mode } = useLocalSearchParams();
@@ -152,16 +153,7 @@ export default function GroupSettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Group Settings</Text>
-        <View style={styles.headerRight} />
-      </View>
+      <ExpenseScreenHeader title="Group Settings" />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {mode === 'edit' && (
@@ -313,22 +305,6 @@ const getStyles = (theme: any) => StyleSheet.create({
   backButtonText: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerRight: {
-    width: 40,
   },
   content: {
     flex: 1,

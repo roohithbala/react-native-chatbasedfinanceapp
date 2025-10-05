@@ -163,7 +163,8 @@ const sendMessage = async (groupId, userId, messageData, io) => {
           userId: p.userId._id.toString(),
           name: p.userId.name || 'Unknown',
           amount: p.amount,
-          isPaid: p.isPaid
+          isPaid: p.isPaid,
+          isRejected: p.isRejected || false
         }))
       };
     }

@@ -1,4 +1,4 @@
-// Dynamic import to handle WebRTC availability
+// Static import with error handling for WebRTC availability
 let WebRTC: any = null;
 let RTCPeerConnection: any = null;
 let RTCIceCandidate: any = null;
@@ -14,8 +14,10 @@ try {
   RTCSessionDescription = webrtcModule.RTCSessionDescription;
   mediaDevices = webrtcModule.mediaDevices;
   MediaStream = webrtcModule.MediaStream;
+  console.log('✅ WebRTC module loaded successfully');
 } catch (error) {
-  console.warn('WebRTC native module not available. Call functionality will be simulated.');
+  console.warn('⚠️ WebRTC native module not available. Call functionality will be simulated.');
+  console.warn('Error details:', error);
   // Create mock classes for when WebRTC isn't available
   RTCPeerConnection = class MockRTCPeerConnection {
     constructor() {}
@@ -37,13 +39,26 @@ try {
   };
 
   mediaDevices = {
-    getUserMedia: () => Promise.resolve(new MediaStream()),
+    getUserMedia: (constraints: any) => {
+      console.log('🎤 Mock getUserMedia called with constraints:', constraints);
+      return Promise.resolve(new MediaStream());
+    },
     enumerateDevices: () => Promise.resolve([])
   };
 }
 
 import socketService from './socketService';
 import { useCallStore } from '../store/callStore';
+
+// Import Expo permissions
+let Camera: any = null;
+let Audio: any = null;
+try {
+  Camera = require('expo-camera');
+  Audio = require('expo-av').Audio;
+} catch (error) {
+  console.warn('Expo permissions modules not available');
+}
 
 export interface CallParticipant {
   userId: string;
@@ -95,6 +110,50 @@ class CallService {
 
   constructor() {
     this.setupSocketListeners();
+  }
+
+  // Request camera and microphone permissions
+  async requestPermissions(type: 'voice' | 'video' = 'voice'): Promise<boolean> {
+    try {
+      console.log('🎤 Requesting permissions for type:', type);
+      console.log('📷 Camera module available:', !!Camera);
+      console.log('🎵 Audio module available:', !!Audio);
+
+      if (Camera && type === 'video') {
+        console.log('📷 Requesting camera permissions...');
+        const cameraPermission = await Camera.requestCameraPermissionsAsync();
+        console.log('📷 Camera permission result:', cameraPermission);
+        if (cameraPermission.status !== 'granted') {
+          console.error('❌ Camera permission denied');
+          return false;
+        }
+      }
+
+      if (Audio) {
+        console.log('🎵 Requesting audio permissions...');
+        const audioPermission = await Audio.requestPermissionsAsync();
+        console.log('🎵 Audio permission result:', audioPermission);
+        if (audioPermission.status !== 'granted') {
+          console.error('❌ Audio permission denied');
+          return false;
+        }
+      }
+
+      console.log('✅ Permissions granted for', type, 'call');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to request permissions:', error);
+
+      // If Expo modules are not available, show user-friendly message
+      if (!Camera || !Audio) {
+        console.warn('⚠️ Expo Camera/Audio modules not available, permissions may need to be granted manually');
+        // For now, assume permissions are granted if modules aren't available
+        // This allows the app to work in development when modules might not be loaded
+        return true;
+      }
+
+      return false;
+    }
   }
 
   private setupSocketListeners() {
@@ -162,6 +221,12 @@ class CallService {
 
   // Initialize media devices
   async initializeMedia(type: 'voice' | 'video' = 'voice'): Promise<any> {
+    // Request permissions first
+    const permissionsGranted = await this.requestPermissions(type);
+    if (!permissionsGranted) {
+      throw new Error('Permissions not granted');
+    }
+
     if (!WebRTC) {
       console.warn('WebRTC not available, simulating media initialization');
       this.localStream = new MediaStream();

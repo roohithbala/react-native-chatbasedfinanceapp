@@ -8,7 +8,7 @@ const configureMiddleware = (app) => {
   app.use(helmet());
   app.use(cors({
     origin: [
-      'http://10.27.93.172:8081',
+      'http://10.120.178.172:8081',
       'http://localhost:8081',
       process.env.FRONTEND_URL
     ].filter(Boolean),

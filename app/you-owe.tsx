@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { PaymentsAPI, SettlementPlan } from '@/lib/services/paymentsAPI';
 import { useTheme } from '@/app/context/ThemeContext';
+import ExpenseScreenHeader from '@/app/components/ExpenseScreenHeader';
 
 export default function YouOweScreen() {
   const { theme } = useTheme();
@@ -161,13 +162,7 @@ export default function YouOweScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>You Owe</Text>
-          <View style={styles.placeholder} />
-        </View>
+        <ExpenseScreenHeader title="You Owe" />
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading settlement details...</Text>
         </View>
@@ -178,13 +173,11 @@ export default function YouOweScreen() {
   if (error) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>You Owe</Text>
-          <View style={styles.placeholder} />
-        </View>
+        <ExpenseScreenHeader
+          title="You Owe"
+          showReloadButton={true}
+          onReload={loadSettlements}
+        />
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
           <TouchableOpacity style={[styles.retryButton, { backgroundColor: theme.primary }]} onPress={loadSettlements}>
@@ -197,13 +190,7 @@ export default function YouOweScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>You Owe</Text>
-        <View style={styles.placeholder} />
-      </View>
+      <ExpenseScreenHeader title="You Owe" />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {settlements.length === 0 ? (
@@ -259,25 +246,6 @@ export default function YouOweScreen() {
 const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  placeholder: {
-    width: 40,
   },
   content: {
     flex: 1,

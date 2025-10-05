@@ -136,6 +136,8 @@ export default function ChatMessagesList({
                   isPaid: currentUserPaid
                 }}
                 currentUserId={currentUserId}
+                messageId={item._id}
+                canReject={false}
                 onPaymentSuccess={onPaymentSuccess}
               />
             );

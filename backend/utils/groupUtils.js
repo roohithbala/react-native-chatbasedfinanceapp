@@ -18,7 +18,10 @@ const validateGroupMembership = async (groupId, userId, requiredRole = null) => 
   }
 
   if (requiredRole) {
-    const member = group.members.find(m => m.userId.toString() === userId && m.isActive);
+    const member = group.members.find(m => {
+      const memberUserId = m.userId._id || m.userId;
+      return memberUserId.toString() === userId.toString() && m.isActive;
+    });
     if (!member || member.role !== requiredRole) {
       throw new Error('Insufficient permissions');
     }
@@ -35,9 +38,10 @@ const canAddMemberToGroup = (group, userId) => {
   }
 
   // Check if user is already a member
-  const isMember = group.members.some(member =>
-    member.userId.toString() === userId
-  );
+  const isMember = group.members.some(member => {
+    const memberUserId = member.userId._id || member.userId;
+    return memberUserId.toString() === userId.toString();
+  });
 
   if (isMember) {
     return { canAdd: false, error: 'User is already a member' };

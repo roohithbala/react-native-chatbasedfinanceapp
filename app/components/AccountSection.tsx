@@ -52,7 +52,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ onMenuAction }) 
         Alert.alert('Coming Soon', 'Data export coming soon!');
         break;
       case 'helpSupport':
-        Alert.alert('Help', 'For support, email us at support@securefinance.com');
+        Alert.alert('Help & Support', 'For support, email us at roohithbala@outlook.com\n\nPortfolio: https://roohithbala.github.io/portfolio/');
         break;
       default:
         onMenuAction(action);
