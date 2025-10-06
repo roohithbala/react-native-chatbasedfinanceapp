@@ -7,21 +7,24 @@ import { isMessageResponse, isMessagesResponse } from '../../app/utils/typeGuard
 
 // API Configuration
 const getApiBaseUrl = () => {
-  // Try to get the server IP from environment or use localhost as fallback
-  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP || '10.120.178.172';
+  // For React Native development, localhost doesn't work from emulator/device
+  // Try common development IPs or use environment variable
+  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP ||
+                   '10.0.2.2' || // Android emulator localhost
+                   '192.168.1.100' || // Common local network IP
+                   'localhost';
+
   const serverPort = process.env.EXPO_PUBLIC_BACKEND_PORT || '3001';
-  
+
   if (__DEV__) {
     return `http://${serverIP}:${serverPort}/api`;
   } else {
     return 'https://your-production-api.com/api';
   }
-};
-
-export const API_BASE_URL = getApiBaseUrl();
+};export const API_BASE_URL = getApiBaseUrl();
 
 console.log('API Base URL:', API_BASE_URL);
-console.log('Server IP:', process.env.EXPO_PUBLIC_SERVER_IP || '10.120.178.172');
+console.log('Server IP being used:', process.env.EXPO_PUBLIC_SERVER_IP || '10.0.2.2');
 console.log('Server Port:', process.env.EXPO_PUBLIC_BACKEND_PORT || '3001');
 
 // Network connectivity check

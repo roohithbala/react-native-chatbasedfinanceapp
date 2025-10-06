@@ -29,9 +29,12 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
     if (!group) {
       throw new Error('Group not found');
     }
+    // Get all active group members except the creator
     participants = group.members
       .filter(m => m.isActive && m.userId.toString() !== userId.toString())
       .map(m => m.userId);
+    
+    console.log('📋 Group split - participants from group:', participants.map(p => p.toString()));
   } else {
     // For mentioned participants, get their user IDs
     // Remove the @split command from mentions if present
@@ -60,23 +63,37 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
     throw new Error('Some participants could not be found');
   }
 
+  console.log('📋 Participant users found:', participantUsers.map(u => ({ id: u._id.toString(), name: u.name })));
+
   // Include the creator as a participant - when you split with someone, everyone pays their share
   const creatorUser = await User.findById(userId).select('_id username name');
-  const allSplitParticipants = [creatorUser, ...participantUsers];
+  
+  // Combine creator and other participants, ensuring no duplicates
+  const allParticipantsSet = new Set([creatorUser._id.toString()]);
+  const allSplitParticipants = [creatorUser];
+  
+  participantUsers.forEach(user => {
+    if (!allParticipantsSet.has(user._id.toString())) {
+      allParticipantsSet.add(user._id.toString());
+      allSplitParticipants.push(user);
+    }
+  });
 
   // Calculate split amount for all participants (including creator) - everyone pays equally
   const totalParticipants = allSplitParticipants.length;
   const splitAmount = amount / totalParticipants; // Amount each participant owes
   
-  // Use more precise calculation to avoid floating point issues
-  const baseAmount = Math.floor((amount * 100) / totalParticipants) / 100; // Amount in rupees with 2 decimal precision
-  const remainder = amount - (baseAmount * totalParticipants);
+  // Use precise calculation to ensure sum equals total amount
+  // Calculate base amount per participant
+  const baseAmount = Math.floor((amount * 100) / totalParticipants) / 100;
+  const totalBaseAmount = baseAmount * totalParticipants;
+  const remainder = Math.round((amount - totalBaseAmount) * 100); // Convert remainder to cents
   
-  // Create participant data with precise amounts
+  // Create participant data with precise amounts that sum to total
   const participantsData = allSplitParticipants.map((u, index) => {
     let participantAmount = baseAmount;
-    // Distribute remainder to first participants to ensure sum equals total
-    if (index < remainder * 100) {
+    // Distribute remainder cents to first participants
+    if (index < remainder) {
       participantAmount += 0.01;
     }
     return {
@@ -89,6 +106,7 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
     amount,
     totalParticipants,
     baseAmount,
+    totalBaseAmount,
     remainder,
     participantsData: participantsData.map(p => ({ userId: p.userId.toString(), amount: p.amount })),
     totalFromParticipants: participantsData.reduce((sum, p) => sum + p.amount, 0)

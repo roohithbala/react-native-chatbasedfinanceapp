@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
-import { Video, ResizeMode } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -17,6 +17,8 @@ export const MediaContent: React.FC<MediaContentProps> = ({
   mediaType,
   fileName,
 }) => {
+  const player = useVideoPlayer(mediaUrl);
+
   const renderContent = () => {
     switch (mediaType) {
       case 'image':
@@ -30,13 +32,12 @@ export const MediaContent: React.FC<MediaContentProps> = ({
 
       case 'video':
         return (
-          <Video
-            source={{ uri: mediaUrl }}
+          <VideoView
+            player={player}
             style={styles.mediaContent}
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay={false}
-            isLooping={false}
-            useNativeControls
+            contentFit="contain"
+            allowsFullscreen
+            allowsPictureInPicture
           />
         );
 
@@ -45,11 +46,11 @@ export const MediaContent: React.FC<MediaContentProps> = ({
           <View style={styles.audioContainer}>
             <Ionicons name="musical-notes" size={64} color="#666" />
             <Text style={styles.audioText}>{fileName || 'Audio File'}</Text>
-            <Video
-              source={{ uri: mediaUrl }}
-              shouldPlay={false}
-              useNativeControls
+            <VideoView
+              player={player}
               style={styles.audioPlayer}
+              allowsFullscreen={false}
+              allowsPictureInPicture={false}
             />
           </View>
         );

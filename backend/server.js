@@ -86,12 +86,12 @@ process.on('SIGTERM', () => {
   });
 });
 
+const PORT = process.env.PORT || 3002;
+
 // Keep server alive with periodic health checks
 setInterval(() => {
   console.log(`💓 Server heartbeat - ${new Date().toISOString()} - Port: ${PORT}`);
 }, 300000); // Every 5 minutes
-
-const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.120.178.172:8081'}`);

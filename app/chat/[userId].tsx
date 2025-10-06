@@ -15,6 +15,7 @@ import {
   Modal,
   ScrollView,
   StatusBar,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -29,6 +30,7 @@ import { useTheme } from '../context/ThemeContext';
 import MessageInput from '../components/MessageInput';
 import SplitBillMessage from '../components/SplitBillMessage';
 import ReportsAPI from '../lib/services/reportsAPI';
+import { API_BASE_URL } from '@/lib/services/api';
 
 interface Message {
   _id: string;
@@ -62,6 +64,15 @@ interface Message {
     }>;
     isSettled: boolean;
   };
+  // Media properties
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video' | 'audio' | 'document';
+  mediaSize?: number;
+  mediaDuration?: number;
+  mediaWidth?: number;
+  mediaHeight?: number;
+  fileName?: string;
+  mimeType?: string;
   createdAt: string;
   read: boolean;
 }
@@ -115,6 +126,7 @@ export default function ChatDetailScreen() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Message[]>([]);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set());
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -243,7 +255,7 @@ export default function ChatDetailScreen() {
             _id: otherUserInfo._id,
             name: otherUserInfo.name,
             username: otherUserInfo.username,
-            avatar: otherUserInfo.avatar || otherUserInfo.name.charAt(0).toUpperCase()
+            avatar: otherUserInfo.avatar || (otherUserInfo.name ? otherUserInfo.name.charAt(0).toUpperCase() : 'U')
           });
         } else {
           console.warn('Could not determine other user from message:', firstMessage);
@@ -670,7 +682,7 @@ export default function ChatDetailScreen() {
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isOwnMessage = item.sender._id === currentUser?._id;
+    const isOwnMessage = item.sender?._id === currentUser?._id;
 
     return (
       <View
@@ -682,7 +694,7 @@ export default function ChatDetailScreen() {
         {!isOwnMessage && (
           <View style={styles.otherAvatarContainer}>
             <Text style={styles.otherAvatarText}>
-              {item.sender.name.charAt(0).toUpperCase()}
+              {(item.sender?.name || item.sender?.username || 'U').charAt(0).toUpperCase()}
             </Text>
           </View>
         )}
@@ -719,17 +731,168 @@ export default function ChatDetailScreen() {
                 }}
                 currentUserId={currentUser?._id || ''}
                 messageId={item._id}
-                canReject={item.sender._id !== currentUser?._id}
+                canReject={item.sender?._id !== currentUser?._id}
                 onPaymentSuccess={(updatedSplitBill, msgId) => updateMessageSplitBill(msgId, updatedSplitBill)}
               />
             );
           })() : (
-            <Text style={[
-              styles.messageText,
-              isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-            ]}>
-              {item.text}
-            </Text>
+            <>
+              {/* Media content */}
+              {item.mediaType === 'image' && item.mediaUrl && (
+                <View style={styles.mediaContainer}>
+                  {imageLoadErrors.has(item._id) ? (
+                    // Show error placeholder when image fails to load
+                    <View style={[styles.mediaImage, styles.imageErrorPlaceholder]}>
+                      <Ionicons name="image" size={48} color={theme.textSecondary} />
+                      <Text style={[styles.mediaText, { color: theme.textSecondary, fontSize: 14 }]}>
+                        Image failed to load
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={() => {
+                          setImageLoadErrors(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(item._id);
+                            return newSet;
+                          });
+                        }}
+                      >
+                        <Text style={[styles.retryText, { color: theme.primary }]}>Retry</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <Image
+                      source={{ uri: `${API_BASE_URL.replace('/api', '')}${item.mediaUrl}` }}
+                      style={styles.mediaImage}
+                      resizeMode="cover"
+                      onLoadStart={() => console.log('Loading image:', `${API_BASE_URL.replace('/api', '')}${item.mediaUrl}`)}
+                      onLoad={() => console.log('Image loaded successfully')}
+                      onError={(error) => {
+                        console.log('Image load error:', error.nativeEvent);
+                        console.log('Failed URL:', `${API_BASE_URL.replace('/api', '')}${item.mediaUrl}`);
+                        setImageLoadErrors(prev => new Set(prev).add(item._id));
+                      }}
+                    />
+                  )}
+                  {item.text && item.text !== '📷 Image' && (
+                    <Text style={[
+                      styles.messageText,
+                      isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                      styles.mediaCaption
+                    ]}>
+                      {item.text}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {item.mediaType === 'video' && item.mediaUrl && (
+                <View style={styles.mediaContainer}>
+                  <TouchableOpacity style={styles.videoPlaceholder}>
+                    <Ionicons name="videocam" size={48} color={isOwnMessage ? theme.surface : theme.textSecondary} />
+                    <Text style={[
+                      styles.mediaText,
+                      isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                    ]}>
+                      Video
+                    </Text>
+                    {item.mediaDuration && (
+                      <Text style={[
+                        styles.mediaDuration,
+                        isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
+                      ]}>
+                        {Math.floor(item.mediaDuration / 60)}:{(item.mediaDuration % 60).toString().padStart(2, '0')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  {item.text && item.text !== '🎥 Video' && (
+                    <Text style={[
+                      styles.messageText,
+                      isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                      styles.mediaCaption
+                    ]}>
+                      {item.text}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {item.mediaType === 'audio' && item.mediaUrl && (
+                <View style={styles.mediaContainer}>
+                  <TouchableOpacity style={styles.audioPlaceholder}>
+                    <Ionicons name="musical-notes" size={32} color={isOwnMessage ? theme.surface : theme.textSecondary} />
+                    <View style={styles.audioInfo}>
+                      <Text style={[
+                        styles.mediaText,
+                        isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                      ]}>
+                        {item.fileName || 'Audio'}
+                      </Text>
+                      {item.mediaDuration && (
+                        <Text style={[
+                          styles.mediaDuration,
+                          isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
+                        ]}>
+                          {Math.floor(item.mediaDuration / 60)}:{(item.mediaDuration % 60).toString().padStart(2, '0')}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                  {item.text && item.text !== '🎵 Audio' && (
+                    <Text style={[
+                      styles.messageText,
+                      isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                      styles.mediaCaption
+                    ]}>
+                      {item.text}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {item.mediaType === 'document' && item.mediaUrl && (
+                <View style={styles.mediaContainer}>
+                  <TouchableOpacity style={styles.documentPlaceholder}>
+                    <Ionicons name="document" size={32} color={isOwnMessage ? theme.surface : theme.textSecondary} />
+                    <View style={styles.documentInfo}>
+                      <Text style={[
+                        styles.mediaText,
+                        isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                      ]} numberOfLines={1}>
+                        {item.fileName || 'Document'}
+                      </Text>
+                      {item.mediaSize && (
+                        <Text style={[
+                          styles.mediaSize,
+                          isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
+                        ]}>
+                          {(item.mediaSize / 1024 / 1024).toFixed(2)} MB
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                  {item.text && item.text !== '📄 Document' && (
+                    <Text style={[
+                      styles.messageText,
+                      isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                      styles.mediaCaption
+                    ]}>
+                      {item.text}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Text content (only show if not media or if it's additional text) */}
+              {(!item.mediaType || (item.text && !item.text.includes('📷') && !item.text.includes('🎥') && !item.text.includes('🎵') && !item.text.includes('📄'))) && (
+                <Text style={[
+                  styles.messageText,
+                  isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                ]}>
+                  {item.text}
+                </Text>
+              )}
+            </>
           )}
           <Text style={[
             styles.messageTime,
@@ -1424,6 +1587,86 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   settledText: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+  mediaContainer: {
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  mediaImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+  },
+  videoPlaceholder: {
+    width: 200,
+    height: 120,
+    backgroundColor: theme.surfaceSecondary,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  audioPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: theme.surfaceSecondary,
+    borderRadius: 12,
+    minWidth: 200,
+  },
+  audioInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  documentPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: theme.surfaceSecondary,
+    borderRadius: 12,
+    minWidth: 200,
+  },
+  documentInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  mediaText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  mediaDuration: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  mediaSize: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  mediaCaption: {
+    marginTop: 6,
+  },
+  imageErrorPlaceholder: {
+    backgroundColor: theme.surfaceSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderStyle: 'dashed',
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: theme.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.primary,
+  },
+  retryText: {
+    fontSize: 12,
     fontWeight: '600',
   },
 });

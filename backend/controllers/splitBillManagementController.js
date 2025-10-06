@@ -116,10 +116,16 @@ const createSplitBill = async (userId, splitBillData) => {
         throw new Error('Invalid participant object');
       }
       
-      // Handle userId - could be string or object with _id
+      // Handle userId - could be string, ObjectId, or object with _id
       let userIdStr = p.userId;
-      if (typeof p.userId === 'object' && p.userId._id) {
-        userIdStr = p.userId._id;
+      if (typeof p.userId === 'object') {
+        if (p.userId._id) {
+          // It's an object with _id property
+          userIdStr = p.userId._id;
+        } else if (p.userId.toString && typeof p.userId.toString === 'function') {
+          // It's likely an ObjectId, convert to string
+          userIdStr = p.userId.toString();
+        }
       }
       if (typeof userIdStr !== 'string' || userIdStr.trim() === '') {
         throw new Error('Invalid participant userId');

@@ -37,7 +37,8 @@
       "expo-font",
       "expo-web-browser",
       "@config-plugins/react-native-webrtc",
-      "expo-dev-client"
+      "expo-dev-client",
+      "expo-video"
     ],
     "extra": {
       "eas": {

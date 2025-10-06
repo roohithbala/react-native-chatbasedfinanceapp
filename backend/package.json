@@ -17,6 +17,7 @@
     "dotenv": "^16.6.1",
     "expo-clipboard": "~7.1.5",
     "expo-image-picker": "^17.0.8",
+    "expo-video": "^3.0.11",
     "express": "^4.18.2",
     "express-rate-limit": "^7.5.1",
     "firebase-admin": "^12.0.0",
@@ -24,6 +25,7 @@
     "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.2",
+    "multer": "^1.4.5-lts.1",
     "nodemailer": "^7.0.6",
     "openai": "^6.1.0",
     "socket.io": "^4.8.1"

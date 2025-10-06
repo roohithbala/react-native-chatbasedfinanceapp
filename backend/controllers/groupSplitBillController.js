@@ -28,17 +28,30 @@ const splitBill = async (groupId, billData, userId) => {
   // Calculate participants if not provided
   let billParticipants = participants;
   if (!billParticipants || billParticipants.length === 0) {
-    billParticipants = calculateSplitParticipants(group.members, totalAmount);
+    // Get active member user IDs
+    const activeMemberIds = group.members
+      .filter(m => m.isActive)
+      .map(m => {
+        const memberUserId = m.userId._id || m.userId;
+        return memberUserId.toString();
+      });
+    billParticipants = calculateSplitParticipants(activeMemberIds, totalAmount, 'equal');
   }
 
   // Validate participants
-  const groupMemberIds = group.members.map(m => m.userId.toString());
+  const groupMemberIds = group.members.map(m => {
+    const memberUserId = m.userId._id || m.userId;
+    return memberUserId.toString();
+  });
   const invalidParticipants = billParticipants.filter(p =>
     !groupMemberIds.includes(p.userId.toString())
   );
 
   if (invalidParticipants.length > 0) {
-    throw new Error('All participants must be group members');
+    console.log('📋 Active group members:', group.members.length);
+    console.log('❌ Invalid participants:', invalidParticipants.map(p => p.userId.toString()));
+    console.log('❌ Found invalid participants:', invalidParticipants.length);
+    throw new Error('All participants must be active members of the group');
   }
 
   // Create split bill

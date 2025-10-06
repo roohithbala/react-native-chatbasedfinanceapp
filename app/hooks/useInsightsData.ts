@@ -107,3 +107,5 @@ export const useInsightsData = () => {
     loadAIInsights,
   };
 };
+
+export default useInsightsData;

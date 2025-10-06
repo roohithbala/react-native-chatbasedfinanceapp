@@ -143,13 +143,13 @@ router.post('/:id/split', auth, async (req, res) => {
 // Generate new invite code
 router.post('/:id/invite-code', auth, async (req, res) => {
   try {
-    const inviteCode = await groupController.generateNewInviteCode(req.params.id, req.userId);
+    const result = await groupController.generateNewInviteCode(req.params.id, req.userId);
 
     res.json({
       status: 'success',
       data: {
         message: 'New invite code generated',
-        inviteCode
+        inviteCode: result.newInviteCode
       }
     });
   } catch (error) {

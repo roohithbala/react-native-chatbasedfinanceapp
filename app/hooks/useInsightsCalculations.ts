@@ -214,3 +214,5 @@ export const useInsightsCalculations = (
     realInsights,
   };
 };
+
+export default useInsightsCalculations;

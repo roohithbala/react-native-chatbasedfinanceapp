@@ -130,3 +130,5 @@ export const useBudgetData = () => {
     loadData,
   };
 };
+
+export default useBudgetData;

@@ -184,6 +184,8 @@ export default function BudgetScreen() {
   const {
     historicalBudgets,
     selectedPeriod,
+    selectedYear,
+    selectedMonth,
     loadHistoricalBudgets,
     loadBudgetTrends
   } = useBudgetsStore();
@@ -231,12 +233,49 @@ export default function BudgetScreen() {
   }, [selectedPeriod, viewMode]);
 
   const displayBudgets = viewMode === 'historical' ? historicalBudgets : budgets;
-  const displayTotalBudget = viewMode === 'historical'
-    ? Object.values(displayBudgets).reduce((sum: number, cat: any) => sum + (cat?.amount || 0), 0)
-    : totalBudget;
-  const displayTotalSpent = viewMode === 'historical'
-    ? Object.values(displayBudgets).reduce((sum: number, cat: any) => sum + (cat?.spent || 0), 0)
-    : totalSpent;
+  
+  // Get budgets for display based on view mode
+  const getDisplayBudgets = () => {
+    if (viewMode === 'historical') {
+      // For historical view, get budgets for the selected period
+      let periodKey: string;
+      if (selectedPeriod === 'yearly') {
+        periodKey = selectedYear.toString();
+      } else {
+        periodKey = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
+      }
+
+      const periodData = historicalBudgets[periodKey];
+      return periodData?.budgets || {};
+    }
+    return budgets;
+  };
+
+  // Calculate totals for display
+  const getDisplayTotals = () => {
+    if (viewMode === 'historical') {
+      // For historical view, get totals for the selected period
+      let periodKey: string;
+      if (selectedPeriod === 'yearly') {
+        periodKey = selectedYear.toString();
+      } else {
+        periodKey = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
+      }
+
+      const periodData = historicalBudgets[periodKey];
+      return {
+        totalBudget: periodData?.totals?.totalAmount || 0,
+        totalSpent: periodData?.totals?.totalSpent || 0
+      };
+    }
+    return {
+      totalBudget,
+      totalSpent
+    };
+  };
+
+  const { totalBudget: displayTotalBudget, totalSpent: displayTotalSpent } = getDisplayTotals();
+  const displayBudgetsData = getDisplayBudgets();
 
   if (isLoading) {
     return <LoadingIndicator loading={true} message="Loading budgets..." />;
@@ -314,7 +353,7 @@ export default function BudgetScreen() {
 
           <BudgetList
             categories={categories}
-            budgets={displayBudgets}
+            budgets={displayBudgetsData}
             categoryIcons={categoryIcons}
             categoryColors={categoryColors}
             getSpentAmount={getSpentAmount}

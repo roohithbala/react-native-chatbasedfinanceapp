@@ -66,9 +66,10 @@ const validateGroupSplitBill = async (groupId, participants, userId) => {
 
     // Check if all participants are active members
     const invalidParticipants = participants.filter(p => {
-      const isValid = groupMemberIds.includes(p.userId);
+      const participantId = typeof p.userId === 'object' ? p.userId.toString() : p.userId;
+      const isValid = groupMemberIds.includes(participantId);
       if (!isValid) {
-        console.log('❌ Invalid participant:', p.userId, 'not in group members');
+        console.log('❌ Invalid participant:', participantId, 'not in group members');
       }
       return !isValid;
     });

@@ -118,9 +118,9 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
       set({ isLoading: true, error: null });
       const response = await budgetsAPI.getHistoricalBudgets({ period, year, month });
 
-      if (response && response.historicalBudgets) {
-        const historicalBudgets = typeof response.historicalBudgets === 'object' && !Array.isArray(response.historicalBudgets)
-          ? response.historicalBudgets
+      if (response && response.data && response.data.budgets) {
+        const historicalBudgets = typeof response.data.budgets === 'object' && !Array.isArray(response.data.budgets)
+          ? response.data.budgets
           : {};
         set({
           historicalBudgets: historicalBudgets,

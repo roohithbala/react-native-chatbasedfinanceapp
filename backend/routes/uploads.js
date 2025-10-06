@@ -9,6 +9,22 @@ const fs = require('fs');
 
 const router = express.Router();
 
+// Helper function to get default text for media messages
+function getDefaultMediaText(mediaType) {
+  switch (mediaType) {
+    case 'image':
+      return '📷 Image';
+    case 'video':
+      return '🎥 Video';
+    case 'audio':
+      return '🎵 Audio';
+    case 'document':
+      return '📄 Document';
+    default:
+      return '📎 File';
+  }
+}
+
 // Upload image
 router.post('/image/:groupId', auth, (req, res) => {
   uploadImage(req, res, async (err) => {
@@ -195,7 +211,7 @@ async function handleDirectMediaUpload(req, res, mediaType) {
   }
 
   // Create media URL (relative path for serving)
-  const mediaUrl = `/uploads/${mediaType === 'audio' ? 'audio' : mediaType + 's'}/${file.filename}`;
+  const mediaUrl = `/uploads/files/${mediaType === 'audio' ? 'audio' : mediaType + 's'}/${file.filename}`;
 
   // Get file metadata
   const stats = fs.statSync(file.path);
@@ -203,7 +219,7 @@ async function handleDirectMediaUpload(req, res, mediaType) {
 
   // Create direct message data
   const messageData = {
-    text: req.body.caption || '', // Optional caption
+    text: req.body.caption || getDefaultMediaText(mediaType), // Optional caption with fallback
     sender: {
       _id: sender._id,
       name: sender.name,
@@ -245,7 +261,7 @@ async function handleDirectMediaUpload(req, res, mediaType) {
       _id: message._id.toString(),
       text: message.text,
       sender: message.sender,
-      recipient: message.recipient.toString(),
+      recipient: message.receiver.toString(),
       type: message.type,
       status: message.status,
       mediaUrl: message.mediaUrl,
@@ -313,7 +329,7 @@ async function handleMediaUpload(req, res, mediaType) {
   }
 
   // Create media URL (relative path for serving)
-  const mediaUrl = `/uploads/${mediaType === 'audio' ? 'audio' : mediaType + 's'}/${file.filename}`;
+  const mediaUrl = `/uploads/files/${mediaType === 'audio' ? 'audio' : mediaType + 's'}/${file.filename}`;
 
   // Get file metadata
   const stats = fs.statSync(file.path);
@@ -321,7 +337,7 @@ async function handleMediaUpload(req, res, mediaType) {
 
   // Create message data
   const messageData = {
-    text: req.body.caption || '', // Optional caption
+    text: req.body.caption || getDefaultMediaText(mediaType), // Optional caption with fallback
     user: {
       _id: user._id,
       name: user.name,

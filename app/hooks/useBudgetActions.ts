@@ -54,3 +54,5 @@ export const useBudgetActions = () => {
     handleRetry,
   };
 };
+
+export default useBudgetActions;

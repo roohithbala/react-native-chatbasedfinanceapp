@@ -55,7 +55,7 @@ let Camera: any = null;
 let Audio: any = null;
 try {
   Camera = require('expo-camera');
-  Audio = require('expo-av').Audio;
+  Audio = require('expo-audio');
 } catch (error) {
   console.warn('Expo permissions modules not available');
 }
