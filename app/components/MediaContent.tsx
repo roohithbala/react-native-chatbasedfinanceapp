@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
+import { API_BASE_URL } from '@/lib/services/api';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -17,14 +18,15 @@ export const MediaContent: React.FC<MediaContentProps> = ({
   mediaType,
   fileName,
 }) => {
-  const player = useVideoPlayer(mediaUrl);
+  const fullMediaUrl = `${API_BASE_URL}${mediaUrl}`;
+  const player = useVideoPlayer(fullMediaUrl);
 
   const renderContent = () => {
     switch (mediaType) {
       case 'image':
         return (
           <Image
-            source={{ uri: mediaUrl }}
+            source={{ uri: fullMediaUrl }}
             style={styles.mediaContent}
             contentFit="contain"
           />

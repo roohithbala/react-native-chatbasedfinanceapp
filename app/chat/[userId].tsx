@@ -31,6 +31,7 @@ import MessageInput from '../components/MessageInput';
 import SplitBillMessage from '../components/SplitBillMessage';
 import ReportsAPI from '../lib/services/reportsAPI';
 import { API_BASE_URL } from '@/lib/services/api';
+import { MediaViewer } from '../components/MediaViewer';
 
 interface Message {
   _id: string;
@@ -127,6 +128,13 @@ export default function ChatDetailScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Message[]>([]);
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set());
+
+  const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
+  const [selectedMediaForViewer, setSelectedMediaForViewer] = useState<{
+    mediaUrl: string;
+    mediaType: 'image' | 'video' | 'audio' | 'document';
+    fileName?: string;
+  } | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -762,14 +770,14 @@ export default function ChatDetailScreen() {
                     </View>
                   ) : (
                     <Image
-                      source={{ uri: `${API_BASE_URL.replace('/api', '')}${item.mediaUrl}` }}
+                      source={{ uri: `${API_BASE_URL}${item.mediaUrl}` }}
                       style={styles.mediaImage}
                       resizeMode="cover"
-                      onLoadStart={() => console.log('Loading image:', `${API_BASE_URL.replace('/api', '')}${item.mediaUrl}`)}
+                      onLoadStart={() => console.log('Loading image:', `${API_BASE_URL}${item.mediaUrl}`)}
                       onLoad={() => console.log('Image loaded successfully')}
                       onError={(error) => {
                         console.log('Image load error:', error.nativeEvent);
-                        console.log('Failed URL:', `${API_BASE_URL.replace('/api', '')}${item.mediaUrl}`);
+                        console.log('Failed URL:', `${API_BASE_URL}${item.mediaUrl}`);
                         setImageLoadErrors(prev => new Set(prev).add(item._id));
                       }}
                     />
@@ -788,22 +796,40 @@ export default function ChatDetailScreen() {
 
               {item.mediaType === 'video' && item.mediaUrl && (
                 <View style={styles.mediaContainer}>
-                  <TouchableOpacity style={styles.videoPlaceholder}>
-                    <Ionicons name="videocam" size={48} color={isOwnMessage ? theme.surface : theme.textSecondary} />
-                    <Text style={[
-                      styles.mediaText,
-                      isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-                    ]}>
-                      Video
-                    </Text>
-                    {item.mediaDuration && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      console.log('Video pressed:', item.mediaUrl, item.mediaType);
+                      if (item.mediaUrl && item.mediaType) {
+                        setSelectedMediaForViewer({
+                          mediaUrl: item.mediaUrl,
+                          mediaType: item.mediaType,
+                          fileName: item.fileName
+                        });
+                        setMediaViewerVisible(true);
+                      }
+                    }}
+                    style={styles.videoContainer}
+                  >
+                    <View style={styles.videoPlaceholder}>
+                      <Ionicons name="videocam" size={48} color={isOwnMessage ? theme.surface : theme.textSecondary} />
                       <Text style={[
-                        styles.mediaDuration,
-                        isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
+                        styles.mediaText,
+                        isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
                       ]}>
-                        {Math.floor(item.mediaDuration / 60)}:{(item.mediaDuration % 60).toString().padStart(2, '0')}
+                        Video
                       </Text>
-                    )}
+                      {item.mediaDuration && (
+                        <Text style={[
+                          styles.mediaDuration,
+                          isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
+                        ]}>
+                          {Math.floor(item.mediaDuration / 60)}:{(item.mediaDuration % 60).toString().padStart(2, '0')}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.playButton}>
+                      <Text style={styles.playButtonText}>▶️</Text>
+                    </View>
                   </TouchableOpacity>
                   {item.text && item.text !== '🎥 Video' && (
                     <Text style={[
@@ -1076,6 +1102,21 @@ export default function ChatDetailScreen() {
           />
         </SafeAreaView>
       </Modal>
+
+      {/* Media Viewer Modal */}
+      <MediaViewer
+        visible={mediaViewerVisible}
+        mediaUrl={selectedMediaForViewer?.mediaUrl || null}
+        mediaType={selectedMediaForViewer?.mediaType || null}
+        fileName={selectedMediaForViewer?.fileName}
+        onClose={() => {
+          setMediaViewerVisible(false);
+          setSelectedMediaForViewer(null);
+        }}
+        onDownload={(url, type, fileName) => {
+          console.log('Downloaded:', fileName);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -1647,6 +1688,25 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   mediaCaption: {
     marginTop: 6,
+  },
+  videoContainer: {
+    position: 'relative',
+  },
+  playButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -20 }, { translateY: -20 }],
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playButtonText: {
+    fontSize: 16,
+    color: 'white',
   },
   imageErrorPlaceholder: {
     backgroundColor: theme.surfaceSecondary,

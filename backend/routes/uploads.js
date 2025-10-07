@@ -405,8 +405,67 @@ async function handleMediaUpload(req, res, mediaType) {
   });
 }
 
-// Serve uploaded files
+// Serve uploaded files (new format with /files/)
 router.get('/files/*', (req, res) => {
+  const filePath = path.join(__dirname, '../uploads', req.params[0]);
+
+  // Check if file exists
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'File not found'
+    });
+  }
+
+  // Set appropriate headers based on file type
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.mp4': 'video/mp4',
+    '.avi': 'video/x-msvideo',
+    '.mov': 'video/quicktime',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.txt': 'text/plain',
+    '.zip': 'application/zip'
+  };
+
+  const mimeType = mimeTypes[ext] || 'application/octet-stream';
+  res.setHeader('Content-Type', mimeType);
+
+  // For large files, stream them
+  const fileStream = fs.createReadStream(filePath);
+  fileStream.pipe(res);
+
+  fileStream.on('error', (error) => {
+    console.error('File streaming error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error streaming file'
+    });
+  });
+});
+
+// Serve uploaded files (legacy format without /files/ for backward compatibility)
+router.get('/*', (req, res) => {
+  // Skip if this is a /files/ request (handled above)
+  if (req.path.startsWith('/files/')) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'File not found'
+    });
+  }
+
   const filePath = path.join(__dirname, '../uploads', req.params[0]);
 
   // Check if file exists

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { API_BASE_URL } from '@/lib/services/api';
 
 interface MultimediaMessageProps {
   mediaUrl?: string;
@@ -63,7 +64,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({
           style={styles.mediaContainer}
         >
           <Image
-            source={{ uri: mediaUrl }}
+            source={{ uri: `${API_BASE_URL}${mediaUrl}` }}
             style={[
               styles.mediaImage,
               {
@@ -92,7 +93,7 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({
         >
           {thumbnailUrl ? (
             <Image
-              source={{ uri: thumbnailUrl }}
+              source={{ uri: `${API_BASE_URL}${thumbnailUrl}` }}
               style={[
                 styles.mediaImage,
                 {
