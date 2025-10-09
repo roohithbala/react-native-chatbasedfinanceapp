@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
-import { View, Card } from '@/app/components/ThemedComponents';
+import { View } from '@/app/components/ThemedComponents';
 import { BarChart, PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import GroupExpenseService from '@/lib/services/groupExpenseService';
+import { GroupExpenseService } from '@/lib/services/groupExpenseService';
 import { useTheme } from '../context/ThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -293,42 +293,6 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
           </View>
         )}
       </View>
-
-      {/* Insights Section */}
-      {stats.overview?.totalAmount > 0 && (
-        <View style={styles.insightsCard}>
-          <View style={styles.chartHeader}>
-            <Ionicons name="bulb" size={20} color={theme.primary} />
-            <Text style={[styles.chartTitle, { color: theme.text }]}>Quick Insights</Text>
-          </View>
-          <View style={styles.insightsList}>
-            {stats.overview?.pending > stats.overview?.settled && (
-              <View style={styles.insightItem}>
-                <Ionicons name="warning" size={16} color="#F59E0B" />
-                <Text style={[styles.insightText, { color: theme.text }]}>
-                  {stats.overview.pending} bills are still pending settlement
-                </Text>
-              </View>
-            )}
-            {stats.byCategory?.length > 3 && (
-              <View style={styles.insightItem}>
-                <Ionicons name="trending-up" size={16} color="#10B981" />
-                <Text style={[styles.insightText, { color: theme.text }]}>
-                  Expenses span {stats.byCategory.length} different categories
-                </Text>
-              </View>
-            )}
-            {stats.overview?.totalAmount > 10000 && (
-              <View style={styles.insightItem}>
-                <Ionicons name="cash" size={16} color="#8B5CF6" />
-                <Text style={[styles.insightText, { color: theme.text }]}>
-                  High spending period - consider reviewing budget
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-      )}
     </ScrollView>
   );
 };
@@ -482,30 +446,6 @@ const getStyles = (theme: any) => StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
-  },
-  insightsCard: {
-    backgroundColor: theme.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  insightsList: {
-    gap: 12,
-  },
-  insightItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    backgroundColor: theme.surfaceSecondary,
-    borderRadius: 8,
-  },
-  insightText: {
-    fontSize: 14,
-    flex: 1,
-    lineHeight: 20,
   },
   // Legacy styles (keeping for compatibility)
   card: {

@@ -64,7 +64,7 @@ export interface Message {
   _id: string;
   text: string;
   user: User;
-  groupId: string;
+  groupId?: string; // Made optional for direct messages
   createdAt: string;
   type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'system' | 'command' | 'split_bill';
   status: 'sent' | 'delivered' | 'read' | 'error';

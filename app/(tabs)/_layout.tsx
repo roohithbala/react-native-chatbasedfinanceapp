@@ -25,6 +25,8 @@ export default function TabLayout() {
         tabBarActiveTintColor: theme.tabBarActive,
         tabBarInactiveTintColor: theme.tabBarInactive,
         tabBarLabelStyle: styles.tabBarLabel,
+        tabBarItemStyle: styles.tabBarItem,
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tabs.Screen
@@ -88,12 +90,19 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     borderTopWidth: 1,
-    paddingTop: 8,
-    paddingBottom: 8,
-    height: 70,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingHorizontal: 8,
+    height: 80,
+    backgroundColor: 'transparent', // Let theme override this
   },
   tabBarLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+    marginTop: 3,
+  },
+  tabBarItem: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
 });

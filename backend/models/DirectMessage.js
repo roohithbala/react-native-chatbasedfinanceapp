@@ -18,7 +18,7 @@ const directMessageSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['text', 'image', 'video', 'audio', 'document', 'system', 'command', 'split_bill'],
+    enum: ['text', 'image', 'video', 'audio', 'document', 'system', 'command', 'split_bill', 'split_bill_request'],
     default: 'text'
   },
   status: {
@@ -37,20 +37,8 @@ const directMessageSchema = new mongoose.Schema({
     }
   }],
   splitBillData: {
-    _id: String,
-    description: String,
-    totalAmount: Number,
-    participants: [{
-      userId: {
-        _id: String,
-        name: String,
-        username: String
-      },
-      amount: Number,
-      isPaid: Boolean,
-      paidAt: Date
-    }],
-    isSettled: Boolean
+    type: mongoose.Schema.Types.Mixed,
+    default: null
   },
   // For media messages
   mediaUrl: String,

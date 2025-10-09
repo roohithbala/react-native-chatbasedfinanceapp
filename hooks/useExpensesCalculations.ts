@@ -49,6 +49,28 @@ export const useExpensesCalculations = (
   const totalExpenses = filteredExpenses.length;
   const totalSplitBills = splitBills.length;
 
+  // Calculate total split bill amount (user's share across all bills)
+  const totalSplitBillsAmount = useMemo(() => {
+    return splitBills
+      .filter(bill => {
+        if (!bill || !bill.participants) return false;
+        // Check if current user is a participant
+        const isParticipant = bill.participants.some((p: Participant) => {
+          const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+          return userId === currentUser?._id;
+        });
+        return isParticipant;
+      })
+      .reduce((total, bill) => {
+        // Get the user's share of this bill
+        const userParticipant = bill.participants.find((p: Participant) => {
+          const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
+          return userId === currentUser?._id;
+        });
+        return total + (userParticipant?.amount || 0);
+      }, 0);
+  }, [splitBills, currentUser?._id]);
+
   // Calculate settlement stats
   const settlementStats = useMemo(() => ({
     awaiting: splitBills
@@ -94,6 +116,7 @@ export const useExpensesCalculations = (
     totalExpensesAmount,
     totalExpenses,
     totalSplitBills,
+    totalSplitBillsAmount,
     settlementStats,
   };
 };

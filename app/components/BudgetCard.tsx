@@ -29,7 +29,12 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
 }) => {
   const { theme } = useTheme();
   const styles = getStyles(theme);
-  const remaining = budgetLimit - spentAmount;
+  
+  // Ensure values are numbers to prevent .toFixed() errors
+  const safeBudgetLimit = typeof budgetLimit === 'number' ? budgetLimit : 0;
+  const safeSpentAmount = typeof spentAmount === 'number' ? spentAmount : 0;
+  const safeProgressPercentage = typeof progressPercentage === 'number' ? progressPercentage : 0;
+  const remaining = safeBudgetLimit - safeSpentAmount;
 
   return (
     <TouchableOpacity
@@ -53,14 +58,14 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
             <View style={styles.categoryDetails}>
               <Text style={styles.categoryName}>{category}</Text>
               <Text style={styles.budgetRange}>
-                {theme.currency}{spentAmount.toFixed(2)} of {theme.currency}{budgetLimit.toFixed(2)}
+                {theme.currency}{safeSpentAmount.toFixed(2)} of {theme.currency}{safeBudgetLimit.toFixed(2)}
               </Text>
             </View>
           </View>
 
           <View style={styles.budgetStatus}>
             <Text style={styles.progressPercentage}>
-              {progressPercentage.toFixed(0)}%
+              {safeProgressPercentage.toFixed(0)}%
             </Text>
             {showDetailsButton && (
               <TouchableOpacity
@@ -80,7 +85,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
           <View style={styles.stat}>
             <Text style={styles.statLabel}>Spent</Text>
             <Text style={[styles.statValue, { color: theme.error || '#EF4444' }]}>
-              {theme.currency}{spentAmount.toFixed(2)}
+              {theme.currency}{safeSpentAmount.toFixed(2)}
             </Text>
           </View>
           <View style={styles.stat}>
@@ -100,13 +105,13 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
               colors={[progressColor, progressColor]}
               style={[
                 styles.progressFill,
-                { width: `${progressPercentage}%` },
+                { width: `${safeProgressPercentage}%` },
               ]}
             />
           </View>
         </View>
 
-        {progressPercentage >= 90 && (
+        {safeProgressPercentage >= 90 && (
           <View style={styles.warningContainer}>
             <Ionicons name="warning" size={16} color={theme.error || '#DC2626'} />
             <Text style={styles.warningText}>

@@ -14,6 +14,10 @@ export default function HomeQuickStats({ totalExpensesThisMonth, totalOwed }: Ho
   const { theme } = useTheme();
   const styles = getStyles(theme);
 
+  // Ensure values are valid numbers, default to 0 if not
+  const safeTotalExpenses = typeof totalExpensesThisMonth === 'number' && !isNaN(totalExpensesThisMonth) ? totalExpensesThisMonth : 0;
+  const safeTotalOwed = typeof totalOwed === 'number' && !isNaN(totalOwed) ? totalOwed : 0;
+
   return (
     <View style={[styles.statsContainer, { backgroundColor: theme.background }]}>
       <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/expenses')}>
@@ -23,7 +27,7 @@ export default function HomeQuickStats({ totalExpensesThisMonth, totalOwed }: Ho
         >
           <Ionicons name="wallet" size={24} color={theme.surface} />
           <Text style={styles.statAmount}>
-            {theme.currency}{totalExpensesThisMonth.toFixed(2)}
+            {theme.currency}{safeTotalExpenses.toFixed(2)}
           </Text>
           <Text style={styles.statLabel}>This Month</Text>
         </LinearGradient>
@@ -36,7 +40,7 @@ export default function HomeQuickStats({ totalExpensesThisMonth, totalOwed }: Ho
         >
           <Ionicons name="time" size={24} color={theme.surface} />
           <Text style={styles.statAmount}>
-            {theme.currency}{totalOwed.toFixed(2)}
+            {theme.currency}{safeTotalOwed.toFixed(2)}
           </Text>
           <Text style={styles.statLabel}>You Owe</Text>
         </LinearGradient>

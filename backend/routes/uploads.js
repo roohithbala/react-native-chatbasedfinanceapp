@@ -393,7 +393,7 @@ async function handleMediaUpload(req, res, mediaType) {
       readBy: message.readBy
     };
 
-    req.io.to(groupId).emit('receive-message', socketMessage);
+    req.io.to(groupId).emit('receiveMessage', socketMessage);
   }
 
   res.status(201).json({

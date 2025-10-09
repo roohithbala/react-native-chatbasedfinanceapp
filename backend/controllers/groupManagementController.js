@@ -223,8 +223,15 @@ const getGroupStats = async (groupId, userId) => {
   const totalSplitBills = splitBills.length;
   const settledSplitBills = splitBills.filter(bill => bill.isSettled).length;
   const pendingSplitBills = totalSplitBills - settledSplitBills;
+  
+  // Calculate total amount from split bills
+  const totalSplitBillAmount = splitBills.reduce((sum, bill) => sum + (bill.totalAmount || 0), 0);
+  
+  // Combined totals
+  const combinedTotalAmount = totalExpenses + totalSplitBillAmount;
+  const combinedCount = expenseCount + totalSplitBills;
 
-  // Group expenses by category
+  // Group expenses by category (including split bills)
   const categoryMap = new Map();
   expenses.forEach(expense => {
     const category = expense.category || 'Other';
@@ -233,6 +240,17 @@ const getGroupStats = async (groupId, userId) => {
     }
     const categoryData = categoryMap.get(category);
     categoryData.amount += expense.amount;
+    categoryData.count += 1;
+  });
+  
+  // Add split bills to category breakdown
+  splitBills.forEach(bill => {
+    const category = bill.category || 'Other';
+    if (!categoryMap.has(category)) {
+      categoryMap.set(category, { category, amount: 0, count: 0 });
+    }
+    const categoryData = categoryMap.get(category);
+    categoryData.amount += bill.totalAmount || 0;
     categoryData.count += 1;
   });
 
@@ -271,10 +289,12 @@ const getGroupStats = async (groupId, userId) => {
 
   return {
     overview: {
-      totalAmount: totalExpenses,
-      count: expenseCount,
+      totalAmount: combinedTotalAmount,
+      count: combinedCount,
       settled: settledSplitBills,
-      pending: pendingSplitBills
+      pending: pendingSplitBills,
+      expensesOnly: totalExpenses,
+      splitBillsOnly: totalSplitBillAmount
     },
     byCategory: Array.from(categoryMap.values()),
     byParticipant: Array.from(participantMap.values())

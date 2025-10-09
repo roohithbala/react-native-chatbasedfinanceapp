@@ -1,557 +1,83 @@
-// Static import with error handling for WebRTC availability
-let WebRTC: any = null;
-let RTCPeerConnection: any = null;
-let RTCIceCandidate: any = null;
-let RTCSessionDescription: any = null;
-let mediaDevices: any = null;
-let MediaStream: any = null;
-
-try {
-  const webrtcModule = require('react-native-webrtc');
-  WebRTC = webrtcModule;
-  RTCPeerConnection = webrtcModule.RTCPeerConnection;
-  RTCIceCandidate = webrtcModule.RTCIceCandidate;
-  RTCSessionDescription = webrtcModule.RTCSessionDescription;
-  mediaDevices = webrtcModule.mediaDevices;
-  MediaStream = webrtcModule.MediaStream;
-  console.log('✅ WebRTC module loaded successfully');
-} catch (error) {
-  console.warn('⚠️ WebRTC native module not available. Call functionality will be simulated.');
-  console.warn('Error details:', error);
-  // Create mock classes for when WebRTC isn't available
-  RTCPeerConnection = class MockRTCPeerConnection {
-    constructor() {}
-    addEventListener() {}
-    createOffer() { return Promise.resolve({ type: 'offer', sdp: 'mock-sdp' }); }
-    createAnswer() { return Promise.resolve({ type: 'answer', sdp: 'mock-sdp' }); }
-    setLocalDescription() { return Promise.resolve(); }
-    setRemoteDescription() { return Promise.resolve(); }
-    addIceCandidate() { return Promise.resolve(); }
-    close() {}
-  };
-
-  RTCIceCandidate = class MockRTCIceCandidate {};
-  RTCSessionDescription = class MockRTCSessionDescription {};
-  MediaStream = class MockMediaStream {
-    getTracks() { return []; }
-    getAudioTracks() { return []; }
-    getVideoTracks() { return []; }
-  };
-
-  mediaDevices = {
-    getUserMedia: (constraints: any) => {
-      console.log('🎤 Mock getUserMedia called with constraints:', constraints);
-      return Promise.resolve(new MediaStream());
-    },
-    enumerateDevices: () => Promise.resolve([])
-  };
-}
-
-import socketService from './socketService';
-import { useCallStore } from '../store/callStore';
-
-// Import Expo permissions
-let Camera: any = null;
-let Audio: any = null;
-try {
-  Camera = require('expo-camera');
-  Audio = require('expo-audio');
-} catch (error) {
-  console.warn('Expo permissions modules not available');
-}
-
-export interface CallParticipant {
-  userId: string;
-  name: string;
-  avatar?: string;
-  stream?: any;
-  isMuted?: boolean;
-  isVideoOff?: boolean;
-}
-
-export interface CallData {
-  callId: string;
-  callerId: string;
-  callerName: string;
-  participants: CallParticipant[];
-  type: 'voice' | 'video';
-  status: 'ringing' | 'connecting' | 'connected' | 'ended';
-  startTime?: Date;
-  endTime?: Date;
-  groupId?: string;
-}
+// Refactored Call Service - Uses composition of smaller modules
+import { CallManager, CallData, CallParticipant } from './CallManager';
+import { CallControls } from './CallControls';
 
 class CallService {
-  private peerConnection: any = null;
-  private localStream: any = null;
-  private remoteStreams: Map<string, any> = new Map();
-  private currentCall: CallData | null = null;
-  private isMuted = false;
-  private isVideoOff = false;
-  private isSpeakerOn = false;
-
-  // ICE servers for WebRTC
-  private iceServers = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      // Add TURN servers for production
-      // { urls: 'turn:your-turn-server.com', username: 'user', credential: 'pass' }
-    ]
-  };
-
-  // Event callbacks
-  private onCallReceived?: (callData: CallData) => void;
-  private onCallAccepted?: (callData: CallData) => void;
-  private onCallEnded?: (callData: CallData) => void;
-  private onParticipantJoined?: (participant: CallParticipant) => void;
-  private onParticipantLeft?: (participantId: string) => void;
-  private onStreamReceived?: (participantId: string, stream: MediaStream) => void;
+  private callManager: CallManager;
+  private callControls: CallControls;
 
   constructor() {
-    this.setupSocketListeners();
+    this.callManager = new CallManager();
+    this.callControls = new CallControls(this.callManager);
   }
 
-  // Request camera and microphone permissions
-  async requestPermissions(type: 'voice' | 'video' = 'voice'): Promise<boolean> {
-    try {
-      console.log('🎤 Requesting permissions for type:', type);
-      console.log('📷 Camera module available:', !!Camera);
-      console.log('🎵 Audio module available:', !!Audio);
-
-      if (Camera && type === 'video') {
-        console.log('📷 Requesting camera permissions...');
-        const cameraPermission = await Camera.requestCameraPermissionsAsync();
-        console.log('📷 Camera permission result:', cameraPermission);
-        if (cameraPermission.status !== 'granted') {
-          console.error('❌ Camera permission denied');
-          return false;
-        }
-      }
-
-      if (Audio) {
-        console.log('🎵 Requesting audio permissions...');
-        const audioPermission = await Audio.requestPermissionsAsync();
-        console.log('🎵 Audio permission result:', audioPermission);
-        if (audioPermission.status !== 'granted') {
-          console.error('❌ Audio permission denied');
-          return false;
-        }
-      }
-
-      console.log('✅ Permissions granted for', type, 'call');
-      return true;
-    } catch (error) {
-      console.error('❌ Failed to request permissions:', error);
-
-      // If Expo modules are not available, show user-friendly message
-      if (!Camera || !Audio) {
-        console.warn('⚠️ Expo Camera/Audio modules not available, permissions may need to be granted manually');
-        // For now, assume permissions are granted if modules aren't available
-        // This allows the app to work in development when modules might not be loaded
-        return true;
-      }
-
-      return false;
-    }
-  }
-
-  private setupSocketListeners() {
-    // Listen for incoming call offers
-    socketService.onCallOffer((data: any) => {
-      console.log('📞 Incoming call offer:', data);
-      this.currentCall = {
-        callId: data.callId,
-        callerId: data.callerId,
-        callerName: data.callerName,
-        participants: data.participants || [],
-        type: data.type,
-        status: 'ringing'
-      };
-      // Directly update call store for global incoming call handling
-      useCallStore.getState().setIncomingCall(this.currentCall);
-      this.onCallReceived?.(this.currentCall);
-    });
-
-    // Listen for call answers
-    socketService.onCallAnswer((data: any) => {
-      console.log('📞 Call answered:', data);
-      if (this.peerConnection && data.answer) {
-        this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        this.currentCall!.status = 'connecting';
-        this.onCallAccepted?.(this.currentCall!);
-      }
-    });
-
-    // Listen for ICE candidates
-    socketService.onIceCandidate((data: any) => {
-      console.log('🧊 ICE candidate received:', data);
-      if (this.peerConnection && data.candidate) {
-        this.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-      }
-    });
-
-    // Listen for call end
-    socketService.onCallEnd((data: any) => {
-      console.log('📞 Call ended:', data);
-      this.endCall();
-      this.onCallEnded?.(this.currentCall!);
-    });
-
-    // Listen for participant updates
-    socketService.onParticipantJoined((data: any) => {
-      console.log('👥 Participant joined:', data);
-      if (this.currentCall) {
-        this.currentCall.participants.push(data.participant);
-        this.onParticipantJoined?.(data.participant);
-      }
-    });
-
-    socketService.onParticipantLeft((data: any) => {
-      console.log('👋 Participant left:', data);
-      if (this.currentCall) {
-        this.currentCall.participants = this.currentCall.participants.filter(
-          p => p.userId !== data.participantId
-        );
-        this.remoteStreams.delete(data.participantId);
-        this.onParticipantLeft?.(data.participantId);
-      }
-    });
-  }
-
-  // Initialize media devices
-  async initializeMedia(type: 'voice' | 'video' = 'voice'): Promise<any> {
-    // Request permissions first
-    const permissionsGranted = await this.requestPermissions(type);
-    if (!permissionsGranted) {
-      throw new Error('Permissions not granted');
-    }
-
-    if (!WebRTC) {
-      console.warn('WebRTC not available, simulating media initialization');
-      this.localStream = new MediaStream();
-      return this.localStream;
-    }
-
-    try {
-      const constraints = {
-        audio: true,
-        video: type === 'video' ? {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 }
-        } : false
-      };
-
-      console.log('🎤 Initializing media with constraints:', constraints);
-      this.localStream = await mediaDevices.getUserMedia(constraints);
-      console.log('✅ Media initialized successfully');
-      return this.localStream;
-    } catch (error) {
-      console.error('❌ Failed to initialize media:', error);
-      throw error;
-    }
-  }
-
-  // Start a call
+  // Call lifecycle methods
   async startCall(participants: string[], type: 'voice' | 'video' = 'voice'): Promise<CallData> {
-    try {
-      console.log('📞 Starting call with participants:', participants);
-
-      // Initialize media
-      await this.initializeMedia(type);
-
-      // Create peer connection
-      this.peerConnection = new RTCPeerConnection(this.iceServers);
-
-      // Add local stream to peer connection
-      if (this.localStream && WebRTC) {
-        this.localStream.getTracks().forEach((track: any) => {
-          this.peerConnection!.addTrack(track, this.localStream!);
-        });
-      }
-
-      // Set up peer connection event handlers
-      this.setupPeerConnectionHandlers();
-
-      // Create call data
-      this.currentCall = {
-        callId: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        callerId: 'current_user', // Will be set by caller
-        callerName: 'You',
-        participants: participants.map(id => ({
-          userId: id,
-          name: 'Participant',
-          isMuted: false,
-          isVideoOff: false
-        })),
-        type,
-        status: 'connecting',
-        startTime: new Date()
-      };
-
-      // Create offer
-      const offer = await this.peerConnection.createOffer();
-      await this.peerConnection.setLocalDescription(offer);
-
-      // Send call offer via socket
-      socketService.sendCallOffer({
-        callId: this.currentCall.callId,
-        participants,
-        type,
-        offer
-      }, this.currentCall.participants[0].userId, this.currentCall.groupId);
-
-      console.log('📞 Call started successfully');
-      return this.currentCall;
-    } catch (error) {
-      console.error('❌ Failed to start call:', error);
-      this.cleanup();
-      throw error;
-    }
+    return this.callManager.startCall(participants, type);
   }
 
-  // Answer an incoming call
   async answerCall(): Promise<void> {
-    try {
-      if (!this.currentCall) throw new Error('No incoming call');
-
-      console.log('📞 Answering call:', this.currentCall.callId);
-
-      // Initialize media
-      await this.initializeMedia(this.currentCall.type);
-
-      // Create peer connection
-      this.peerConnection = new RTCPeerConnection(this.iceServers);
-
-      // Add local stream to peer connection
-      if (this.localStream && WebRTC) {
-        this.localStream.getTracks().forEach((track: any) => {
-          this.peerConnection!.addTrack(track, this.localStream!);
-        });
-      }
-
-      // Set up peer connection event handlers
-      this.setupPeerConnectionHandlers();
-
-      // Create answer
-      // Note: In a real implementation, you'd receive the offer first
-      const answer = await this.peerConnection.createAnswer();
-      await this.peerConnection.setLocalDescription(answer);
-
-      // Send answer via socket
-      socketService.sendCallAnswer({
-        callId: this.currentCall.callId,
-        answer
-      }, this.currentCall.participants[0].userId, this.currentCall.groupId);
-
-      this.currentCall.status = 'connected';
-      console.log('📞 Call answered successfully');
-    } catch (error) {
-      console.error('❌ Failed to answer call:', error);
-      this.cleanup();
-      throw error;
-    }
+    return this.callManager.answerCall();
   }
 
-  // End current call
   endCall(): void {
-    console.log('📞 Ending call');
-
-    if (this.currentCall) {
-      socketService.sendCallEnd(this.currentCall.participants[0].userId, this.currentCall.groupId);
-    }
-
-    this.cleanup();
-    this.currentCall = null;
+    this.callControls.endCall();
   }
 
-  // Toggle mute
-  toggleMute(): boolean {
-    if (!this.localStream) return false;
-
-    const audioTracks = this.localStream.getAudioTracks();
-    audioTracks.forEach((track: any) => {
-      track.enabled = this.isMuted;
-    });
-
-    this.isMuted = !this.isMuted;
-    console.log('🎤 Mute toggled:', this.isMuted);
-    return this.isMuted;
-  }
-
-  // Toggle video
-  toggleVideo(): boolean {
-    if (!this.localStream) return false;
-
-    const videoTracks = this.localStream.getVideoTracks();
-    videoTracks.forEach((track: any) => {
-      track.enabled = this.isVideoOff;
-    });
-
-    this.isVideoOff = !this.isVideoOff;
-    console.log('📹 Video toggled:', this.isVideoOff);
-    return this.isVideoOff;
-  }
-
-  // Toggle speaker
-  toggleSpeaker(): boolean {
-    // Note: Speaker toggle is handled at OS level in React Native
-    this.isSpeakerOn = !this.isSpeakerOn;
-    console.log('🔊 Speaker toggled:', this.isSpeakerOn);
-    return this.isSpeakerOn;
-  }
-
-  // Switch camera (front/back)
-  async switchCamera(): Promise<boolean> {
-    if (!WebRTC || !this.localStream) return false;
-
-    const videoTracks = this.localStream.getVideoTracks();
-    if (videoTracks.length === 0) return false;
-
-    const videoTrack = videoTracks[0];
-    const currentFacingMode = videoTrack.getSettings().facingMode || 'user';
-    const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-
-    // Stop current track
-    videoTrack.stop();
-
-    // Get new stream with switched camera
-    const constraints = {
-      audio: true,
-      video: {
-        facingMode: newFacingMode,
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        frameRate: { ideal: 30 }
-      }
-    };
-
-    try {
-      const newStream: any = await mediaDevices.getUserMedia(constraints);
-      const newVideoTrack: any = newStream.getVideoTracks()[0];
-
-      // Replace track in peer connection
-      if (this.peerConnection) {
-        const sender: any = this.peerConnection.getSenders().find((s: any) => s.track?.kind === 'video');
-        if (sender) {
-          sender.replaceTrack(newVideoTrack);
-        }
-      }
-
-      // Replace track in local stream
-      this.localStream!.removeTrack(videoTrack);
-      this.localStream!.addTrack(newVideoTrack);
-
-      console.log('📹 Camera switched to:', newFacingMode);
-      return true;
-    } catch (error: any) {
-      console.error('❌ Failed to switch camera:', error);
-      return false;
-    }
-  }
-
-  // Add participant to ongoing call
   async addParticipant(participantId: string): Promise<void> {
-    if (!this.currentCall) throw new Error('No active call');
-
-    socketService.sendAddParticipant({
-      callId: this.currentCall.callId,
-      participantId
-    });
+    return this.callManager.addParticipant(participantId);
   }
 
-  // Get current call data
+  // Media control methods
+  toggleMute(): boolean {
+    return this.callControls.toggleMute();
+  }
+
+  toggleVideo(): boolean {
+    return this.callControls.toggleVideo();
+  }
+
+  toggleSpeaker(): boolean {
+    return this.callControls.toggleSpeaker();
+  }
+
+  async switchCamera(): Promise<boolean> {
+    return this.callControls.switchCamera();
+  }
+
+  // State getter methods
   getCurrentCall(): CallData | null {
-    return this.currentCall;
+    return this.callControls.getCurrentCall();
   }
 
-  // Get local stream
-  getLocalStream(): MediaStream | null {
-    return this.localStream;
+  getLocalStream(): any {
+    return this.callControls.getLocalStream();
   }
 
-  // Get remote streams
-  getRemoteStreams(): Map<string, MediaStream> {
-    return this.remoteStreams;
+  getRemoteStreams(): Map<string, any> {
+    return this.callControls.getRemoteStreams();
   }
 
-  // Check if call is active
   isCallActive(): boolean {
-    return this.currentCall !== null && this.currentCall.status === 'connected';
+    return this.callControls.isCallActive();
   }
 
-  // Set event callbacks
+  // Event callback methods
   setEventCallbacks(callbacks: {
     onCallReceived?: (callData: CallData) => void;
     onCallAccepted?: (callData: CallData) => void;
     onCallEnded?: (callData: CallData) => void;
     onParticipantJoined?: (participant: CallParticipant) => void;
     onParticipantLeft?: (participantId: string) => void;
-    onStreamReceived?: (participantId: string, stream: MediaStream) => void;
+    onStreamReceived?: (participantId: string, stream: any) => void;
   }) {
-    this.onCallReceived = callbacks.onCallReceived;
-    this.onCallAccepted = callbacks.onCallAccepted;
-    this.onCallEnded = callbacks.onCallEnded;
-    this.onParticipantJoined = callbacks.onParticipantJoined;
-    this.onParticipantLeft = callbacks.onParticipantLeft;
-    this.onStreamReceived = callbacks.onStreamReceived;
-  }
-
-  private setupPeerConnectionHandlers() {
-    if (!this.peerConnection) return;
-
-    // Handle ICE candidates
-    this.peerConnection.onicecandidate = (event: any) => {
-      if (event.candidate && this.currentCall) {
-        socketService.sendIceCandidate({
-          callId: this.currentCall.callId,
-          candidate: event.candidate,
-          participants: this.currentCall.participants.map(p => p.userId)
-        }, this.currentCall.participants[0].userId, this.currentCall.groupId);
-      }
-    };
-
-    // Handle remote stream
-    this.peerConnection.ontrack = (event: any) => {
-      console.log('📡 Remote track received:', event.streams[0]);
-      const remoteStream = event.streams[0];
-      // In a multi-party call, you'd identify the participant
-      this.remoteStreams.set('remote', remoteStream);
-      this.onStreamReceived?.('remote', remoteStream);
-    };
-
-    // Handle connection state changes
-    this.peerConnection.onconnectionstatechange = () => {
-      console.log('🔗 Connection state:', this.peerConnection?.connectionState);
-      if (this.peerConnection?.connectionState === 'connected' && this.currentCall) {
-        this.currentCall.status = 'connected';
-      }
-    };
-  }
-
-  private cleanup() {
-    // Close peer connection
-    if (this.peerConnection) {
-      this.peerConnection.close();
-      this.peerConnection = null;
-    }
-
-    // Stop local stream
-    if (this.localStream) {
-      this.localStream.getTracks().forEach((track: any) => track.stop());
-      this.localStream = null;
-    }
-
-    // Clear remote streams
-    this.remoteStreams.clear();
-
-    // Reset state
-    this.isMuted = false;
-    this.isVideoOff = false;
-    this.isSpeakerOn = false;
+    this.callManager.setEventCallbacks(callbacks);
   }
 }
 
+// Export interfaces for backward compatibility
+export type { CallData, CallParticipant };
+
+// Export singleton instance for backward compatibility
 export const callService = new CallService();
 export default callService;

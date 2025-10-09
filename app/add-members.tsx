@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,15 +39,7 @@ export default function AddMembersScreen() {
 
   const currentGroup = groups?.find(g => g._id === groupId);
 
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      handleSearch(searchQuery);
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery, searchType]);
-
-  const handleSearch = async (query: string) => {
+  const handleSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
       return;
@@ -64,7 +55,7 @@ export default function AddMembersScreen() {
         // For email search, we'll use the general search API
         const searchResults = await usersAPI.searchUsers(query);
         results = searchResults.filter((user: User) =>
-          user.email.toLowerCase().includes(query.toLowerCase())
+          user.email?.toLowerCase().includes(query.toLowerCase())
         );
       }
 
@@ -83,7 +74,15 @@ export default function AddMembersScreen() {
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [searchType, currentGroup]);
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      handleSearch(searchQuery);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery, searchType, handleSearch]);
 
   const toggleUserSelection = (user: User) => {
     setSelectedUsers(prev => {
@@ -107,24 +106,51 @@ export default function AddMembersScreen() {
       return;
     }
 
+    // Validate that all selected users have email addresses
+    const usersWithoutEmail = selectedUsers.filter(user => !user.email || !user.email.trim());
+    if (usersWithoutEmail.length > 0) {
+      Alert.alert(
+        'Missing Information',
+        `Cannot add ${usersWithoutEmail.map(u => u.name).join(', ')} - email address is required`
+      );
+      return;
+    }
+
     try {
       let successCount = 0;
       let errorCount = 0;
+      const failedUsers: string[] = [];
 
       for (const user of selectedUsers) {
         try {
-          await addMemberToGroup(groupId as string, user.email, 'email');
+          // Use email if available, otherwise fallback to username
+          const identifier = user.email?.trim() || user.username;
+          const searchType = user.email?.trim() ? 'email' : 'username';
+          
+          if (!identifier) {
+            console.error(`User ${user.name} has no email or username`);
+            failedUsers.push(user.name);
+            errorCount++;
+            continue;
+          }
+          
+          await addMemberToGroup(groupId as string, identifier, searchType);
           successCount++;
-        } catch (error) {
+        } catch (error: any) {
           errorCount++;
-          console.error(`Failed to add ${user.name}:`, error);
+          failedUsers.push(user.name);
+          console.error(`Failed to add ${user.name}:`, error.message || error);
         }
       }
 
       if (successCount > 0) {
+        const message = errorCount > 0 
+          ? `${successCount} member${successCount > 1 ? 's' : ''} added successfully.\nFailed to add: ${failedUsers.join(', ')}`
+          : `${successCount} member${successCount > 1 ? 's' : ''} added successfully!`;
+        
         Alert.alert(
           'Success',
-          `${successCount} member${successCount > 1 ? 's' : ''} added successfully${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+          message,
           [
             {
               text: 'Done',
@@ -133,10 +159,13 @@ export default function AddMembersScreen() {
           ]
         );
       } else {
-        Alert.alert('Error', 'Failed to add any members. Please try again.');
+        Alert.alert(
+          'Error', 
+          `Failed to add ${failedUsers.join(', ')}. Please try again.`
+        );
       }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add members. Please try again.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to add members. Please try again.');
     }
   };
 

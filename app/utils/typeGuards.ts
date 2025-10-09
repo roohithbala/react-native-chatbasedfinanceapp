@@ -25,8 +25,6 @@ export function isMessagesResponse(response: any): response is MessagesResponse 
     )
   );
 }
-
-// Dummy component to satisfy expo-router's default export requirement
 export default function TypeGuards() {
   return null;
 }

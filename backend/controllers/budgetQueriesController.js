@@ -62,17 +62,26 @@ async function getHistoricalBudgets(req, res) {
     let startDate, endDate;
 
     if (period === 'yearly' && year) {
-      startDate = new Date(year, 0, 1);
-      endDate = new Date(year, 11, 31, 23, 59, 59);
+      startDate = new Date(parseInt(year), 0, 1);
+      endDate = new Date(parseInt(year), 11, 31, 23, 59, 59);
     } else if (period === 'monthly' && year && month) {
-      startDate = new Date(year, month - 1, 1);
-      endDate = new Date(year, month, 0, 23, 59, 59);
+      startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
     } else {
       // Default to current month
       const now = new Date();
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
     }
+
+    console.log('📅 Historical budgets query:', {
+      userId,
+      period,
+      year,
+      month,
+      startDate,
+      endDate
+    });
 
     const query = {
       userId,
@@ -83,6 +92,8 @@ async function getHistoricalBudgets(req, res) {
 
     const budgets = await Budget.find(query).sort({ startDate: -1, category: 1 });
 
+    console.log('📅 Found historical budgets:', budgets.length);
+
     // Calculate spent amounts for each budget
     const budgetsWithSpent = await Promise.all(
       budgets.map(calculateBudgetMetrics)
@@ -90,6 +101,11 @@ async function getHistoricalBudgets(req, res) {
 
     // Group by period for historical view
     const groupedBudgets = groupBudgetsByPeriod(budgetsWithSpent, period);
+
+    console.log('📅 Grouped budgets:', {
+      periods: Object.keys(groupedBudgets).length,
+      keys: Object.keys(groupedBudgets)
+    });
 
     res.json({
       status: 'success',
@@ -122,21 +138,47 @@ async function getBudgetTrends(req, res) {
 
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - months);
+    startDate.setMonth(startDate.getMonth() - parseInt(months));
 
+    console.log('📊 Budget trends query:', {
+      userId,
+      startDate,
+      endDate,
+      months: parseInt(months)
+    });
+
+    // Find budgets that overlap with the date range
+    // Changed query: get budgets where startDate is before endDate AND endDate is after startDate
     const budgets = await Budget.find({
       userId,
-      startDate: { $gte: startDate },
-      endDate: { $lte: endDate }
+      isActive: true,
+      $or: [
+        // Budget starts within range
+        { startDate: { $gte: startDate, $lte: endDate } },
+        // Budget ends within range
+        { endDate: { $gte: startDate, $lte: endDate } },
+        // Budget spans entire range
+        { startDate: { $lte: startDate }, endDate: { $gte: endDate } }
+      ]
     }).sort({ startDate: 1 });
+
+    console.log('📊 Found budgets:', budgets.length);
 
     // Calculate metrics for each budget
     const budgetsWithMetrics = await Promise.all(
       budgets.map(calculateBudgetMetrics)
     );
 
+    console.log('📊 Budgets with metrics:', budgetsWithMetrics.length);
+
     // Calculate trends
     const trends = calculateBudgetTrends(budgetsWithMetrics);
+
+    console.log('📊 Calculated trends:', {
+      monthlyTrendsCount: trends.monthlyTrends?.length || 0,
+      categoryTrendsCount: Object.keys(trends.categoryTrends || {}).length,
+      overallMetrics: trends.overallMetrics
+    });
 
     res.json({
       status: 'success',

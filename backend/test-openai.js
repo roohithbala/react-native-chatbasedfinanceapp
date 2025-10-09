@@ -1,46 +1,36 @@
-const OpenAI = require('openai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize Gemini AI with your API key
+const genAI = new GoogleGenerativeAI('AIzaSyCYCPiREIu2ue3ydCCLLAKrWtoS1DyjThc');
 
-async function testOpenAI() {
+async function testGeminiAI() {
   try {
-    console.log('Testing OpenAI API connection...');
-    console.log('API Key configured:', process.env.OPENAI_API_KEY ? 'Yes' : 'No');
+    console.log('Testing Gemini AI API connection...');
+    console.log('API Key configured: Yes');
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful AI assistant.'
-        },
-        {
-          role: 'user',
-          content: 'Say hello and confirm you are working! Respond with just a simple greeting.'
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 100
-    });
+    // Get the generative model (using gemini-1.5-flash - free tier)
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const response = completion.choices[0].message.content;
+    const prompt = 'Say hello and confirm you are working! Respond with just a simple greeting.';
 
-    console.log('✅ OpenAI API is working!');
-    console.log('Response:', response);
+    console.log('Sending prompt to Gemini AI...');
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log('✅ Gemini AI API is working!');
+    console.log('Response:', text);
 
   } catch (error) {
-    console.error('❌ OpenAI API test failed:', error.message);
+    console.error('❌ Gemini AI API test failed:', error.message);
     console.error('Full error:', error);
 
     // Check if it's an authentication issue
-    if (error.message.includes('API key')) {
-      console.error('❌ API Key issue detected. Please set your OPENAI_API_KEY in .env file');
+    if (error.message.includes('API key') || error.message.includes('API_KEY')) {
+      console.error('❌ API Key issue detected. Please verify your Gemini API key');
     }
   }
 }
 
-testOpenAI();
+testGeminiAI();

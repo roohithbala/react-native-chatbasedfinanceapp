@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MentionInput from './MentionInput';
 import ChatActions from './ChatActions';
@@ -124,7 +124,8 @@ const getStyles = (theme: any) => StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.border,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 12, // Extra padding for iOS safe area
   },
   mediaPreview: {
     backgroundColor: theme.surfaceSecondary,
@@ -162,7 +163,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   inputWrapper: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     backgroundColor: theme.surfaceSecondary,
     borderRadius: 24,
     paddingHorizontal: 16,
@@ -171,7 +172,6 @@ const getStyles = (theme: any) => StyleSheet.create({
     maxHeight: 120, // Allow input to grow up to 120px
     borderWidth: 1,
     borderColor: theme.border,
-    marginRight: 12,
   },
   textInput: {
     flex: 1,

@@ -960,7 +960,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         if (currentUser) {
           // Find the current user's share in the split bill
           const userParticipant = response.splitBill.participants.find(
-            p => {
+            (p: any) => {
               if (typeof p.userId === 'object' && p.userId && '_id' in p.userId) {
                 return (p.userId as any)._id === currentUser._id;
               } else if (typeof p.userId === 'string') {
@@ -1147,7 +1147,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         if (currentUser) {
           // Find the current user's share in the updated split bill
           const userParticipant = response.splitBill.participants.find(
-            p => {
+            (p: any) => {
               if (typeof p.userId === 'object' && p.userId && '_id' in p.userId) {
                 return (p.userId as any)._id === currentUser._id;
               } else if (typeof p.userId === 'string') {

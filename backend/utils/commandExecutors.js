@@ -15,30 +15,51 @@ const splitBillManagementController = require('../controllers/splitBillManagemen
  */
 const executeSplitCommand = async (text, userId, groupId, user) => {
   const parts = text.split(' ');
-  const description = parts.slice(1).join(' ').split('₹')[0].trim() || 'Split Bill';
+  const description = parts.slice(1).join(' ').split('₹')[0].split('#')[0].trim() || 'Split Bill';
 
   // Extract amount - support multiple currency formats and plain numbers
   const amountMatch = text.match(/(?:[\$₹£€¥]\s*)?(\d+(?:\.\d{1,2})?)(?:\s*[\$₹£€¥])?/);
   const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
+  
+  // Extract category from hashtag (e.g., #food, #transport)
+  const categoryMatch = text.match(/#(\w+)/);
+  const rawCategory = categoryMatch ? categoryMatch[1] : 'Other';
+  
+  // Validate and map category to enum values
+  const validCategories = ['Food', 'Transport', 'Entertainment', 'Shopping', 'Bills', 'Health', 'Other'];
+  const category = validCategories.find(c => c.toLowerCase() === rawCategory.toLowerCase()) || 'Other';
+  
   const mentions = text.match(/@\w+/g) || [];
 
-  // If no participants are mentioned, split with all group members
+  // If no participants are mentioned or @all is used, split with all group members
   let participants;
-  if (mentions.length <= 1) { // Only @split command, no @user mentions
+  const hasAllMention = mentions.some(m => m.toLowerCase() === '@all');
+  
+  if (mentions.length <= 1 || hasAllMention) { // Only @split command, no @user mentions, or @all mentioned
     const group = await Group.findById(groupId);
     if (!group) {
       throw new Error('Group not found');
     }
     // Get all active group members except the creator
+    // Ensure userId is properly extracted as ObjectId
     participants = group.members
-      .filter(m => m.isActive && m.userId.toString() !== userId.toString())
-      .map(m => m.userId);
+      .filter(m => {
+        if (!m.userId) return false;
+        if (m.isActive === false) return false;
+        const memberIdString = m.userId.toString();
+        const creatorIdString = userId.toString();
+        return memberIdString !== creatorIdString;
+      })
+      .map(m => {
+        // Handle both populated and unpopulated userId
+        return m.userId._id || m.userId;
+      });
     
     console.log('📋 Group split - participants from group:', participants.map(p => p.toString()));
   } else {
     // For mentioned participants, get their user IDs
     // Remove the @split command from mentions if present
-    const userMentions = mentions.filter(mention => mention.toLowerCase() !== '@split');
+    const userMentions = mentions.filter(mention => mention.toLowerCase() !== '@split' && mention.toLowerCase() !== '@all');
     const usernames = userMentions.map(p => p.replace('@', ''));
     const users = await User.find({ username: { $in: usernames } });
     if (users.length !== usernames.length) {
@@ -96,8 +117,12 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
     if (index < remainder) {
       participantAmount += 0.01;
     }
+    
+    // Ensure userId is a string for consistency
+    const userIdString = u._id.toString();
+    
     return {
-      userId: u._id,
+      userId: userIdString, // Convert ObjectId to string
       amount: Number(participantAmount.toFixed(2)) // Ensure exactly 2 decimal places
     };
   });
@@ -119,7 +144,7 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
     groupId: groupId, // Use the provided groupId
     participants: participantsData,
     splitType: 'equal',
-    category: 'Split',
+    category: category, // Use extracted and validated category
     currency: 'INR'
   };
 
@@ -140,7 +165,7 @@ const executeSplitCommand = async (text, userId, groupId, user) => {
   const groupExpense = new Expense({
     description,
     amount,
-    category: 'Split',
+    category: category, // Use extracted and validated category
     userId: userId,
     groupId: groupId,
     tags: ['split-bill'],
@@ -196,6 +221,9 @@ const executeAddExpenseCommand = async (text, userId, groupId) => {
   const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
   const categoryMatch = text.match(/#(\w+)/);
   const category = categoryMatch ? categoryMatch[1] : 'Other';
+  
+  // Check if --split flag is present
+  const shouldSplit = text.includes('--split') || text.includes('-s');
 
   if (amount <= 0) {
     throw new Error('Invalid amount for expense');
@@ -212,35 +240,172 @@ const executeAddExpenseCommand = async (text, userId, groupId) => {
 
   await expense.save();
 
+  // If --split flag is present and in a group, create a split bill
+  let splitBill = null;
+  if (shouldSplit && groupId) {
+    try {
+      // Get group members
+      const group = await Group.findById(groupId).populate('members.userId', 'name username');
+      
+      if (group && group.members) {
+        // Get active members excluding the creator
+        const activeMembers = group.members
+          .filter(m => m.isActive && m.userId && m.userId._id.toString() !== userId.toString())
+          .map(m => m.userId);
+
+        if (activeMembers.length > 0) {
+          // Calculate split amount
+          const totalParticipants = activeMembers.length + 1; // Include creator
+          const splitAmount = amount / totalParticipants;
+
+          // Create participants array
+          const participants = activeMembers.map(member => ({
+            userId: member._id,
+            amount: splitAmount,
+            isPaid: false,
+            isRejected: false
+          }));
+
+          // Add creator as participant who already paid
+          participants.push({
+            userId: userId,
+            amount: splitAmount,
+            isPaid: true,
+            isRejected: false,
+            paidAt: new Date()
+          });
+
+          // Create split bill
+          splitBill = new SplitBill({
+            description: `${description} (split expense)`,
+            totalAmount: amount,
+            splitType: 'equal',
+            category: category,
+            createdBy: userId,
+            groupId: groupId,
+            participants: participants,
+            isSettled: false
+          });
+
+          await splitBill.save();
+          
+          // Populate for return
+          await splitBill.populate('createdBy', 'name username avatar');
+          await splitBill.populate('participants.userId', 'name username avatar');
+
+          console.log('✅ Created split bill from @addexpense --split:', {
+            splitBillId: splitBill._id,
+            description: splitBill.description,
+            amount: splitBill.totalAmount,
+            participants: splitBill.participants.length
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error creating split bill from expense:', error);
+      // Don't throw - expense was still created successfully
+    }
+  }
+
   return {
     type: 'expense',
-    data: { description, amount, category },
+    data: { description, amount, category, splitBill },
     success: true
   };
 };
 
 /**
- * Executes the @predict command
+ * Executes the @predict command using Gemini AI
  * @param {string} userId - User ID
  * @returns {Object} - Command result
  */
 const executePredictCommand = async (userId) => {
-  // Get user's spending history
-  const expenses = await Expense.find({ userId })
-    .sort({ createdAt: -1 })
-    .limit(30);
+  try {
+    // Get user's spending history
+    const expenses = await Expense.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(30);
 
-  const total = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
-  const average = expenses.length > 0 ? total / expenses.length : 0;
-  const averageFormatted = isNaN(average) ? '0.00' : average.toFixed(2);
+    if (expenses.length === 0) {
+      return {
+        type: 'predict',
+        data: {
+          prediction: `You don't have enough expense data yet. Start tracking your expenses to get AI-powered predictions!`
+        },
+        success: true
+      };
+    }
 
-  return {
-    type: 'predict',
-    data: {
-      prediction: `Based on your last ${expenses.length} expenses, you spend an average of ₹${averageFormatted} per transaction.`
-    },
-    success: true
-  };
+    const total = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    const average = expenses.length > 0 ? total / expenses.length : 0;
+
+    // Prepare expense data for AI analysis
+    const categoryBreakdown = {};
+    expenses.forEach(exp => {
+      const category = exp.category || 'Other';
+      if (!categoryBreakdown[category]) {
+        categoryBreakdown[category] = { total: 0, count: 0 };
+      }
+      categoryBreakdown[category].total += Number(exp.amount) || 0;
+      categoryBreakdown[category].count += 1;
+    });
+
+    // Create AI prompt with expense data
+    const prompt = `As a financial advisor, analyze this spending data and provide a brief prediction (2-3 sentences) about future spending patterns:
+
+Total expenses tracked: ${expenses.length}
+Total amount spent: ₹${total.toFixed(2)}
+Average per expense: ₹${average.toFixed(2)}
+
+Category breakdown:
+${Object.entries(categoryBreakdown).map(([cat, data]) => 
+  `- ${cat}: ₹${data.total.toFixed(2)} (${data.count} transactions)`
+).join('\n')}
+
+Recent expenses (last 5):
+${expenses.slice(0, 5).map(exp => 
+  `- ${exp.description || 'Unknown'}: ₹${(Number(exp.amount) || 0).toFixed(2)} (${exp.category || 'Other'})`
+).join('\n')}
+
+Provide actionable insights and spending predictions.`;
+
+    // Initialize Gemini AI
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI('AIzaSyCYCPiREIu2ue3ydCCLLAKrWtoS1DyjThc');
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+
+    // Generate AI prediction
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const prediction = response.text();
+
+    return {
+      type: 'predict',
+      data: {
+        prediction: prediction.trim()
+      },
+      success: true
+    };
+  } catch (error) {
+    console.error('Error in executePredictCommand:', error);
+    
+    // Fallback to basic prediction if AI fails
+    const expenses = await Expense.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(30);
+    
+    const total = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    const average = expenses.length > 0 ? total / expenses.length : 0;
+    const averageFormatted = isNaN(average) ? '0.00' : average.toFixed(2);
+
+    return {
+      type: 'predict',
+      data: {
+        prediction: `Based on your last ${expenses.length} expenses, you spend an average of ₹${averageFormatted} per transaction.`
+      },
+      success: true
+    };
+  }
 };
 
 /**

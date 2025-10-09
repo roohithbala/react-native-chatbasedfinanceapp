@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChatHeader } from '../components/ChatHeader';
-import { SearchBar } from '../components/SearchBar';
+import ChatsHeaderWrapper from '../components/ChatsHeaderWrapper';
+import ChatsSearch from '../components/ChatsSearch';
+import ChatsContentWrapper from '../components/ChatsContentWrapper';
 import { ChatTabs } from '../components/ChatTabs';
 import { ChatsTabContent } from '../components/ChatsTabContent';
 import { JoinGroupModal } from '../components/JoinGroupModal';
@@ -11,6 +12,7 @@ import { SearchResults } from '../components/SearchResults';
 import ChatMenu from '../components/ChatMenu';
 import { useChatsLogic } from '@/hooks/useChatsLogic';
 import { useTheme } from '../context/ThemeContext';
+import styles from '@/lib/styles/chatsStyles';
 
 export default function ChatsScreen() {
   const { theme } = useTheme();
@@ -63,7 +65,7 @@ export default function ChatsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.headerContainer}>
-        <ChatHeader
+        <ChatsHeaderWrapper
           activeTab={activeTab}
           onCreateGroup={handleCreateGroup}
           onJoinGroup={() => setShowJoinGroup(true)}
@@ -72,11 +74,7 @@ export default function ChatsScreen() {
       </View>
 
       <View style={styles.searchContainer}>
-        <SearchBar
-          value={searchQuery}
-          onChangeText={handleSearch}
-          placeholder="Search chats..."
-        />
+        <ChatsSearch value={searchQuery} onChangeText={handleSearch} placeholder="Search chats..." />
       </View>
 
       <View style={styles.tabsContainer}>
@@ -87,39 +85,33 @@ export default function ChatsScreen() {
       </View>
 
       <View style={styles.contentContainer}>
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading chats...</Text>
-          </View>
-        ) : searchQuery.trim() && activeTab === 'chats' ? (
-          <SearchResults
-            searchResults={searchResults}
-            isSearching={isSearching}
-            onUserSelect={handleUserSelect}
-          />
-        ) : (
-          <ChatsTabContent
-            activeTab={activeTab}
-            recentChats={recentChats}
-            groups={groups}
-            currentUser={currentUser}
-            mutedChats={mutedChats}
-            blockedUsers={blockedUsers}
-            archivedChats={archivedChats}
-            refreshing={refreshing}
-            handleRefresh={handleRefresh}
-            handleUserSelect={handleUserSelect}
-            handleGroupSelect={handleGroupSelect}
-            handleMenuPress={handleMenuPress}
-            handleAddMembers={handleAddMembers}
-          />
-        )}
+        <ChatsContentWrapper
+          isLoading={isLoading}
+          searchQuery={searchQuery}
+          activeTab={activeTab}
+          isSearching={isSearching}
+          searchResults={searchResults}
+          recentChats={recentChats}
+          groups={groups}
+          currentUser={currentUser}
+          mutedChats={mutedChats}
+          blockedUsers={blockedUsers}
+          archivedChats={archivedChats}
+          refreshing={refreshing}
+          handleRefresh={handleRefresh}
+          handleUserSelect={handleUserSelect}
+          handleGroupSelect={handleGroupSelect}
+          handleMenuPress={handleMenuPress}
+          handleAddMembers={handleAddMembers}
+        />
       </View>
 
       <JoinGroupModal
         visible={showJoinGroup}
-        onClose={() => setInviteCode('')}
+        onClose={() => {
+          setShowJoinGroup(false);
+          setInviteCode('');
+        }}
         inviteCode={inviteCode}
         onInviteCodeChange={setInviteCode}
         onJoin={handleJoinGroup}
@@ -147,40 +139,4 @@ export default function ChatsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  headerContainer: {
-    // Header component handles its own padding and safe area
-  },
-  searchContainer: {
-    marginTop: 10,
-    paddingHorizontal: 20,
-  },
-  tabsContainer: {
-    marginTop: 10,
-    paddingHorizontal: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-});
+// styles moved to app/(tabs)/styles/chatsStyles.ts

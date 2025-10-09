@@ -51,7 +51,14 @@ const sendMessage = async (groupId, userId, messageData, io) => {
             const expenseAmount = commandResult.data.amount !== undefined && commandResult.data.amount !== null ?
               Number(commandResult.data.amount) : 0;
             const expenseAmountFormatted = isNaN(expenseAmount) ? '0.00' : expenseAmount.toFixed(2);
-            resultText = `📝 Expense added:\n${commandResult.data.description || 'Unknown'}\nAmount: ₹${expenseAmountFormatted}\nCategory: #${commandResult.data.category || 'Other'}`;
+            
+            // Check if a split bill was also created
+            if (commandResult.data.splitBill) {
+              const splitAmount = commandResult.data.splitBill.totalAmount / commandResult.data.splitBill.participants.length;
+              resultText = `📝 Expense added and split:\n${commandResult.data.description || 'Unknown'}\nAmount: ₹${expenseAmountFormatted}\nCategory: #${commandResult.data.category || 'Other'}\n💰 Split: ₹${splitAmount.toFixed(2)} each among ${commandResult.data.splitBill.participants.length} members`;
+            } else {
+              resultText = `📝 Expense added:\n${commandResult.data.description || 'Unknown'}\nAmount: ₹${expenseAmountFormatted}\nCategory: #${commandResult.data.category || 'Other'}`;
+            }
             break;
 
           case 'predict':
@@ -130,7 +137,7 @@ const sendMessage = async (groupId, userId, messageData, io) => {
       avatar: user.avatar
     },
     groupId,
-    type: commandResult?.success && commandResult.type === 'split' ? 'split_bill' : (commandResult?.success ? 'command' : type),
+    type: commandResult?.success && (commandResult.type === 'split' || (commandResult.type === 'expense' && commandResult.data.splitBill)) ? 'split_bill' : (commandResult?.success ? 'command' : type),
     status: 'sent',
     commandType: commandResult?.type,
     mentions,
@@ -140,33 +147,80 @@ const sendMessage = async (groupId, userId, messageData, io) => {
     }]
   });
 
-  // If it's a split command, add split bill data
-  if (commandResult?.success && commandResult.type === 'split') {
-    // Get the created split bill details
+  // If it's a split command or expense with split bill, add split bill data
+  if (commandResult?.success && (commandResult.type === 'split' || (commandResult.type === 'expense' && commandResult.data.splitBill))) {
+    console.log('🎫 Processing split bill data for message:', {
+      commandType: commandResult.type,
+      hasSplitBill: !!commandResult.data.splitBill,
+      splitBillId: commandResult.data.splitBillId || commandResult.data.splitBill?._id
+    });
+    
     const SplitBill = require('../models/SplitBill');
-    const splitBill = await SplitBill.findById(commandResult.data.splitBillId)
-      .populate('participants.userId', 'name username')
-      .populate('createdBy', 'name username');
+    let splitBill;
+    
+    // Get split bill based on command type
+    if (commandResult.type === 'split') {
+      splitBill = await SplitBill.findById(commandResult.data.splitBillId)
+        .populate('participants.userId', 'name username')
+        .populate('createdBy', 'name username');
+    } else if (commandResult.type === 'expense' && commandResult.data.splitBill) {
+      // For expense command, we need to fetch and populate the split bill
+      console.log('🔄 Fetching split bill from expense command...');
+      const splitBillId = commandResult.data.splitBill._id || commandResult.data.splitBill.id;
+      splitBill = await SplitBill.findById(splitBillId)
+        .populate('participants.userId', 'name username avatar')
+        .populate('createdBy', 'name username avatar');
+        
+      console.log('� Populated split bill:', {
+        splitBillId: splitBill?._id,
+        hasCreatedBy: !!splitBill?.createdBy,
+        createdByName: splitBill?.createdBy?.name,
+        participantsCount: splitBill?.participants?.length,
+        firstParticipantHasName: !!splitBill?.participants[0]?.userId?.name
+      });
+    }
 
     if (splitBill) {
       // Find current user's share
-      const userParticipant = splitBill.participants.find(p => p.userId._id.toString() === userId.toString());
+      const userParticipant = splitBill.participants.find(p => {
+        const participantId = p.userId._id ? p.userId._id.toString() : p.userId.toString();
+        return participantId === userId.toString();
+      });
       const userShare = userParticipant ? userParticipant.amount : 0;
 
       message.splitBillData = {
+        _id: splitBill._id.toString(),
         splitBillId: splitBill._id.toString(),
         description: splitBill.description,
         totalAmount: splitBill.totalAmount,
         userShare: userShare,
         isPaid: userParticipant ? userParticipant.isPaid : false,
-        participants: splitBill.participants.map(p => ({
-          userId: p.userId._id.toString(),
-          name: p.userId.name || 'Unknown',
-          amount: p.amount,
-          isPaid: p.isPaid,
-          isRejected: p.isRejected || false
-        }))
+        createdBy: {
+          _id: splitBill.createdBy._id.toString(),
+          name: splitBill.createdBy.name,
+          username: splitBill.createdBy.username
+        },
+        participants: splitBill.participants.map(p => {
+          const pUserId = p.userId._id || p.userId;
+          const pName = p.userId.name || p.userId.username || 'Unknown';
+          return {
+            userId: pUserId.toString(),
+            name: pName,
+            amount: p.amount,
+            isPaid: p.isPaid,
+            isRejected: p.isRejected || false
+          };
+        })
       };
+      
+      console.log('✅ Split bill data attached to message:', {
+        messageId: message._id,
+        splitBillId: message.splitBillData.splitBillId,
+        participants: message.splitBillData.participants.length,
+        messageType: message.type
+      });
+    } else {
+      console.log('⚠️ No split bill found to attach to message');
     }
   }
   // If it's a command, add command data
@@ -175,6 +229,13 @@ const sendMessage = async (groupId, userId, messageData, io) => {
   }
 
   await message.save();
+  console.log('✅ Message saved to DB:', {
+    _id: message._id,
+    groupId: message.groupId,
+    text: message.text?.substring(0, 50),
+    type: message.type,
+    hasSplitBillData: !!message.splitBillData
+  });
 
   const response = {
     message: await Message.findById(message._id)
@@ -205,12 +266,12 @@ const sendMessage = async (groupId, userId, messageData, io) => {
     const socketMessage = chatUtils.formatMessageForSocket(message);
 
     // Emit to all group members
-    io.to(groupId).emit('receive-message', socketMessage);
+    io.to(groupId).emit('receiveMessage', socketMessage);
 
     // Also emit system message if it exists
     if (systemMessage) {
       const socketSystemMessage = chatUtils.formatSystemMessageForSocket(systemMessage, groupId, commandResult);
-      io.to(groupId).emit('receive-message', socketSystemMessage);
+      io.to(groupId).emit('receiveMessage', socketSystemMessage);
     }
   }
 

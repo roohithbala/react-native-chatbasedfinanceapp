@@ -6,7 +6,9 @@ const {
   deleteBudget,
   getBudgetAlerts,
   getHistoricalBudgets,
-  getBudgetTrends
+  getBudgetTrends,
+  rolloverBudgets,
+  resetBudgets
 } = require('../controllers/budgetController');
 
 const router = express.Router();
@@ -28,5 +30,11 @@ router.get('/alerts', auth, getBudgetAlerts);
 
 // Get budget trends
 router.get('/trends', auth, getBudgetTrends);
+
+// Rollover budgets to next period
+router.post('/rollover', auth, rolloverBudgets);
+
+// Reset budgets for new period
+router.post('/reset', auth, resetBudgets);
 
 module.exports = router;

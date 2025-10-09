@@ -118,10 +118,11 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
       set({ isLoading: true, error: null });
       const response = await budgetsAPI.getHistoricalBudgets({ period, year, month });
 
-      if (response && response.data && response.data.budgets) {
-        const historicalBudgets = typeof response.data.budgets === 'object' && !Array.isArray(response.data.budgets)
-          ? response.data.budgets
-          : {};
+      // Handle both response.data.budgets and response.budgets formats
+      const budgetsData = response?.budgets || response?.data?.budgets || {};
+      
+      if (budgetsData && typeof budgetsData === 'object') {
+        const historicalBudgets = !Array.isArray(budgetsData) ? budgetsData : {};
         set({
           historicalBudgets: historicalBudgets,
           error: null,
@@ -147,18 +148,36 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
   loadBudgetTrends: async (months: number = 6) => {
     try {
       set({ isLoading: true, error: null });
+      console.log('📊 Loading budget trends for last', months, 'months');
       const response = await budgetsAPI.getBudgetTrends({ months });
 
-      if (response && response.trends) {
-        const budgetTrends = typeof response.trends === 'object' && !Array.isArray(response.trends)
-          ? response.trends
-          : {};
+      console.log('📊 Budget trends API response:', {
+        hasResponse: !!response,
+        hasTrends: !!response?.trends,
+        trendsType: typeof response?.trends,
+        trendsKeys: response?.trends ? Object.keys(response.trends) : [],
+        sample: response?.trends ? JSON.stringify(response.trends).substring(0, 200) : 'none'
+      });
+
+      // The API returns { trends: {...} }, so we need to extract trends
+      const budgetTrends = response?.trends || response || {};
+      
+      if (budgetTrends && typeof budgetTrends === 'object') {
+        console.log('✅ Budget trends loaded successfully:', {
+          hasOverallMetrics: !!budgetTrends.overallMetrics,
+          hasMonthlyTrends: !!budgetTrends.monthlyTrends,
+          monthlyTrendsCount: budgetTrends.monthlyTrends?.length || 0,
+          hasCategoryTrends: !!budgetTrends.categoryTrends,
+          categoryCount: budgetTrends.categoryTrends ? Object.keys(budgetTrends.categoryTrends).length : 0
+        });
+        
         set({
           budgetTrends: budgetTrends,
           error: null,
           isLoading: false
         });
       } else {
+        console.warn('⚠️ No budget trends data received');
         set({
           budgetTrends: {},
           error: null,
@@ -166,7 +185,12 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
         });
       }
     } catch (error: any) {
-      console.error('Error loading budget trends:', error);
+      console.error('❌ Error loading budget trends:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       set({
         error: 'Failed to load budget trends',
         budgetTrends: {},

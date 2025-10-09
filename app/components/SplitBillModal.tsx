@@ -23,6 +23,7 @@ interface SplitBillModalProps {
     name: string;
     username?: string;
   }[];
+  onSplitBillCreated?: (splitBill: any) => void;
 }
 
 export default function SplitBillModal({
@@ -30,6 +31,7 @@ export default function SplitBillModal({
   onClose,
   groupId,
   groupMembers: propGroupMembers,
+  onSplitBillCreated,
 }: SplitBillModalProps) {
   const { groupMembers: contextGroupMembers } = useGroupContext();
   const groupMembers = propGroupMembers || contextGroupMembers;
@@ -176,9 +178,14 @@ export default function SplitBillModal({
       console.log('SplitBillModal - GroupId in data:', splitBillData.groupId, 'type:', typeof splitBillData.groupId);
       console.log('SplitBillModal - Participants details:', splitBillData.participants.map((p: any) => ({ userId: p.userId, amount: p.amount, userIdType: typeof p.userId })));
 
-      await createSplitBill(splitBillData);
+      const createdBill = await createSplitBill(splitBillData);
       onClose();
       Alert.alert('Success', 'Split bill created successfully!');
+      
+      // Call the callback if provided
+      if (onSplitBillCreated) {
+        onSplitBillCreated(createdBill);
+      }
     } catch (error: any) {
       console.error('SplitBillModal - Error creating split bill:', error);
       console.error('SplitBillModal - Error response:', error.response?.data);

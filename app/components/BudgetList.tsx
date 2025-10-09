@@ -43,9 +43,10 @@ export const BudgetList: React.FC<BudgetListProps> = ({
       </TouchableOpacity>
 
       {categories.map((cat) => {
-        const budgetLimit = budgets[cat] || 0;
-        const spentAmount = getSpentAmount(cat);
-        const progressPercentage = getProgressPercentage(spentAmount, budgetLimit);
+        // Ensure all values are valid numbers
+        const budgetLimit = typeof budgets?.[cat] === 'number' ? budgets[cat] : 0;
+        const spentAmount = getSpentAmount(cat) || 0;
+        const progressPercentage = getProgressPercentage(spentAmount, budgetLimit) || 0;
         const progressColor = getProgressColor(progressPercentage);
 
         // Filter ALL expenses for this category (both personal and group)
@@ -58,10 +59,10 @@ export const BudgetList: React.FC<BudgetListProps> = ({
           <BudgetCard
             key={cat}
             category={cat}
-            budgetLimit={budgets[cat] || 0}
-            spentAmount={getSpentAmount(cat)}
-            progressPercentage={getProgressPercentage(getSpentAmount(cat), budgets[cat] || 0)}
-            progressColor={getProgressColor(getProgressPercentage(getSpentAmount(cat), budgets[cat] || 0))}
+            budgetLimit={budgetLimit}
+            spentAmount={spentAmount}
+            progressPercentage={progressPercentage}
+            progressColor={progressColor}
             categoryIcon={categoryIcons[cat as keyof typeof categoryIcons]}
             categoryColors={categoryColors[cat as keyof typeof categoryColors]}
             onPress={() => onCategoryPress && onCategoryPress(cat, categoryExpenses)}

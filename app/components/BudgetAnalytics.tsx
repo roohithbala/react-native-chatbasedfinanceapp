@@ -43,8 +43,8 @@ export const BudgetAnalytics: React.FC<BudgetAnalyticsProps> = ({ onClose }) => 
   const { theme } = useTheme();
   const { budgetTrends } = useBudgetsStore();
 
-  // The budgetTrends from the store contains the API response structure
-  const trendsData = budgetTrends?.trends;
+  // The budgetTrends from the store contains the trends data directly
+  const trendsData = budgetTrends;
 
   if (!trendsData || !trendsData.overallMetrics) {
     return (

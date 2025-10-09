@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useFinanceStore } from '../lib/store/financeStore';
 import { directMessagesAPI } from '../lib/services/api';
+import { socketService } from '../app/lib/services/socketService';
 
 interface ChatPreview {
   _id: string;
@@ -29,7 +30,29 @@ export const useChatData = () => {
   useEffect(() => {
     loadRecentChats();
     loadGroups(); // Always load groups since they're shown in the chats tab
-  }, []);
+
+    // Listen for messages being read to update unread counts
+    const setupSocketListeners = async () => {
+      await socketService.connect();
+      
+      socketService.onMessagesRead((data) => {
+        console.log('📬 Messages read event received, refreshing chats list');
+        loadRecentChats(); // Refresh to get updated unread counts
+      });
+
+      // Also listen for new messages to update chat list
+      socketService.onNewMessage((message) => {
+        console.log('📬 New message received, refreshing chats list');
+        loadRecentChats();
+      });
+    };
+
+    setupSocketListeners();
+
+    return () => {
+      socketService.offMessagesRead();
+    };
+  }, [loadGroups]);
 
   const loadRecentChats = async () => {
     try {

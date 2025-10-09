@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams } from 'expo-router';
 import { useFinanceStore } from '../lib/store/financeStore';
 import { socketService } from '../lib/services/socketService';
 import chatAPI from '../lib/services/chatAPI';
 import { groupsAPI } from '../lib/services/api';
-import { Message, ChatUser } from '../app/types/chat';
-import { API_BASE_URL } from '../lib/services/api';
+import { Message } from '../app/types/chat';
 
 export const useGroupChat = () => {
   const { groupId, groupName } = useLocalSearchParams<{ groupId: string; groupName: string }>();
@@ -23,7 +21,6 @@ export const useGroupChat = () => {
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline' | 'connecting'>('connecting');
   const [isOnline, setIsOnline] = useState(true);
-  const [typingUsers, setTypingUsers] = useState<ChatUser[]>([]);
 
   const scrollViewRef = useRef<any>(null);
 
@@ -138,16 +135,25 @@ export const useGroupChat = () => {
 
   // Load messages and connect socket when component mounts or groupId changes
   useEffect(() => {
+    console.log('🔄 useGroupChat useEffect triggered:', {
+      hasValidGroupId: !!validGroupId,
+      hasCurrentUser: !!currentUser,
+      groupsLength: groups.length
+    });
+    
     if (validGroupId && currentUser) {
       // Ensure groups are loaded before trying to access them
       if (groups.length === 0) {
+        console.log('📋 Loading groups first...');
         loadGroups();
       } else {
+        console.log('📨 Loading messages and connecting socket...');
         loadMessages();
         connectSocket();
       }
     }
-  }, [validGroupId, currentUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validGroupId, currentUser, groups.length]);
 
   // Ensure group is selected when groups are loaded
   useEffect(() => {
@@ -157,7 +163,8 @@ export const useGroupChat = () => {
         selectGroup(groupToSelect);
       }
     }
-  }, [validGroupId, groups, currentGroup]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validGroupId, groups.length, currentGroup]);
 
   const connectSocket = async () => {
     try {
@@ -172,17 +179,64 @@ export const useGroupChat = () => {
       });
 
       socketService.onReceiveMessage((msg) => {
-        console.log('Received message via socket:', msg);
+        console.log('📨 Received message via socket:', {
+          _id: msg._id,
+          text: msg.text?.substring(0, 50),
+          type: msg.type,
+          user: msg.user?.name,
+          hasSplitBillData: !!msg.splitBillData,
+          splitBillId: msg.splitBillData?.splitBillId || msg.splitBillData?._id
+        });
+        
+        if (msg.splitBillData) {
+          console.log('📊 Split bill data in received message:', {
+            splitBillId: msg.splitBillData._id || msg.splitBillData.splitBillId,
+            description: msg.splitBillData.description,
+            totalAmount: msg.splitBillData.totalAmount,
+            participants: msg.splitBillData.participants?.length
+          });
+        }
+        
         setMessages(prev => {
+          console.log('🔍 Processing socket message:', {
+            messageId: msg._id,
+            currentMessagesCount: prev.length,
+            messageText: msg.text?.substring(0, 30)
+          });
+          
           // Remove any temporary message with the same content and check for duplicates
           const filtered = prev.filter(m => !(m.isTemp && m.text === msg.text && m.user._id === msg.user._id));
+          
+          console.log('🔍 After filtering temps:', {
+            filteredCount: filtered.length,
+            removedCount: prev.length - filtered.length
+          });
+          
           // Check if message with same _id already exists
           const messageExists = filtered.some(m => m._id === msg._id);
+          
+          console.log('🔍 Duplicate check:', {
+            messageExists,
+            messageId: msg._id,
+            existingIds: filtered.map(m => m._id).slice(-5) // Last 5 IDs
+          });
+          
           if (messageExists) {
+            console.log('⚠️ Message already exists, skipping:', msg._id);
             return filtered; // Don't add duplicate
           }
-          // Add the new message
-          return [...filtered, msg];
+          
+          // Add the new message and sort by timestamp to maintain chronological order
+          const updated = [...filtered, msg];
+          const sorted = updated.sort((a, b) => {
+            const timeA = new Date(a.createdAt).getTime();
+            const timeB = new Date(b.createdAt).getTime();
+            return timeA - timeB; // Oldest first, newest last
+          });
+          
+          console.log('✅ Added new message, total now:', sorted.length);
+          
+          return sorted;
         });
 
         // Scroll to bottom after receiving message
@@ -191,23 +245,7 @@ export const useGroupChat = () => {
         }, 100);
       });
 
-      socketService.onTypingStart((data) => {
-        if (data.groupId === groupId && data.user._id !== currentUser?._id) {
-          setTypingUsers(prev => {
-            const user = data.user;
-            if (!prev.find(u => u._id === user._id)) {
-              return [...prev, user];
-            }
-            return prev;
-          });
-        }
-      });
-
-      socketService.onTypingStop((data) => {
-        if (data.groupId === groupId) {
-          setTypingUsers(prev => prev.filter(u => u._id !== data.user._id));
-        }
-      });
+      // Typing indicators handled by useTyping hook
 
       socketService.onMessageRead((data) => {
         setMessages(prev => prev.map(msg => {
@@ -226,18 +264,97 @@ export const useGroupChat = () => {
 
       // Handle split bill updates
       socketService.onSplitBillUpdate((data) => {
-        console.log('Split bill updated via socket:', data);
+        console.log('💰 Split bill updated via socket:', {
+          type: data.type,
+          splitBillId: data.splitBillId,
+          hasSplitBill: !!data.splitBill,
+          participants: data.splitBill?.participants?.length,
+          timestamp: data.timestamp
+        });
+        
+        // Log detailed participant data
+        if (data.splitBill?.participants) {
+          console.log('🧾 Updated participants:', data.splitBill.participants.map((p: any) => ({
+            userId: p.userId,
+            isPaid: p.isPaid,
+            isRejected: p.isRejected,
+            amount: p.amount
+          })));
+        }
+        
         if (data.type === 'payment-made' || data.type === 'bill-rejected') {
+          console.log(`🔄 Processing ${data.type} update...`);
+          
           // Update messages that contain this split bill
-          setMessages(prev => prev.map(msg => {
-            if (msg.type === 'split_bill' && msg.splitBillData?.splitBillId === data.splitBillId) {
-              return {
-                ...msg,
-                splitBillData: data.splitBill
-              };
+          setMessages(prev => {
+            console.log('📝 Checking', prev.length, 'messages for split bill', data.splitBillId);
+            
+            const updated = prev.map(msg => {
+              // Check if this message contains the split bill
+              const msgSplitBillId = msg.splitBillData?.splitBillId || (msg.splitBillData as any)?._id;
+              const dataSplitBillId = data.splitBillId;
+              
+              if (msg.type === 'split_bill' && msgSplitBillId === dataSplitBillId) {
+                console.log('✅ MATCH FOUND! Updating split bill message:', {
+                  messageId: msg._id,
+                  msgSplitBillId,
+                  dataSplitBillId,
+                  oldData: {
+                    participants: msg.splitBillData?.participants?.map((p: any) => ({
+                      userId: p.userId,
+                      isPaid: p.isPaid,
+                      isRejected: p.isRejected || false
+                    }))
+                  },
+                  newData: {
+                    participants: data.splitBill?.participants?.map((p: any) => ({
+                      userId: p.userId,
+                      isPaid: p.isPaid,
+                      isRejected: p.isRejected || false
+                    }))
+                  }
+                });
+                
+                // Create new split bill data object with proper structure
+                const updatedSplitBillData = {
+                  ...msg.splitBillData, // Keep existing fields
+                  ...data.splitBill, // Merge new data
+                  splitBillId: data.splitBillId, // Ensure splitBillId is set
+                  _id: data.splitBillId, // Also set _id for consistency
+                  participants: data.splitBill.participants // Explicitly set participants array
+                };
+                
+                console.log('📦 New splitBillData:', {
+                  splitBillId: updatedSplitBillData.splitBillId,
+                  _id: updatedSplitBillData._id,
+                  participantCount: updatedSplitBillData.participants?.length,
+                  participants: updatedSplitBillData.participants
+                });
+                
+                return {
+                  ...msg,
+                  splitBillData: updatedSplitBillData
+                };
+              }
+              return msg;
+            });
+            
+            const updatedCount = updated.filter((msg, idx) => msg !== prev[idx]).length;
+            console.log(`🔄 Split bill update complete: ${updatedCount} message(s) updated`);
+            
+            if (updatedCount === 0) {
+              console.warn('⚠️ No messages were updated! Split bill may not be in the current message list.');
+              console.log('Looking for splitBillId:', data.splitBillId);
+              console.log('Available split bill messages:', prev.filter(m => m.type === 'split_bill').map(m => ({
+                id: m._id,
+                splitBillId: m.splitBillData?.splitBillId || m.splitBillData?._id
+              })));
             }
-            return msg;
-          }));
+            
+            return updated;
+          });
+        } else {
+          console.log('ℹ️ Ignoring split bill update type:', data.type);
         }
       });
 
@@ -265,7 +382,15 @@ export const useGroupChat = () => {
         throw new Error('User not authenticated');
       }
 
+      console.log('🔄 useGroupChat: Fetching messages for group:', groupId);
       const response = await chatAPI.getMessages(groupId);
+      console.log('📥 useGroupChat: API response received:', {
+        hasResponse: !!response,
+        status: response?.status,
+        hasData: !!response?.data,
+        hasMessages: !!response?.data?.messages,
+        messageCount: response?.data?.messages?.length || 0
+      });
 
       if (!response) {
         throw new Error('No response from server');
@@ -284,33 +409,62 @@ export const useGroupChat = () => {
       }
 
       const loadedMessages = response.data.messages;
+      console.log('✅ useGroupChat: Loaded messages from API:', {
+        count: loadedMessages.length,
+        firstFew: loadedMessages.slice(0, 3).map(m => ({
+          _id: m._id,
+          text: m.text?.substring(0, 30),
+          type: m.type
+        }))
+      });
 
       // Remove duplicates from loaded messages
       const uniqueMessages = loadedMessages.filter((msg, index, arr) => 
         arr.findIndex(m => m._id === msg._id) === index
       );
 
-      setMessages([
-        ...uniqueMessages.map(msg => ({
-          ...msg,
-          status: msg.status === 'error' ? 'sent' : msg.status,
-          readBy: msg.readBy.map(receipt => ({
-            userId: receipt.userId,
-            readAt: typeof receipt.readAt === 'string' ? new Date(receipt.readAt) : receipt.readAt
-          }))
-        })).reverse(),
+      // Format loaded messages
+      const formattedMessages = uniqueMessages.map(msg => ({
+        ...msg,
+        status: msg.status === 'error' ? 'sent' : msg.status,
+        readBy: msg.readBy.map(receipt => ({
+          userId: receipt.userId,
+          readAt: typeof receipt.readAt === 'string' ? new Date(receipt.readAt) : receipt.readAt
+        }))
+      }));
+
+      // Check if welcome message already exists in loaded messages
+      const hasWelcome = formattedMessages.some(m => m._id === 'welcome');
+      
+      console.log('🔍 Welcome check:', { hasWelcome, loadedCount: formattedMessages.length });
+
+      // Keep messages in chronological order (oldest first, newest last)
+      // Only add welcome if it doesn't exist AND there are other messages
+      const messagesToSet: Message[] = hasWelcome ? formattedMessages : [
         {
           _id: 'welcome',
           text: `Welcome to ${groupName || activeGroup?.name || 'Group Chat'}! 🎉\n\nUse commands:\n@split [description] $[amount] @user1 @user2\n@addexpense [description] $[amount]\n@predict - Get spending predictions\n@summary - View group expenses` +
           `\n\n💡 Tip: Use the "Split Bill" button for easy bill splitting!`,
-          createdAt: new Date().toISOString(),
+          createdAt: new Date(0).toISOString(), // Use epoch time so it sorts first
           user: { _id: 'system', name: 'AI Assistant', username: 'ai', avatar: '🤖' },
-          type: 'system',
-          status: 'sent',
+          type: 'system' as const,
+          status: 'sent' as const,
           groupId: groupId,
           readBy: []
-        }
-      ]);
+        },
+        ...formattedMessages
+      ];
+      
+      console.log('💾 useGroupChat: Setting messages in state:', {
+        totalMessages: messagesToSet.length,
+        withoutWelcome: messagesToSet.length - 1,
+        types: messagesToSet.map(m => m.type).reduce((acc, type) => {
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      });
+      
+      setMessages(messagesToSet);
 
       // Scroll to bottom after loading messages
       setTimeout(() => {
@@ -439,21 +593,38 @@ export const useGroupChat = () => {
         }
       } else {
         // Handle text message - just send it, backend will handle command parsing
+        console.log('📤 Sending text message to API:', { groupId, text: trimmedMessage.substring(0, 30) });
+        
         const response = await chatAPI.sendMessage(groupId, {
           text: trimmedMessage,
           type: 'text',
           status: 'sent'
         });
 
+        console.log('📥 API response received:', {
+          hasResponse: !!response,
+          status: response?.status,
+          hasMessage: !!response?.data?.message,
+          messageId: response?.data?.message?._id
+        });
+
         if (response && response.status === 'success') {
           // Update the temporary message with the real one, avoiding duplicates
-          setMessages(prev => prev.map(msg =>
-            msg._id === tempMessageId ? { ...response.data.message, isTemp: false } : msg
-          ).filter((msg, index, arr) => 
-            // Remove any duplicates by _id, keeping the first occurrence
-            arr.findIndex(m => m._id === msg._id) === index
-          ));
+          console.log('🔄 Updating temp message:', tempMessageId, '→', response.data.message._id);
+          
+          setMessages(prev => {
+            const updated = prev.map(msg =>
+              msg._id === tempMessageId ? { ...response.data.message, isTemp: false } : msg
+            ).filter((msg, index, arr) => 
+              // Remove any duplicates by _id, keeping the first occurrence
+              arr.findIndex(m => m._id === msg._id) === index
+            );
+            
+            console.log('✅ Message updated in state, total:', updated.length);
+            return updated;
+          });
         } else {
+          console.log('❌ API response failed or no success status');
           // Mark message as error
           setMessages(prev => prev.map(msg =>
             msg._id === tempMessageId ? { ...msg, status: 'error' as const, isTemp: false } : msg

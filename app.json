@@ -38,7 +38,21 @@
       "expo-web-browser",
       "@config-plugins/react-native-webrtc",
       "expo-dev-client",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SecureFinance to access your camera for video calls",
+          "microphonePermission": "Allow SecureFinance to access your microphone for voice and video calls",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow SecureFinance to access your microphone for voice and video calls"
+        }
+      ]
     ],
     "extra": {
       "eas": {

@@ -87,6 +87,11 @@ export class SocketService {
     this.messageHandlers.onReceiveMessage(callback);
   }
 
+  onNewMessage(callback: (message: any) => void) {
+    // Alias for onReceiveMessage that handles all message types
+    this.messageHandlers.onReceiveMessage(callback);
+  }
+
   onMessageSent(callback: (message: any) => void) {
     this.messageHandlers.onMessageSent(callback);
   }

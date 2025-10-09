@@ -40,7 +40,10 @@ const configureRoutes = (app, io) => {
     req.io = io;
     next();
   }, splitBillRoutes);
-  app.use('/api/direct-messages', directMessageRoutes);
+  app.use('/api/direct-messages', (req, res, next) => {
+    req.io = io;
+    next();
+  }, directMessageRoutes);
   app.use('/api/payments', paymentRoutes);
   app.use('/api/relationships', relationshipRoutes);
   app.use('/api/uploads', (req, res, next) => {

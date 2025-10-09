@@ -17,6 +17,10 @@ import { callService, CallData, CallParticipant } from '../../lib/services/callS
 import { useCallStore } from '../../lib/store/callStore';
 import { useFinanceStore } from '../../lib/store/financeStore';
 import socketService from '../../lib/services/socketService';
+import VideoCallStreams from '../components/VideoCallStreams';
+import VideoCallInfo from '../components/VideoCallInfo';
+import VideoCallControls from '../components/VideoCallControls';
+import { getStyles } from '@/lib/styles/videoCallStyles';
 
 // Import WebRTC components conditionally
 let RTCView: any = null;
@@ -36,6 +40,7 @@ export default function VideoCallScreen() {
     type?: 'personal' | 'group';
   }>();
   const { theme } = useTheme();
+  const styles = getStyles();
   const { currentUser } = useFinanceStore();
   const callStore = useCallStore();
 
@@ -149,8 +154,12 @@ export default function VideoCallScreen() {
       let errorTitle = 'Call Error';
       
       if (error.message?.includes('Permissions not granted')) {
-        errorMessage = 'Camera and microphone permissions are required for video calls. Please grant permissions and try again.';
-        errorTitle = 'Permissions Required';
+        errorMessage = '⚠️ Video calls require camera and microphone permissions.\n\n' +
+          'This feature needs a development build. Please run:\n\n' +
+          '1. npx expo prebuild --clean\n' +
+          '2. npx expo run:android (or run:ios)\n\n' +
+          'Expo Go does not support expo-camera/expo-av permissions.';
+        errorTitle = 'Development Build Required';
       } else if (error.message?.includes('network') || error.message?.includes('connection')) {
         errorMessage = 'Network connection issue. Please check your internet connection and try again.';
         errorTitle = 'Connection Error';
@@ -268,253 +277,37 @@ export default function VideoCallScreen() {
       >
         <View style={styles.content}>
           {/* Video Area */}
-          <View style={styles.videoContainer}>
-            <View style={styles.mainVideo}>
-              {remoteStream && RTCView ? (
-                <RTCView
-                  streamURL={remoteStream.toURL()}
-                  style={styles.videoStream}
-                  objectFit="cover"
-                  mirror={false}
-                />
-              ) : callStatus === 'connected' ? (
-                <View style={styles.videoPlaceholder}>
-                  <Ionicons name="videocam" size={80} color="rgba(255, 255, 255, 0.5)" />
-                  <Text style={styles.videoText}>Video Call Active</Text>
-                  <Text style={styles.participantsText}>
-                    {participants.length} participant{participants.length !== 1 ? 's' : ''}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.videoPlaceholder}>
-                  <Ionicons name="person" size={80} color="rgba(255, 255, 255, 0.5)" />
-                  <Text style={styles.videoText}>{getDisplayName()}</Text>
-                  <Text style={styles.callStatus}>{getStatusText()}</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Self Video */}
-            {localStream && !isVideoOff && RTCView && (
-              <View style={styles.selfVideo}>
-                <RTCView
-                  streamURL={localStream.toURL()}
-                  style={styles.selfVideoStream}
-                  objectFit="cover"
-                  mirror={true}
-                />
-              </View>
-            )}
-            {!localStream && callStatus === 'connected' && !isVideoOff && (
-              <View style={styles.selfVideo}>
-                <View style={styles.selfVideoPlaceholder}>
-                  <Ionicons name="person" size={30} color="rgba(255, 255, 255, 0.7)" />
-                  <Text style={styles.selfVideoText}>You</Text>
-                </View>
-              </View>
-            )}
-          </View>
+          <VideoCallStreams
+            remoteStream={remoteStream}
+            localStream={localStream}
+            callStatus={callStatus}
+            participants={participants}
+            isVideoOff={isVideoOff}
+            getDisplayName={getDisplayName}
+            getStatusText={getStatusText}
+          />
 
           {/* Call Info */}
-          <View style={styles.callInfo}>
-            <Text style={styles.callTitle}>{getDisplayName()}</Text>
-            <Text style={styles.callStatus}>{getStatusText()}</Text>
-          </View>
+          <VideoCallInfo
+            getDisplayName={getDisplayName}
+            getStatusText={getStatusText}
+          />
 
           {/* Call Controls */}
-          <View style={styles.controls}>
-            <TouchableOpacity
-              style={[styles.controlButton, isMuted && styles.controlButtonActive]}
-              onPress={handleMute}
-            >
-              <Ionicons
-                name={isMuted ? "mic-off" : "mic"}
-                size={24}
-                color="white"
-              />
-              <Text style={styles.controlText}>Mute</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.controlButton, isVideoOff && styles.controlButtonActive]}
-              onPress={handleVideoToggle}
-            >
-              <Ionicons
-                name={isVideoOff ? "videocam-off" : "videocam"}
-                size={24}
-                color="white"
-              />
-              <Text style={styles.controlText}>Video</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.controlButton, isSpeakerOn && styles.controlButtonActive]}
-              onPress={handleSpeaker}
-            >
-              <Ionicons
-                name={isSpeakerOn ? "volume-high" : "volume-low"}
-                size={24}
-                color="white"
-              />
-              <Text style={styles.controlText}>Speaker</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.controlButton}
-              onPress={handleSwitchCamera}
-            >
-              <Ionicons name="camera-reverse" size={24} color="white" />
-              <Text style={styles.controlText}>Switch</Text>
-            </TouchableOpacity>
-
-            {type === 'group' && (
-              <TouchableOpacity
-                style={styles.controlButton}
-                onPress={handleAddCall}
-              >
-                <Ionicons name="person-add" size={24} color="white" />
-                <Text style={styles.controlText}>Add</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* End Call Button */}
-          <View style={styles.endCallContainer}>
-            <TouchableOpacity
-              style={styles.endCallButton}
-              onPress={handleEndCall}
-            >
-              <Ionicons name="call" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
+          <VideoCallControls
+            isMuted={isMuted}
+            isVideoOff={isVideoOff}
+            isSpeakerOn={isSpeakerOn}
+            type={type}
+            onMute={handleMute}
+            onVideoToggle={handleVideoToggle}
+            onSpeaker={handleSpeaker}
+            onSwitchCamera={handleSwitchCamera}
+            onAddCall={handleAddCall}
+            onEndCall={handleEndCall}
+          />
         </View>
       </LinearGradient>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  background: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-  videoContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  mainVideo: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoStream: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
-  videoPlaceholder: {
-    alignItems: 'center',
-  },
-  videoText: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 16,
-  },
-  selfVideo: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    width: 120,
-    height: 160,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderWidth: 2,
-    borderColor: 'white',
-  },
-  selfVideoStream: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    borderRadius: 12,
-  },
-  selfVideoPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selfVideoText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
-  },
-  participantsText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginTop: 8,
-  },
-  callInfo: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  callTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 4,
-  },
-  callStatus: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 40,
-  },
-  controlButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlButtonActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  controlText: {
-    fontSize: 10,
-    color: 'white',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  endCallContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  endCallButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#EF4444',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-});

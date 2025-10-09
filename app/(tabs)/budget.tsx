@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BudgetHeader } from '../components/BudgetHeader';
+import BudgetHeaderWrapper from '../components/BudgetHeaderWrapper';
+import PeriodSelector from '../components/PeriodSelector';
 import { BudgetSummary } from '../components/BudgetSummary';
 import { BudgetList } from '../components/BudgetList';
 import { BudgetTransactionDetails } from '../components/BudgetTransactionDetails';
@@ -13,142 +14,12 @@ import { useBudgetActions } from '@/hooks/useBudgetActions';
 import { useBudgetsStore } from '@/lib/store/budgetsStore';
 import { useTheme } from '../context/ThemeContext';
 import { BudgetAnalytics } from '../components/BudgetAnalytics';
+import { BudgetSettingsModal } from '../components/BudgetSettingsModal';
+import styles from '@/lib/styles/budgetStyles';
+import useBudgetDisplay from '../hooks/useBudgetDisplay';
+import ViewModeSelector from '../components/ViewModeSelector';
 
-const PeriodSelector = () => {
-  const { theme } = useTheme();
-  const {
-    selectedPeriod,
-    selectedYear,
-    selectedMonth,
-    setSelectedPeriod,
-    setSelectedYear,
-    setSelectedMonth,
-    loadHistoricalBudgets
-  } = useBudgetsStore();
-
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1;
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
-
-  const handlePeriodChange = (period: 'monthly' | 'yearly') => {
-    setSelectedPeriod(period);
-    if (period === 'yearly') {
-      loadHistoricalBudgets({ period: 'yearly', year: selectedYear });
-    } else {
-      loadHistoricalBudgets({ period: 'monthly', year: selectedYear, month: selectedMonth });
-    }
-  };
-
-  const handleYearChange = (year: number) => {
-    setSelectedYear(year);
-    if (selectedPeriod === 'yearly') {
-      loadHistoricalBudgets({ period: 'yearly', year });
-    } else {
-      loadHistoricalBudgets({ period: 'monthly', year, month: selectedMonth });
-    }
-  };
-
-  const handleMonthChange = (month: number) => {
-    setSelectedMonth(month);
-    setShowMonthPicker(false);
-    if (selectedPeriod === 'monthly') {
-      loadHistoricalBudgets({ period: 'monthly', year: selectedYear, month });
-    }
-  };
-
-  const monthNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
-
-  return (
-    <View style={[styles.periodSelector, { backgroundColor: theme.card }]}>
-      <View style={styles.periodButtons}>
-        <TouchableOpacity
-          style={[
-            styles.periodButton,
-            selectedPeriod === 'monthly' && [styles.selectedPeriodButton, { backgroundColor: theme.primary }]
-          ]}
-          onPress={() => handlePeriodChange('monthly')}
-        >
-          <Text style={[
-            styles.periodButtonText,
-            selectedPeriod === 'monthly' && styles.selectedPeriodButtonText
-          ]}>
-            Monthly
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.periodButton,
-            selectedPeriod === 'yearly' && [styles.selectedPeriodButton, { backgroundColor: theme.primary }]
-          ]}
-          onPress={() => handlePeriodChange('yearly')}
-        >
-          <Text style={[
-            styles.periodButtonText,
-            selectedPeriod === 'yearly' && styles.selectedPeriodButtonText
-          ]}>
-            Yearly
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.dateSelectors}>
-        <TouchableOpacity
-          style={[styles.dateButton, { borderColor: theme.border }]}
-          onPress={() => handleYearChange(selectedYear - 1)}
-        >
-          <Text style={[styles.dateButtonText, { color: theme.text }]}>‹</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.dateDisplay, { borderColor: theme.border }]}
-          onPress={selectedPeriod === 'monthly' ? () => setShowMonthPicker(!showMonthPicker) : undefined}
-        >
-          <Text style={[styles.dateText, { color: theme.text }]}>
-            {selectedPeriod === 'monthly'
-              ? `${monthNames[selectedMonth - 1]} ${selectedYear}`
-              : selectedYear.toString()
-            }
-          </Text>
-          {selectedPeriod === 'monthly' && (
-            <Text style={[styles.dropdownIcon, { color: theme.text }]}>▼</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.dateButton, { borderColor: theme.border }]}
-          onPress={() => handleYearChange(selectedYear + 1)}
-        >
-          <Text style={[styles.dateButtonText, { color: theme.text }]}>›</Text>
-        </TouchableOpacity>
-      </View>
-
-      {showMonthPicker && selectedPeriod === 'monthly' && (
-        <View style={[styles.monthPicker, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <View style={styles.monthGrid}>
-            {monthNames.map((month, index) => (
-              <TouchableOpacity
-                key={month}
-                style={[
-                  styles.monthButton,
-                  selectedMonth === index + 1 && [styles.selectedMonthButton, { backgroundColor: theme.primary }]
-                ]}
-                onPress={() => handleMonthChange(index + 1)}
-              >
-                <Text style={[
-                  styles.monthButtonText,
-                  selectedMonth === index + 1 && styles.selectedMonthButtonText
-                ]}>
-                  {month}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-    </View>
-  );
-};
+// period selector moved to app/(tabs)/components/PeriodSelector.tsx
 
 export default function BudgetScreen() {
   const { theme } = useTheme();
@@ -160,8 +31,6 @@ export default function BudgetScreen() {
     categoryColors,
     isLoading,
     error,
-    totalBudget,
-    totalSpent,
     getSpentAmount,
     getPersonalSpentAmount,
     getGroupSpentAmount,
@@ -195,6 +64,7 @@ export default function BudgetScreen() {
   const [categoryExpenses, setCategoryExpenses] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'current' | 'historical'>('current');
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -218,7 +88,8 @@ export default function BudgetScreen() {
   useEffect(() => {
     loadData();
     loadBudgetTrends();
-  }, [loadData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load historical budgets when period changes
   useEffect(() => {
@@ -230,52 +101,19 @@ export default function BudgetScreen() {
         loadHistoricalBudgets({ period: 'monthly', year: selectedYear, month: selectedMonth });
       }
     }
-  }, [selectedPeriod, viewMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPeriod, viewMode, selectedYear, selectedMonth]);
 
-  const displayBudgets = viewMode === 'historical' ? historicalBudgets : budgets;
-  
-  // Get budgets for display based on view mode
-  const getDisplayBudgets = () => {
-    if (viewMode === 'historical') {
-      // For historical view, get budgets for the selected period
-      let periodKey: string;
-      if (selectedPeriod === 'yearly') {
-        periodKey = selectedYear.toString();
-      } else {
-        periodKey = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
-      }
+  const { displayBudgetsData, displayTotals } = useBudgetDisplay({
+    viewMode,
+    budgets,
+    historicalBudgets,
+    selectedPeriod,
+    selectedYear,
+    selectedMonth,
+  });
 
-      const periodData = historicalBudgets[periodKey];
-      return periodData?.budgets || {};
-    }
-    return budgets;
-  };
-
-  // Calculate totals for display
-  const getDisplayTotals = () => {
-    if (viewMode === 'historical') {
-      // For historical view, get totals for the selected period
-      let periodKey: string;
-      if (selectedPeriod === 'yearly') {
-        periodKey = selectedYear.toString();
-      } else {
-        periodKey = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
-      }
-
-      const periodData = historicalBudgets[periodKey];
-      return {
-        totalBudget: periodData?.totals?.totalAmount || 0,
-        totalSpent: periodData?.totals?.totalSpent || 0
-      };
-    }
-    return {
-      totalBudget,
-      totalSpent
-    };
-  };
-
-  const { totalBudget: displayTotalBudget, totalSpent: displayTotalSpent } = getDisplayTotals();
-  const displayBudgetsData = getDisplayBudgets();
+  const { totalBudget: displayTotalBudget, totalSpent: displayTotalSpent } = displayTotals;
 
   if (isLoading) {
     return <LoadingIndicator loading={true} message="Loading budgets..." />;
@@ -292,7 +130,7 @@ export default function BudgetScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <BudgetHeader />
+      <BudgetHeaderWrapper />
 
       <View style={styles.headerActions}>
         <TouchableOpacity
@@ -301,39 +139,15 @@ export default function BudgetScreen() {
         >
           <Text style={styles.analyticsButtonText}>Analytics</Text>
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.viewModeSelector}>
         <TouchableOpacity
-          style={[
-            styles.viewModeButton,
-            viewMode === 'current' && [styles.selectedViewModeButton, { backgroundColor: theme.primary }]
-          ]}
-          onPress={() => setViewMode('current')}
+          style={[styles.settingsButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+          onPress={() => setShowSettings(true)}
         >
-          <Text style={[
-            styles.viewModeButtonText,
-            viewMode === 'current' && styles.selectedViewModeButtonText
-          ]}>
-            Current
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.viewModeButton,
-            viewMode === 'historical' && [styles.selectedViewModeButton, { backgroundColor: theme.primary }]
-          ]}
-          onPress={() => setViewMode('historical')}
-        >
-          <Text style={[
-            styles.viewModeButtonText,
-            viewMode === 'historical' && styles.selectedViewModeButtonText
-          ]}>
-            Historical
-          </Text>
+          <Text style={[styles.settingsButtonText, { color: theme.text }]}>⚙️ Settings</Text>
         </TouchableOpacity>
       </View>
 
+      <ViewModeSelector viewMode={viewMode} setViewMode={setViewMode} theme={theme} />
       {viewMode === 'historical' && <PeriodSelector />}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}
@@ -395,162 +209,14 @@ export default function BudgetScreen() {
           <BudgetAnalytics onClose={() => setShowAnalytics(false)} />
         </View>
       )}
+
+      <BudgetSettingsModal
+        visible={showSettings}
+        onClose={() => {
+          setShowSettings(false);
+          loadData(); // Reload data after settings changes
+        }}
+      />
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  viewModeSelector: {
-    flexDirection: 'row',
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-  },
-  viewModeButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectedViewModeButton: {
-    backgroundColor: '#007bff',
-  },
-  viewModeButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  selectedViewModeButtonText: {
-    color: '#fff',
-  },
-  categoriesSection: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  periodSelector: {
-    padding: 16,
-    borderRadius: 8,
-    margin: 16,
-  },
-  periodButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  periodButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectedPeriodButton: {
-    backgroundColor: '#007bff',
-  },
-  periodButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  selectedPeriodButtonText: {
-    color: '#fff',
-  },
-  dateSelectors: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  dateButton: {
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  dateDisplay: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  dateText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  dropdownIcon: {
-    marginLeft: 8,
-    fontSize: 12,
-  },
-  monthPicker: {
-    marginTop: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 16,
-  },
-  monthGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  monthButton: {
-    width: '30%',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  selectedMonthButton: {
-    backgroundColor: '#007bff',
-  },
-  monthButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  selectedMonthButtonText: {
-    color: '#fff',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  analyticsButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  analyticsButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  analyticsModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 1000,
-  },
-});

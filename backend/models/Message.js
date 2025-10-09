@@ -92,6 +92,7 @@ const messageSchema = new mongoose.Schema({
   },
   // For split bill messages
   splitBillData: {
+    _id: String, // Split bill ID as string (for frontend compatibility)
     splitBillId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'SplitBill'
@@ -100,14 +101,18 @@ const messageSchema = new mongoose.Schema({
     totalAmount: Number,
     userShare: Number,
     isPaid: Boolean,
+    createdBy: {
+      _id: String,
+      name: String,
+      username: String,
+      avatar: String
+    },
     participants: [{
-      userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-      },
+      userId: String, // Store as string for frontend compatibility
       name: String,
       amount: Number,
-      isPaid: Boolean
+      isPaid: Boolean,
+      isRejected: Boolean
     }]
   },
   // For media messages

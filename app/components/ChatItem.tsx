@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import { router } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 
 interface User {
@@ -124,15 +123,27 @@ export const ChatItem: React.FC<ChatItemProps> = ({
             {group.description || 'Group chat for shared expenses'}
           </Text>
           <View style={styles.chatMeta}>
-            <Text style={styles.memberCount}>
-              {group.members?.length || 0} members
-            </Text>
-            {isAdmin && onAddMembers && (
+            <View style={styles.memberInfo}>
+              <Text style={styles.memberCount}>
+                {group.members?.length || 0} members
+              </Text>
+              {isAdmin && (
+                <View style={styles.adminBadge}>
+                  <Ionicons name="shield-checkmark" size={12} color="#10B981" />
+                  <Text style={styles.adminText}>Admin</Text>
+                </View>
+              )}
+            </View>
+            {onAddMembers && (
               <TouchableOpacity
                 style={styles.addMemberButton}
-                onPress={() => onAddMembers(group._id, group.name)}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onAddMembers(group._id, group.name);
+                }}
+                activeOpacity={0.7}
               >
-                <Ionicons name="person-add" size={16} color="#2563EB" />
+                <Ionicons name="person-add" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             )}
           </View>
@@ -268,20 +279,43 @@ const getStyles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
+  memberInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   memberCount: {
     fontSize: 12,
     color: theme.textSecondary || '#64748B',
-    marginRight: 8,
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: '#ECFDF5',
+  },
+  adminText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#10B981',
+    textTransform: 'uppercase',
   },
   groupActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   addMemberButton: {
-    marginLeft: 8,
-    padding: 6,
-    borderRadius: 12,
-    backgroundColor: theme.surfaceSecondary || '#EFF6FF',
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: theme.primary || '#2563EB',
+    shadowColor: theme.primary || '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   chatTime: {
     fontSize: 12,

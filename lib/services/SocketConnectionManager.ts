@@ -1,4 +1,4 @@
-import io, { Socket } from 'socket.io-client';
+import { io as socketIO, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export class SocketConnectionManager {
@@ -16,17 +16,18 @@ export class SocketConnectionManager {
 
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
-        console.warn('⚠️ No auth token found for socket connection');
-        throw new Error('No auth token found');
+        console.warn('⚠️ No auth token available for socket connection - User may not be logged in yet');
+        // Don't throw error, just return null - socket will connect after login
+        return null;
       }
 
-      console.log('🔌 Initializing socket connection...');
+      console.log('🔌 Initializing socket connection with auth token...');
       const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.120.178.172:8081/api';
       const SOCKET_URL = EXPO_PUBLIC_API_URL.replace('/api', '');
 
       console.log('🔌 Connecting to socket server:', SOCKET_URL);
 
-      this.socket = io(SOCKET_URL, {
+      this.socket = socketIO(SOCKET_URL, {
         auth: {
           token
         },

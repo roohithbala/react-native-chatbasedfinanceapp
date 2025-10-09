@@ -7,6 +7,9 @@ import GroupExpenseStats from './components/GroupExpenseStats';
 import { useTheme } from './context/ThemeContext';
 import { default as api } from '@/lib/services/api';
 import ExpenseScreenHeader from '@/app/components/ExpenseScreenHeader';
+import GroupStatsError from './components/GroupStatsError';
+import GroupStatsLoading from './components/GroupStatsLoading';
+import { getStyles } from '@/lib/styles/groupStatsStyles';
 
 export default function GroupStatsScreen() {
   const { groupId, groupName } = useLocalSearchParams<{
@@ -55,18 +58,10 @@ export default function GroupStatsScreen() {
   if (!groupId) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.errorContainer}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
-          </TouchableOpacity>
-          <View style={styles.errorContent}>
-            <Ionicons name="alert-circle" size={64} color={theme.error} />
-            <Text style={[styles.errorTitle, { color: theme.text }]}>Invalid Group</Text>
-            <Text style={[styles.errorText, { color: theme.textSecondary }]}>
-              No group ID provided. Please go back and try again.
-            </Text>
-          </View>
-        </View>
+        <GroupStatsError
+          type="invalid"
+          onBack={() => router.back()}
+        />
       </SafeAreaView>
     );
   }
@@ -74,9 +69,7 @@ export default function GroupStatsScreen() {
   if (checkingGroup) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.centerContent}>
-          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Checking group...</Text>
-        </View>
+        <GroupStatsLoading />
       </SafeAreaView>
     );
   }
@@ -84,24 +77,11 @@ export default function GroupStatsScreen() {
   if (groupExists === false) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.errorContainer}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
-          </TouchableOpacity>
-          <View style={styles.errorContent}>
-            <Ionicons name="alert-circle" size={64} color={theme.error} />
-            <Text style={[styles.errorTitle, { color: theme.text }]}>Group Not Found</Text>
-            <Text style={[styles.errorText, { color: theme.textSecondary }]}>
-              This group no longer exists or you don't have access to it.
-            </Text>
-            <TouchableOpacity
-              style={[styles.retryButton, { backgroundColor: theme.primary }]}
-              onPress={() => router.push('/(tabs)/chats')}
-            >
-              <Text style={[styles.retryButtonText, { color: theme.surface }]}>Go to Chats</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <GroupStatsError
+          type="not-found"
+          onBack={() => router.back()}
+          onGoToChats={() => router.push('/(tabs)/chats')}
+        />
       </SafeAreaView>
     );
   }
@@ -118,59 +98,3 @@ export default function GroupStatsScreen() {
     </SafeAreaView>
   );
 }
-
-const getStyles = (theme: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: theme.textSecondary,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  errorContainer: {
-    flex: 1,
-  },
-  errorContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  retryButton: {
-    marginTop: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

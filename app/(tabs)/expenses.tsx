@@ -1,15 +1,14 @@
 import React from 'react';
-import { StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ExpensesHeader from '@/app/components/ExpensesHeader';
 import ExpenseForm from '@/app/components/ExpenseForm';
-import ExpenseContent from '@/app/components/ExpenseContent';
-import ErrorDisplay from '@/app/components/ErrorDisplay';
-import LoadingIndicator from '@/app/components/LoadingIndicator';
 import { FloatingActionButton } from '@/app/components/FloatingActionButton';
+import ExpensesHeaderWrapper from '../components/ExpensesHeaderWrapper';
+import ExpensesContentWrapper from '../components/ExpensesContentWrapper';
 import { useExpensesLogic } from '@/hooks/useExpensesLogic';
 import { useExpensesCalculations } from '@/hooks/useExpensesCalculations';
 import { useTheme } from '../context/ThemeContext';
+import styles from '@/lib/styles/expensesStyles';
 import { useFinanceStore } from '@/lib/store/financeStore';
 
 export default function ExpensesScreen() {
@@ -57,9 +56,11 @@ export default function ExpensesScreen() {
     filteredExpenses,
     totalExpensesAmount,
     totalSplitBills,
+    totalSplitBillsAmount,
     settlementStats,
   } = useExpensesCalculations(expenses, splitBills, selectedGroup, currentUser);
 
+  // local refresh that uses the same store loaders
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -67,13 +68,18 @@ export default function ExpensesScreen() {
         loadExpenses(),
         loadGroups(),
         getSplitBills(),
-        loadBudgets()
+        loadBudgets(),
       ]);
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
       setRefreshing(false);
     }
+  };
+
+  // type-safe wrapper for split bill tab setter
+  const handleSplitBillTabChange = (t: string) => {
+    setSplitBillTab(t as any);
   };
 
   return (
@@ -85,20 +91,19 @@ export default function ExpensesScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <ExpensesHeader
+        <ExpensesHeaderWrapper
           activeTab={activeTab}
           onTabChange={setActiveTab}
           totalExpenses={totalExpensesAmount}
-          totalSplitBills={totalSplitBills}
+          totalSplitBills={totalSplitBillsAmount}
           settlementStats={settlementStats}
           onReload={handleManualReload}
         />
 
-        <ErrorDisplay error={storeError} onRetry={handleRetry} />
-
-        <LoadingIndicator loading={storeLoading} />
-
-        <ExpenseContent
+        <ExpensesContentWrapper
+          storeError={storeError}
+          storeLoading={storeLoading}
+          onRetry={handleRetry}
           activeTab={activeTab}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
@@ -109,12 +114,12 @@ export default function ExpensesScreen() {
           splitBills={splitBills}
           currentUser={currentUser}
           splitBillTab={splitBillTab}
-          onSplitBillTabChange={setSplitBillTab}
+          onSplitBillTabChange={handleSplitBillTabChange}
           onMarkAsPaid={handleMarkAsPaid}
         />
       </ScrollView>
 
-      <FloatingActionButton onPress={() => setShowAddModal(true)} />
+  <FloatingActionButton onPress={() => setShowAddModal(true)} />
 
       <ExpenseForm
         visible={showAddModal}
@@ -138,11 +143,4 @@ export default function ExpensesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-});
+// styles moved to app/(tabs)/styles/expensesStyles.ts

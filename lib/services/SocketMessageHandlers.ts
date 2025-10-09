@@ -16,8 +16,21 @@ export class SocketMessageHandlers {
   onReceiveMessage(callback: (message: any) => void) {
     if (!this.socket) return;
 
+    // Listen for group messages
     this.socket.on('receiveMessage', (message: any) => {
       console.log('📥 Received message:', message);
+      callback(message);
+    });
+
+    // Listen for direct messages (using 'newMessage' event)
+    this.socket.on('newMessage', (message: any) => {
+      console.log('📥 Received direct message:', message);
+      callback(message);
+    });
+
+    // Listen for direct messages (using alternative event name)
+    this.socket.on('receive-direct-message', (message: any) => {
+      console.log('📥 Received direct message (alt):', message);
       callback(message);
     });
   }
@@ -63,6 +76,8 @@ export class SocketMessageHandlers {
     if (!this.socket) return;
 
     this.socket.off('receiveMessage');
+    this.socket.off('newMessage');
+    this.socket.off('receive-direct-message');
     this.socket.off('messageSent');
     this.socket.off('messageError');
   }

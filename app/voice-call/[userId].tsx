@@ -2,11 +2,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   Alert,
   StatusBar,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -17,8 +15,10 @@ import { callService, CallData, CallParticipant } from '../../lib/services/callS
 import { useCallStore } from '../../lib/store/callStore';
 import { useFinanceStore } from '../../lib/store/financeStore';
 import socketService from '../../lib/services/socketService';
-
-const { width, height } = Dimensions.get('window');
+import VoiceCallHeader from '../components/VoiceCallHeader';
+import VoiceCallInfo from '../components/VoiceCallInfo';
+import VoiceCallControls from '../components/VoiceCallControls';
+import { voiceCallStyles } from '@/lib/styles/voiceCallStyles';
 
 export default function VoiceCallScreen() {
   const { userId, groupId, type = 'personal' } = useLocalSearchParams<{
@@ -117,8 +117,27 @@ export default function VoiceCallScreen() {
 
     } catch (error) {
       console.error('Failed to initialize call:', error);
-      Alert.alert('Error', 'Failed to start call. Please check your connection and try again.');
-      router.back();
+      
+      let errorMessage = 'Failed to start call. Please try again.';
+      
+      // Provide specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('Permissions not granted')) {
+          errorMessage = '⚠️ Voice calls require microphone permissions.\n\n' +
+            'This feature needs a development build. Please run:\n\n' +
+            '1. npx expo prebuild --clean\n' +
+            '2. npx expo run:android (or run:ios)\n\n' +
+            'Expo Go does not support expo-camera/expo-av permissions.';
+        } else if (error.message.includes('not available')) {
+          errorMessage = 'Voice call feature is not available. Please ensure the app is properly configured.';
+        } else if (error.message.includes('Socket')) {
+          errorMessage = 'Unable to connect to call service. Please check your internet connection.';
+        }
+      }
+      
+      Alert.alert('Call Failed', errorMessage, [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
     } finally {
       setIsInitializing(false);
     }
@@ -207,188 +226,34 @@ export default function VoiceCallScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={voiceCallStyles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#6366F1" />
       <LinearGradient
         colors={['#6366F1', '#8B5CF6', '#EC4899']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.background}
+        style={voiceCallStyles.background}
       >
-        <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <Ionicons name="chevron-down" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
+        <View style={voiceCallStyles.content}>
+          <VoiceCallHeader onBack={() => router.back()} />
 
-          {/* Call Info */}
-          <View style={styles.callInfo}>
-            <View style={styles.avatarContainer}>
-              <Ionicons name="person" size={60} color="white" />
-            </View>
-            <Text style={styles.callTitle}>{getDisplayName()}</Text>
-            <Text style={styles.callStatus}>{getStatusText()}</Text>
-            {type === 'group' && participants.length > 0 && (
-              <Text style={styles.participantCount}>
-                {participants.length} participant{participants.length !== 1 ? 's' : ''}
-              </Text>
-            )}
-          </View>
+          <VoiceCallInfo
+            getDisplayName={getDisplayName}
+            getStatusText={getStatusText}
+            type={type}
+            participants={participants}
+          />
 
-          {/* Call Controls */}
-          <View style={styles.controls}>
-            <TouchableOpacity
-              style={[styles.controlButton, isMuted && styles.controlButtonActive]}
-              onPress={handleMute}
-            >
-              <Ionicons
-                name={isMuted ? "mic-off" : "mic"}
-                size={24}
-                color="white"
-              />
-              <Text style={styles.controlText}>{isMuted ? 'Unmute' : 'Mute'}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.controlButton, isSpeakerOn && styles.controlButtonActive]}
-              onPress={handleSpeaker}
-            >
-              <Ionicons
-                name={isSpeakerOn ? "volume-high" : "volume-medium"}
-                size={24}
-                color="white"
-              />
-              <Text style={styles.controlText}>Speaker</Text>
-            </TouchableOpacity>
-
-            {type === 'group' && (
-              <TouchableOpacity
-                style={styles.controlButton}
-                onPress={handleAddCall}
-              >
-                <Ionicons name="person-add" size={24} color="white" />
-                <Text style={styles.controlText}>Add</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* End Call Button */}
-          <View style={styles.endCallContainer}>
-            <TouchableOpacity
-              style={styles.endCallButton}
-              onPress={handleEndCall}
-            >
-              <Ionicons name="call" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
+          <VoiceCallControls
+            isMuted={isMuted}
+            isSpeakerOn={isSpeakerOn}
+            onToggleMute={handleMute}
+            onToggleSpeaker={handleSpeaker}
+            onEndCall={handleEndCall}
+          />
         </View>
       </LinearGradient>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  background: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    paddingTop: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  callInfo: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  callTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  callStatus: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-  },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginBottom: 60,
-  },
-  controlButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlButtonActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  controlText: {
-    fontSize: 12,
-    color: 'white',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  participantCount: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  endCallContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  endCallButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#EF4444',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-});

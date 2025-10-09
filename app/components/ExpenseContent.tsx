@@ -41,9 +41,15 @@ export default function ExpenseContent({
     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
       {activeTab === 'expenses' ? (
         <>
-          <ViewModeSelector
+          <ViewModeSelector<'list' | 'category' | 'participants'>
             viewMode={viewMode}
             onViewModeChange={onViewModeChange}
+            theme={theme}
+            options={[
+              { label: 'List', value: 'list' },
+              { label: 'Category', value: 'category' },
+              { label: 'Participants', value: 'participants' }
+            ]}
           />
 
           <ExpenseList

@@ -241,7 +241,7 @@ export class PaymentsAPI {
     }
   }
 
-  // Legacy Google Pay methods (deprecated - use BHIM UPI instead)
+ 
 }
 
 export default PaymentsAPI;
