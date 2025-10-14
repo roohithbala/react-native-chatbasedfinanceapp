@@ -347,7 +347,7 @@ export const useGroupChat = () => {
               console.log('Looking for splitBillId:', data.splitBillId);
               console.log('Available split bill messages:', prev.filter(m => m.type === 'split_bill').map(m => ({
                 id: m._id,
-                splitBillId: m.splitBillData?.splitBillId || m.splitBillData?._id
+                splitBillId: m.splitBillData?.splitBillId
               })));
             }
             
