@@ -1,6 +1,6 @@
 // API configuration
 export const API_BASE_URL = __DEV__
-  ? 'http://10.120.178.172:3002' // Development server IP
+  ? 'http://10.131.135.172:3001' // Development server IP
   : 'https://your-production-api.com'; // Production URL
 
 // For React Native, you might need to use different URLs for different platforms
@@ -9,5 +9,5 @@ export const API_BASE_URL = __DEV__
 //   : 'http://localhost:3002'; // iOS simulator
 
 export const WS_BASE_URL = __DEV__
-  ? 'ws://10.120.178.172:3002'
+  ? 'ws://10.131.135.172:3001'
   : 'wss://your-production-api.com';

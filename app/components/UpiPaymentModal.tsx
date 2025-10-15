@@ -62,10 +62,11 @@ const UpiPaymentModal: React.FC<UpiPaymentModalProps> = ({
 
       return () => clearInterval(timer);
     }
+    return undefined; // Explicitly return undefined when no cleanup needed
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  const generatePaymentQr = async () => {
+  const generatePaymentQr = async (): Promise<void> => {
     setIsGenerating(true);
     try {
       const paymentData = {

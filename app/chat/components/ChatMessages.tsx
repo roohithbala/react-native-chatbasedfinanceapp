@@ -63,6 +63,7 @@ const ChatMessages: React.FC<Props> = ({ messages, currentUserId, theme, onRetry
       
       return () => clearTimeout(timer);
     }
+    return undefined; // Explicitly return undefined when no cleanup needed
   }, [sortedMessages.length]); // Only trigger when message count changes
 
   return (

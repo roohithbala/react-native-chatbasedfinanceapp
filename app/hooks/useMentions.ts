@@ -72,6 +72,7 @@ export const useMentions = (groupMembers: User[] = []) => {
       const timeoutId = setTimeout(searchUsers, 300); // Debounce search
       return () => clearTimeout(timeoutId);
     }
+    return undefined; // Explicitly return undefined when no cleanup needed
   }, [mentionQuery, mentionSuggestions.length]);
 
   return {

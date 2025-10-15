@@ -72,12 +72,14 @@ export default function AuthScreen() {
     clearError();
 
     try {
+      console.log('Sending Google ID token to backend...');
       await googleAuth(idToken);
       Alert.alert('Success', 'Google authentication successful!');
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Google auth error:', error);
-      Alert.alert('Authentication Failed', error.message || 'Google authentication failed');
+      const errorMessage = error.response?.data?.message || error.message || 'Google authentication failed';
+      Alert.alert('Authentication Failed', errorMessage);
     } finally {
       setIsLoading(false);
     }

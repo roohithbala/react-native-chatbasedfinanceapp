@@ -58,7 +58,7 @@ interface FinanceState {
   refreshData: () => Promise<void>;
 }
 
-const API_BASE_URL = 'http://10.120.178.172:3002';
+const API_BASE_URL = 'http://10.131.135.172:3001/api';
 
 class FinanceAPI {
   private getAuthHeaders() {

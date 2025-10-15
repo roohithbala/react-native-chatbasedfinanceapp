@@ -62,6 +62,7 @@ export function useDirectChat(userId: string | undefined) {
     } catch (error) {
       // ignore if socket service not available in tests
       console.warn('Socket service not available in hook', error);
+      return undefined; // Explicitly return undefined when no cleanup needed
     }
   }, [userId]);
 

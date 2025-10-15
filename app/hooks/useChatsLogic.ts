@@ -124,6 +124,7 @@ export const useChatsLogic = (currentUser: any) => {
         socketService.removeAllListeners();
       };
     }
+    return undefined; // Explicitly return undefined when no cleanup needed
   }, [currentUser]);
 
   return {

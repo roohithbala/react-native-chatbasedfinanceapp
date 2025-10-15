@@ -50,7 +50,7 @@ export const checkServerConnectivity = async (): Promise<boolean> => {
 // Auto-detect server IP (useful for development)
 export const detectServerIP = async (): Promise<string | null> => {
   const commonIPs = [
-    '10.120.178.172', // Current configured IP
+    '10.131.135.172', // Current configured IP
     '10.27.93.172', // Previous configured IP
     '10.42.112.172', // Previous configured IP
     '10.40.155.172', // Previous configured IP

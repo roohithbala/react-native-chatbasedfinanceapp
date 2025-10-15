@@ -94,7 +94,7 @@ setInterval(() => {
 }, 300000); // Every 5 minutes
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.120.178.172:8081'}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.131.135.172:8081'}`);
   console.log(`🔗 API Health Check: http://localhost:${PORT}/api/health`);
   console.log(`🕐 Server started at: ${new Date().toISOString()}`);
 }).on('error', (err) => {

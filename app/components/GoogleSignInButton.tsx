@@ -17,14 +17,28 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 }) => {
   const handleGoogleSignIn = async () => {
     try {
+      console.log('Starting Google sign-in...');
       const googleAuth = googleAuthService.getInstance();
+
+      // Check if configured
+      if (!googleAuth.isConfigured()) {
+        onError('Google OAuth is not properly configured. Please check your environment variables.');
+        return;
+      }
+
       const result = await googleAuth.signIn();
+      console.log('Google auth result:', result);
+
       if (result.type === 'success' && result.params?.id_token) {
+        console.log('Google sign-in successful, sending ID token to backend');
         onSuccess(result.params.id_token);
       } else {
-        onError(result.params?.error || result.errorCode || 'Google sign-in failed');
+        const errorMsg = result.params?.error || result.errorCode || 'Google sign-in failed';
+        console.error('Google sign-in failed:', errorMsg);
+        onError(errorMsg);
       }
     } catch (error: any) {
+      console.error('Google sign-in error:', error);
       onError(error.message || 'Google sign-in failed');
     }
   };

@@ -233,6 +233,14 @@ const logout = async (userId) => {
 // Google authentication
 const googleAuth = async (idToken) => {
   try {
+    console.log('Starting Google authentication...');
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error('GOOGLE_CLIENT_ID not configured');
+      throw new Error('Google OAuth not configured on server');
+    }
+
+    console.log('Verifying Google ID token...');
     // Verify the Google ID token
     const ticket = await googleClient.verifyIdToken({
       idToken,
@@ -241,10 +249,12 @@ const googleAuth = async (idToken) => {
 
     const payload = ticket.getPayload();
     if (!payload) {
+      console.error('Invalid Google token payload');
       throw new Error('Invalid Google token');
     }
 
     const { sub: googleId, email, name, picture } = payload;
+    console.log('Google user info:', { googleId, email, name });
 
     // Check if user already exists with this Google ID
     let user = await User.findOne({ googleId });
@@ -350,7 +360,7 @@ const googleAuth = async (idToken) => {
     };
   } catch (error) {
     console.error('Google auth error:', error);
-    throw new Error('Google authentication failed');
+    throw new Error('Google authentication failed: ' + error.message);
   }
 };
 

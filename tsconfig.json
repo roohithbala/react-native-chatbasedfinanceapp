@@ -1,36 +1,18 @@
 {
   "extends": "expo/tsconfig.base.json",
   "compilerOptions": {
-    "target": "es2020",
-    "module": "esnext",
-    "lib": [
-      "es2020"
-    ],
     "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist",
-    "rootDir": "./",
-    "jsx": "react-jsx",
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"
       ]
-    },
-    "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true
+    }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
   ]
 }
