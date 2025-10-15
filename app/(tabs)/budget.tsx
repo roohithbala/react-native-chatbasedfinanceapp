@@ -18,9 +18,6 @@ import { BudgetSettingsModal } from '../components/BudgetSettingsModal';
 import styles from '@/lib/styles/budgetStyles';
 import useBudgetDisplay from '../hooks/useBudgetDisplay';
 import ViewModeSelector from '../components/ViewModeSelector';
-
-// period selector moved to app/(tabs)/components/PeriodSelector.tsx
-
 export default function BudgetScreen() {
   const { theme } = useTheme();
   const {
@@ -83,15 +80,11 @@ export default function BudgetScreen() {
     setCategoryExpenses(expenses);
     setShowTransactionDetails(true);
   };
-
-  // Load data when component mounts
   useEffect(() => {
     loadData();
     loadBudgetTrends();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load historical budgets when period changes
   useEffect(() => {
     if (viewMode === 'historical') {
       const { selectedYear, selectedMonth } = useBudgetsStore.getState();
@@ -101,7 +94,6 @@ export default function BudgetScreen() {
         loadHistoricalBudgets({ period: 'monthly', year: selectedYear, month: selectedMonth });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPeriod, viewMode, selectedYear, selectedMonth]);
 
   const { displayBudgetsData, displayTotals } = useBudgetDisplay({

@@ -5,24 +5,22 @@ import { Ionicons } from '@expo/vector-icons';
 interface UserSearchInputProps {
   value: string;
   onChangeText: (text: string) => void;
-  searchType: 'email' | 'username';
 }
 
 export default function UserSearchInput({
   value,
   onChangeText,
-  searchType,
 }: UserSearchInputProps) {
   return (
     <View style={styles.searchInputContainer}>
       <Ionicons name="search" size={20} color="#64748B" style={styles.searchIcon} />
       <TextInput
         style={styles.searchInput}
-        placeholder={`Search by ${searchType}...`}
+        placeholder="Search by email address..."
         value={value}
         onChangeText={onChangeText}
-        autoCapitalize={searchType === 'email' ? 'none' : 'none'}
-        keyboardType={searchType === 'email' ? 'email-address' : 'default'}
+        autoCapitalize="none"
+        keyboardType="email-address"
       />
       {value.length > 0 && (
         <TouchableOpacity

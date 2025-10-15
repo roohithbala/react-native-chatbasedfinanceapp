@@ -14,7 +14,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { usersAPI } from '@/lib/services/api';
-import SearchTypeSelector from './components/SearchTypeSelector';
 import UserSearchInput from './components/UserSearchInput';
 import SelectedUsersList from './components/SelectedUsersList';
 import UserListItem from './components/UserListItem';
@@ -32,7 +31,6 @@ export default function AddMembersScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchType, setSearchType] = useState<'email' | 'username'>('username');
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
 
   const { addMemberToGroup, isLoading, groups } = useFinanceStore();
@@ -47,34 +45,27 @@ export default function AddMembersScreen() {
 
     setIsSearching(true);
     try {
-      let results: User[] = [];
-
-      if (searchType === 'username') {
-        results = await usersAPI.searchByUsername(query);
-      } else {
-        // For email search, we'll use the general search API
-        const searchResults = await usersAPI.searchUsers(query);
-        results = searchResults.filter((user: User) =>
-          user.email?.toLowerCase().includes(query.toLowerCase())
-        );
-      }
+      // Search users by email (backend searches email, username, and name)
+      const searchResults = await usersAPI.searchUsers(query);
+      console.log('🔍 Search results:', searchResults.length, 'users found');
 
       // Filter out users who are already members of the group
-      const filteredResults = results.filter(user =>
+      const filteredResults = searchResults.filter((user: User) =>
         !currentGroup?.members?.some(member =>
           (typeof member.userId === 'string' ? member.userId : member.userId._id) === user._id ||
           (typeof member.userId === 'string' ? false : member.userId.email === user.email)
         )
       );
 
+      console.log('📋 After filtering existing members:', filteredResults.length, 'users');
       setSearchResults(filteredResults);
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('❌ Search error:', error);
       setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
-  }, [searchType, currentGroup]);
+  }, [currentGroup]);
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -82,7 +73,7 @@ export default function AddMembersScreen() {
     } else {
       setSearchResults([]);
     }
-  }, [searchQuery, searchType, handleSearch]);
+  }, [searchQuery, handleSearch]);
 
   const toggleUserSelection = (user: User) => {
     setSelectedUsers(prev => {
@@ -123,18 +114,17 @@ export default function AddMembersScreen() {
 
       for (const user of selectedUsers) {
         try {
-          // Use email if available, otherwise fallback to username
-          const identifier = user.email?.trim() || user.username;
-          const searchType = user.email?.trim() ? 'email' : 'username';
+          // Use email only
+          const email = user.email?.trim();
           
-          if (!identifier) {
-            console.error(`User ${user.name} has no email or username`);
+          if (!email) {
+            console.error(`User ${user.name} has no email`);
             failedUsers.push(user.name);
             errorCount++;
             continue;
           }
           
-          await addMemberToGroup(groupId as string, identifier, searchType);
+          await addMemberToGroup(groupId as string, email, 'email');
           successCount++;
         } catch (error: any) {
           errorCount++;
@@ -200,15 +190,9 @@ export default function AddMembersScreen() {
       </LinearGradient>
 
       <View style={styles.searchContainer}>
-        <SearchTypeSelector
-          searchType={searchType}
-          onSearchTypeChange={setSearchType}
-        />
-
         <UserSearchInput
           value={searchQuery}
           onChangeText={setSearchQuery}
-          searchType={searchType}
         />
       </View>
 
@@ -240,7 +224,7 @@ export default function AddMembersScreen() {
                 <Ionicons name="search" size={48} color="#CBD5E1" />
                 <Text style={styles.emptyText}>No users found</Text>
                 <Text style={styles.emptySubtext}>
-                  Try searching with a different {searchType}
+                  Try searching with a different email address
                 </Text>
               </View>
             }
@@ -250,7 +234,7 @@ export default function AddMembersScreen() {
             <Ionicons name="people" size={64} color="#CBD5E1" />
             <Text style={styles.initialText}>Search for people to add</Text>
             <Text style={styles.initialSubtext}>
-              Use their username or email address to find friends and family
+              Use their email address to find friends and family
             </Text>
           </View>
         )}

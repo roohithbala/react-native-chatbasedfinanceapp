@@ -38,17 +38,21 @@ export class ExpenseStatistics {
         throw new Error('Invalid group ID provided');
       }
 
-      // Try to get group stats from the backend endpoint
+      // Try to get group stats from the backend endpoint with period parameter
       try {
-        const statsResponse = await typedApi.get(`/groups/${groupId}/stats`);
+        console.log(`📊 Fetching group stats for period: ${period}`);
+        const statsResponse = await typedApi.get(`/groups/${groupId}/stats`, {
+          params: { period }
+        });
         if (statsResponse.data && statsResponse.data.status === 'success') {
+          console.log(`✅ Received stats for ${period}:`, statsResponse.data.data);
           return statsResponse.data.data;
         }
       } catch (error: any) {
         console.log('Group stats endpoint not available, using fallback method. Error:', error.response?.status);
       }
 
-      // Fallback: Calculate stats from available data
+      // Fallback: Calculate stats from available data with period filter
       const stats = await this.calculateStatsFromData(groupId);
       return stats;
     } catch (error) {
@@ -68,17 +72,43 @@ export class ExpenseStatistics {
   }
 
   // Calculate statistics from raw data
-  private static async calculateStatsFromData(groupId: string): Promise<ExpenseStats> {
-    // Try to get split bills for the group
+  private static async calculateStatsFromData(groupId: string, period: 'week' | 'month' | 'year' = 'month'): Promise<ExpenseStats> {
+    // Calculate date range based on period
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (period) {
+      case 'week':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      default:
+        startDate.setMonth(now.getMonth() - 1);
+    }
+
+    // Try to get split bills for the group with date filter
     let splitBills: SplitBill[] = [];
     try {
       const splitBillResponse = await typedApi.get(`/split-bills`, {
         params: { groupId, limit: 100 }
       });
       // The API returns { splitBills: [...], totalPages: ..., currentPage: ..., total: ... }
-      splitBills = Array.isArray(splitBillResponse.data?.splitBills)
+      let allBills = Array.isArray(splitBillResponse.data?.splitBills)
         ? splitBillResponse.data.splitBills
         : (splitBillResponse.data?.bills || []);
+      
+      // Filter by date on frontend as fallback
+      splitBills = allBills.filter((bill: any) => {
+        const billDate = new Date(bill.createdAt);
+        return billDate >= startDate && billDate <= now;
+      });
+      
+      console.log(`Filtered ${splitBills.length} bills out of ${allBills.length} for ${period}`);
     } catch (error) {
       console.log('No split bills found for group:', error);
       splitBills = []; // Ensure splitBills is always an array

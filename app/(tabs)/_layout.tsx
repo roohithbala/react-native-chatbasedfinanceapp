@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     paddingHorizontal: 8,
     height: 80,
-    backgroundColor: 'transparent', // Let theme override this
+    backgroundColor: 'transparent', 
   },
   tabBarLabel: {
     fontSize: 11,

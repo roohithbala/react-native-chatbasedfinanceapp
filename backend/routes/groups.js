@@ -320,7 +320,8 @@ router.put('/:id/notifications', auth, async (req, res) => {
 // Get group stats
 router.get('/:id/stats', auth, async (req, res) => {
   try {
-    const stats = await groupController.getGroupStats(req.params.id, req.userId);
+    const period = req.query.period || 'month'; // Default to month
+    const stats = await groupController.getGroupStats(req.params.id, req.userId, period);
 
     res.json({
       status: 'success',

@@ -25,12 +25,17 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
       try {
         setLoading(true);
         const data = await GroupExpenseService.getGroupExpenseStats(groupId, period);
-        console.log('GroupExpenseStats - Received data:', data);
-        console.log('GroupExpenseStats - byCategory:', data.byCategory);
-        console.log('GroupExpenseStats - byParticipant:', data.byParticipant);
+        console.log('📊 GroupExpenseStats - Received data for period:', period);
+        console.log('📊 Overview:', data.overview);
+        console.log('📊 Total Amount:', data.overview?.totalAmount);
+        console.log('📊 Count:', data.overview?.count);
+        console.log('📊 Settled:', data.overview?.settled);
+        console.log('📊 Pending:', data.overview?.pending);
+        console.log('📊 byCategory:', data.byCategory);
+        console.log('📊 byParticipant:', data.byParticipant);
         setStats(data);
       } catch (error) {
-        console.error('Error loading stats:', error);
+        console.error('❌ Error loading stats:', error);
         // Set fallback empty stats to prevent crashes
         setStats({
           overview: {
@@ -82,7 +87,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
       .map((cat: any) => {
         const label = cat.category || cat._id || 'Other';
         return label.length > 8 ? label.substring(0, 8) + '...' : label;
-      }) || [],
+      }),
     datasets: [{
       data: (stats.byCategory || [])
         .filter((cat: any) => cat && (cat.amount > 0 || cat.totalAmount > 0))
@@ -90,7 +95,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
         .map((cat: any) => {
           const amount = cat.amount || cat.totalAmount || 0;
           return isNaN(amount) ? 0 : Number(amount);
-        }) || []
+        }).concat(stats.byCategory?.length === 0 ? [0] : []) // Add 0 if empty to prevent chart crash
     }]
   };
 
@@ -178,7 +183,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={styles.cardContent}>
+          <View style={[styles.cardContent, { backgroundColor: 'transparent' }]}>
             <Ionicons name="cash" size={24} color="white" />
             <Text style={styles.overviewValue}>
               ₹{(stats.overview?.totalAmount || 0).toFixed(2)}
@@ -193,7 +198,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={styles.cardContent}>
+          <View style={[styles.cardContent, { backgroundColor: 'transparent' }]}>
             <Ionicons name="receipt" size={24} color="white" />
             <Text style={styles.overviewValue}>
               {stats.overview?.count || 0}
@@ -208,7 +213,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={styles.cardContent}>
+          <View style={[styles.cardContent, { backgroundColor: 'transparent' }]}>
             <Ionicons name="checkmark-circle" size={24} color="white" />
             <Text style={styles.overviewValue}>
               {stats.overview?.settled || 0}
@@ -223,7 +228,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={styles.cardContent}>
+          <View style={[styles.cardContent, { backgroundColor: 'transparent' }]}>
             <Ionicons name="time" size={24} color="white" />
             <Text style={styles.overviewValue}>
               {stats.overview?.pending || 0}
@@ -239,7 +244,7 @@ export const GroupExpenseStats: React.FC<GroupExpenseStatsProps> = ({ groupId })
           <Ionicons name="pie-chart" size={20} color={theme.primary} />
           <Text style={[styles.chartTitle, { color: theme.text }]}>Spending by Category</Text>
         </View>
-        {categoryData.datasets[0].data.length > 0 ? (
+        {categoryData.labels.length > 0 && categoryData.datasets[0].data.length > 0 && categoryData.datasets[0].data.some((val: number) => val > 0) ? (
           <BarChart
             data={categoryData}
             width={screenWidth - 64}

@@ -144,7 +144,7 @@ export default function VoiceCallScreen() {
   };
 
   const setupCallEventHandlers = () => {
-    // Additional setup if needed
+    
   };
 
   const startDurationTimer = () => {

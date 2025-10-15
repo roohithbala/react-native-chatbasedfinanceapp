@@ -1,6 +1,20 @@
 import { Alert } from 'react-native';
 
-// OpenAI API configuration
+/**
+ * IMPORTANT: Frontend AI analysis is disabled to prevent API key exposure.
+ * 
+ * This app uses Google Gemini AI on the BACKEND for AI-powered insights.
+ * Users can access AI features via the @predict command in chat.
+ * 
+ * Why disabled:
+ * - Frontend API keys would be exposed in the React Native bundle
+ * - Backend handles AI securely with environment variables
+ * - @predict command provides the same insights via backend
+ * 
+ * To use AI features: Type "@predict" in any chat
+ */
+
+// OpenAI API configuration (DISABLED - kept for reference only)
 const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -53,108 +67,10 @@ class FreeAIService {
   }
 
   async analyzeSpending(expenses: any[], budgets: any = {}): Promise<SpendingAnalysis> {
-    try {
-      // Prepare expense data for analysis
-      const expenseSummary: Record<string, { total: number; count: number; items: any[] }> = expenses.reduce((acc, expense) => {
-        const category = expense.category || 'Other';
-        if (!acc[category]) {
-          acc[category] = { total: 0, count: 0, items: [] };
-        }
-        acc[category].total += expense.amount;
-        acc[category].count += 1;
-        acc[category].items.push({
-          description: expense.description,
-          amount: expense.amount,
-          date: expense.createdAt,
-        });
-        return acc;
-      }, {} as Record<string, { total: number; count: number; items: any[] }>);
-
-      const totalSpending = Object.values(expenseSummary).reduce((sum: number, cat) => sum + cat.total, 0);
-      const categories = Object.keys(expenseSummary);
-
-      const prompt = `
-You are a financial advisor analyzing a user's spending patterns. Based on the following data, provide 3-4 insightful observations and 2-3 actionable recommendations.
-Expense Summary:
-${Object.entries(expenseSummary).map(([category, data]: [string, any]) =>
-  `- ${category}: ₹${data.total.toFixed(2)} (${data.count} transactions)`
-).join('\n')}
-
-Total Spending: ₹${totalSpending.toFixed(2)}
-Categories: ${categories.join(', ')}
-
-${budgets && Object.keys(budgets).length > 0 ?
-  `Budgets: ${Object.entries(budgets).map(([cat, amount]) => `${cat}: ₹${amount}`).join(', ')}` : 'No budgets set'
-}
-
-Please respond in JSON format with this structure:
-{
-  "insights": [
-    {
-      "title": "Brief title",
-      "description": "Detailed observation or insight",
-      "type": "warning|success|tip|prediction",
-      "icon": "emoji"
-    }
-  ],
-  "predictions": ["prediction1", "prediction2"],
-  "recommendations": ["recommendation1", "recommendation2", "recommendation3"]
-}
-
-Focus on:
-- Spending patterns and trends
-- Budget adherence (if budgets exist)
-- Potential savings opportunities
-- Financial health indicators
-- Practical advice for better money management
-`;
-
-      const messages = [
-        {
-          role: 'system',
-          content: 'You are a helpful financial advisor providing insights on spending patterns. Always respond with valid JSON.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ];
-
-      const response = await this.makeOpenAIRequest(messages);
-
-      try {
-        const parsedResponse = JSON.parse(response);
-
-        // Validate response structure
-        if (!parsedResponse.insights || !Array.isArray(parsedResponse.insights)) {
-          throw new Error('Invalid response structure');
-        }
-
-        // Add IDs to insights
-        const insightsWithIds = parsedResponse.insights.map((insight: any, index: number) => ({
-          ...insight,
-          id: `insight_${Date.now()}_${index}`,
-        }));
-
-        return {
-          insights: insightsWithIds,
-          predictions: parsedResponse.predictions || [],
-          recommendations: parsedResponse.recommendations || [],
-        };
-      } catch (parseError) {
-        console.error('Failed to parse AI response:', parseError);
-        // Return fallback insights if parsing fails
-        return this.getFallbackInsights(expenses, budgets);
-      }
-    } catch (error) {
-      console.error('AI analysis failed:', error);
-      Alert.alert(
-        'AI Analysis Unavailable',
-        'Unable to analyze spending patterns right now. Using basic insights instead.',
-        [{ text: 'OK' }]
-      );
-      return this.getFallbackInsights(expenses, budgets);
-    }
+    // NOTE: Frontend AI analysis is disabled. 
+    // Use the backend @predict command in chat for AI-powered insights via Google Gemini.
+    console.log('ℹ️ Frontend AI analysis disabled. Use @predict command in chat for AI insights.');
+    return this.getFallbackInsights(expenses, budgets);
   }
 
   private getFallbackInsights(expenses: any[], budgets: any = {}): SpendingAnalysis {
@@ -209,123 +125,30 @@ Focus on:
   }
 
   async getEmotionalAnalysis(expenses: any[]): Promise<any> {
-    try {
-      const recentExpenses = expenses.slice(-10); // Last 10 expenses
-      const totalAmount = recentExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-      const avgAmount = totalAmount / recentExpenses.length;
-
-      const prompt = `
-Analyze the emotional spending patterns based on these recent transactions:
-${recentExpenses.map(expense =>
-  `- ${expense.description}: ₹${expense.amount} (${expense.category})`
-).join('\n')}
-
-Average transaction: ₹${avgAmount.toFixed(2)}
-
-Provide emotional analysis in JSON format:
-{
-  "emotionalState": "calm|stressed|impulsive|satisfied",
-  "analysis": "Brief analysis of spending emotions",
-  "suggestions": ["suggestion1", "suggestion2"]
-}
-`;
-
-      const messages = [
-        {
-          role: 'system',
-          content: 'You are a financial psychologist analyzing spending emotions. Respond with valid JSON.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ];
-
-      const response = await this.makeOpenAIRequest(messages);
-
-      try {
-        return JSON.parse(response);
-      } catch (parseError) {
-        console.error('Failed to parse emotional analysis:', parseError);
-        return {
-          emotionalState: 'neutral',
-          analysis: 'Unable to analyze emotional spending patterns at this time.',
-          suggestions: ['Continue tracking expenses for better insights.'],
-        };
-      }
-    } catch (error) {
-      console.error('Emotional analysis failed:', error);
-      return {
-        emotionalState: 'neutral',
-        analysis: 'Emotional analysis unavailable.',
-        suggestions: ['Keep tracking your expenses regularly.'],
-      };
-    }
+    // NOTE: Frontend AI analysis is disabled.
+    console.log('ℹ️ Frontend emotional analysis disabled. Use @predict command in chat.');
+    return {
+      emotionalState: 'neutral',
+      analysis: 'Use the @predict command in chat to get AI-powered spending insights from Google Gemini.',
+      suggestions: ['Type @predict in any chat to get detailed AI analysis of your spending patterns.'],
+    };
   }
 
   async getFinancialSummary(expenses: any[], period: string = 'month'): Promise<any> {
-    try {
-      const periodExpenses = this.filterExpensesByPeriod(expenses, period);
-      const totalSpending = periodExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-      const categoryBreakdown = periodExpenses.reduce((acc, expense) => {
-        const category = expense.category || 'Other';
-        acc[category] = (acc[category] || 0) + expense.amount;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const prompt = `
-Create a financial summary for the ${period} period:
-
-Total Spending: ₹${totalSpending.toFixed(2)}
-Category Breakdown:
-${Object.entries(categoryBreakdown).map(([cat, amount]) =>
-  `- ${cat}: ₹${(amount as number).toFixed(2)}`
-).join('\n')}
-
-Number of transactions: ${periodExpenses.length}
-
-Provide a concise summary in JSON format:
-{
-  "summary": "Brief overview of financial activity",
-  "keyInsights": ["insight1", "insight2", "insight3"],
-  "trends": "Any notable spending trends"
-}
-`;
-
-      const messages = [
-        {
-          role: 'system',
-          content: 'You are a financial analyst creating concise summaries. Respond with valid JSON.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ];
-
-      const response = await this.makeOpenAIRequest(messages);
-
-      try {
-        return JSON.parse(response);
-      } catch (parseError) {
-        console.error('Failed to parse financial summary:', parseError);
-        return {
-          summary: `Total spending: ₹${totalSpending.toFixed(2)} across ${periodExpenses.length} transactions.`,
-          keyInsights: [
-            'Continue monitoring your expenses regularly.',
-            'Consider categorizing expenses for better insights.',
-          ],
-          trends: 'More data needed for trend analysis.',
-        };
-      }
-    } catch (error) {
-      console.error('Financial summary failed:', error);
-      return {
-        summary: 'Financial summary unavailable.',
-        keyInsights: ['Keep tracking your expenses.'],
-        trends: 'Unable to analyze trends.',
-      };
-    }
+    // NOTE: Frontend AI analysis is disabled.
+    const periodExpenses = this.filterExpensesByPeriod(expenses, period);
+    const totalSpending = periodExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+    
+    console.log('ℹ️ Frontend financial summary disabled. Use @predict command in chat.');
+    return {
+      summary: `Total spending: ₹${totalSpending.toFixed(2)} across ${periodExpenses.length} transactions for the ${period} period. For AI-powered insights, use @predict command in chat.`,
+      keyInsights: [
+        'Use @predict in chat for detailed AI analysis powered by Google Gemini',
+        'Continue monitoring your expenses regularly.',
+        'Consider categorizing expenses for better insights.',
+      ],
+      trends: 'Use @predict command to get AI-powered trend analysis.',
+    };
   }
 
   private filterExpensesByPeriod(expenses: any[], period: string): any[] {
