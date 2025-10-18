@@ -25,13 +25,23 @@ export function useHomeData() {
 
   const totalOwed = useMemo(() => {
     if (!currentUser || !splitBills || !Array.isArray(splitBills)) return 0;
+    
     return splitBills
-      .filter((bill: any) =>
-        bill.participants && Array.isArray(bill.participants) && bill.participants.some((p: any) => {
+      .filter((bill: any) => {
+        // Skip settled bills
+        if (bill.isSettled) return false;
+        
+        const participants = bill.participants || [];
+        
+        // Find current user's participant entry
+        const currentUserParticipant = participants.find((p: any) => {
           const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;
-          return userId === currentUser._id && !p.isPaid;
-        })
-      )
+          return userId === currentUser._id;
+        });
+        
+        // User owes money if they are a participant and haven't paid
+        return currentUserParticipant && !currentUserParticipant.isPaid;
+      })
       .reduce((total: number, bill: any) => {
         const userParticipant = bill.participants.find((p: any) => {
           const userId = typeof p.userId === 'string' ? p.userId : (p.userId as any)?._id;

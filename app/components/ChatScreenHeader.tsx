@@ -10,11 +10,11 @@ interface ChatScreenHeaderProps {
   avatar?: string;
   onBackPress: () => void;
   onAvatarPress?: () => void;
-  actions?: Array<{
+  actions?: {
     icon: string;
     onPress: () => void;
     key: string;
-  }>;
+  }[];
 }
 
 export default function ChatScreenHeader({

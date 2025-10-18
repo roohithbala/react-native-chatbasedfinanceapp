@@ -102,7 +102,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 Pay with BHIM UPI
               </Text>
               <Text style={[styles.methodDescription, { color: theme.textSecondary }]}>
-                Enter the recipient's UPI ID to send money instantly
+                Enter the recipient&apos;s UPI ID to send money instantly
               </Text>
 
               <BhimUpiButton

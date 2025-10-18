@@ -77,3 +77,5 @@ export const useAIStore = create<AIState>((set, get) => ({
   setError: (error: string | null) => set({ error }),
   clearError: () => set({ error: null }),
 }));
+
+export default useAIStore;

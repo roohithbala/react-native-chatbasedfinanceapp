@@ -23,6 +23,8 @@ export default function GroupChatMessages({
   theme,
 }: GroupChatMessagesProps) {
   const scrollViewRef = useRef<ScrollView>(null);
+  const isUserAtBottomRef = useRef(true);
+  const lastMessageCountRef = useRef(messages.length);
 
   // Debug: Log component render with message count
   console.log('📱 GroupChatMessages rendering:', {
@@ -86,14 +88,36 @@ export default function GroupChatMessages({
     );
   };
 
-  // Auto-scroll to bottom when new messages arrive
+  // Handle scroll events to track if user is at bottom
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const isAtBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 100; // 100px threshold
+    isUserAtBottomRef.current = isAtBottom;
+  };
+
+  // Smart auto-scroll: only scroll if user is at bottom or if it's a new message from current user
   useEffect(() => {
-    if (messages.length > 0) {
+    const newMessageCount = messages.length;
+    const previousMessageCount = lastMessageCountRef.current;
+    
+    // Only auto-scroll if:
+    // 1. User is at the bottom, OR
+    // 2. It's the first load (no previous messages), OR  
+    // 3. New message is from current user
+    const shouldAutoScroll = 
+      isUserAtBottomRef.current || 
+      previousMessageCount === 0 || 
+      (newMessageCount > previousMessageCount && 
+       messages[newMessageCount - 1]?.user._id === currentUser?._id);
+
+    if (shouldAutoScroll && newMessageCount > 0) {
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 150);
     }
-  }, [messages.length]);
+
+    lastMessageCountRef.current = newMessageCount;
+  }, [messages.length, currentUser?._id]);
 
   return (
     <View style={{
@@ -109,6 +133,8 @@ export default function GroupChatMessages({
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         {isLoading ? (
           <View style={{

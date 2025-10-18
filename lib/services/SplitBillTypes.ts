@@ -3,6 +3,7 @@ export interface Participant {
   userId: string;
   amount: number;
   isPaid: boolean;
+  isRejected?: boolean;
   paidAt?: Date;
 }
 
@@ -45,6 +46,14 @@ export interface CreateSplitBillParams {
   category?: string;
   currency?: string;
   notes?: string;
+  reminderSettings?: {
+    enablePaymentDueReminders?: boolean;
+    enableSettlementReminders?: boolean;
+    enableOverdueReminders?: boolean;
+    paymentDueReminderHours?: number;
+    settlementReminderDays?: number;
+    overdueReminderDays?: number;
+  };
 }
 
 export interface GetSplitBillsParams {

@@ -76,6 +76,7 @@ export default function GroupMembersList({
         keyExtractor={(item) => item.userId?._id || item.userId}
         renderItem={renderMember}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={false}
       />
     </View>
   );

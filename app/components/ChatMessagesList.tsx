@@ -24,7 +24,7 @@ interface Message {
     _id: string;
     description: string;
     totalAmount: number;
-    participants: Array<{
+    participants: {
       userId: {
         _id: string;
         name: string;
@@ -33,7 +33,7 @@ interface Message {
       amount: number;
       isPaid: boolean;
       paidAt?: string;
-    }>;
+    }[];
     isSettled: boolean;
   };
   createdAt: string;

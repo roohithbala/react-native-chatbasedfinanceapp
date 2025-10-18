@@ -28,11 +28,11 @@ interface UserProfile {
   bio?: string;
   isActive: boolean;
   lastSeen?: string;
-  groups?: Array<{
+  groups?: {
     _id: string;
     name: string;
     avatar?: string;
-  }>;
+  }[];
   createdAt: string;
 }
 

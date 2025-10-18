@@ -2,17 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  SafeAreaView,
   ScrollView,
-  TouchableOpacity,
   Alert,
   Modal,
-  TextInput,
-  Platform,
-  Share,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import EditProfileModal from '@/app/components/EditProfileModal';
@@ -23,9 +18,7 @@ import AccountSection from '@/app/components/AccountSection';
 import SettingsSection from '@/app/components/SettingsSection';
 import SecuritySection from '@/app/components/SecuritySection';
 import LogoutButton from '@/app/components/LogoutButton';
-import { Ionicons } from '@expo/vector-icons';
 import { useFinanceStore } from '@/lib/store/financeStore';
-import biometricAuthService from '@/lib/services/biometricAuthService';
 import { useTheme } from '../context/ThemeContext';
 import getStyles from '@/lib/styles/profileScreenStyles';
 import useProfileActions from '../hooks/useProfileActions';

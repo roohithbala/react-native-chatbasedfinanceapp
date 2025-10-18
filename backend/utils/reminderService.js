@@ -40,11 +40,11 @@ class ReminderService {
 
         if (paymentDueTime > now) {
           splitBill.participants.forEach(participant => {
-            if (participant.amountOwed > 0) {
+            if (participant.amount > 0 && !participant.isPaid) {
               reminders.push({
                 userId: participant.userId._id,
                 type: 'payment_due',
-                message: `Payment of ₹${participant.amountOwed} is due for "${splitBill.description}"`,
+                message: `Payment of ₹${participant.amount} is due for "${splitBill.description}"`,
                 scheduledFor: paymentDueTime,
                 escalationLevel: 1
               });
@@ -59,11 +59,11 @@ class ReminderService {
 
         if (settlementTime > now) {
           splitBill.participants.forEach(participant => {
-            if (participant.amountOwed > 0) {
+            if (participant.amount > 0 && !participant.isPaid) {
               reminders.push({
                 userId: participant.userId._id,
                 type: 'settlement_reminder',
-                message: `Settlement reminder: ₹${participant.amountOwed} still pending for "${splitBill.description}"`,
+                message: `Settlement reminder: ₹${participant.amount} still pending for "${splitBill.description}"`,
                 scheduledFor: settlementTime,
                 escalationLevel: 1
               });

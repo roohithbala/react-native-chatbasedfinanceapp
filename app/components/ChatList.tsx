@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, StyleSheet , RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { RefreshControl } from 'react-native';
+
 import { ChatItem } from './ChatItem';
 import { useTheme } from '../context/ThemeContext';
 

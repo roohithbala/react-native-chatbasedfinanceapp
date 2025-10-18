@@ -180,8 +180,19 @@ export const useMenuActions = () => {
           break;
 
         case 'splitBill':
-          // Navigate to expenses tab for split bill functionality
-          router.push('/expenses');
+          // Navigate to group chat with split bill mode for groups, or expenses tab for direct chats
+          if (activeTab === 'groups') {
+            router.push({
+              pathname: '/group-chat/[groupId]',
+              params: { 
+                groupId: selectedChat._id, 
+                groupName: selectedChat.name,
+                mode: 'split-bill'
+              }
+            });
+          } else {
+            router.push('/expenses');
+          }
           break;
 
         case 'viewProfile':
@@ -189,8 +200,14 @@ export const useMenuActions = () => {
             // Navigate to the selected user's profile
             router.push(`/profile/${selectedChat._id}`);
           } else {
-            // Navigate to group chat screen for group info
-            router.push(`/group-chat/${selectedChat._id}`);
+            // Navigate to group settings/info screen for groups
+            router.push({
+              pathname: '/group-settings',
+              params: { 
+                groupId: selectedChat._id,
+                mode: 'settings'
+              }
+            });
           }
           break;
       }

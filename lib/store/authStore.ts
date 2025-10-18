@@ -201,3 +201,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setError: (error: string | null) => set({ error }),
   clearError: () => set({ error: null }),
 }));
+
+export default useAuthStore;

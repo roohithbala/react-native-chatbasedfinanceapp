@@ -58,6 +58,9 @@ export const BhimUpiButton: React.FC<BhimUpiButtonProps> = ({
     try {
       const available = await bhimUpiService.isBhimUpiAvailable();
       setIsAvailable(available);
+      if (!available) {
+        console.log('No UPI apps found on device');
+      }
     } catch (error) {
       console.error('Error checking BHIM UPI availability:', error);
       setIsAvailable(false);
@@ -75,7 +78,16 @@ export const BhimUpiButton: React.FC<BhimUpiButtonProps> = ({
   };
 
   const handlePayment = async () => {
-    if (disabled || isProcessing || !isAvailable) return;
+    if (disabled || isProcessing) return;
+
+    if (!isAvailable) {
+      Alert.alert(
+        'UPI Apps Not Found',
+        'No UPI apps (Google Pay, PhonePe, Paytm, BHIM) are installed on your device. Please install a UPI app to make payments.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
 
     // Show UPI ID input modal
     setShowUpiModal(true);
@@ -103,8 +115,8 @@ export const BhimUpiButton: React.FC<BhimUpiButtonProps> = ({
 
       if (result.success) {
         Alert.alert(
-          'Payment Successful',
-          `Payment of ₹${amount.toFixed(2)} completed successfully!\nTransaction ID: ${result.transactionId}`,
+          'UPI App Opened',
+          `Your UPI app has been opened with payment details for ₹${amount.toFixed(2)}. Please complete the payment in your UPI app.`,
           [
             {
               text: 'OK',
@@ -113,8 +125,8 @@ export const BhimUpiButton: React.FC<BhimUpiButtonProps> = ({
           ]
         );
       } else {
-        const errorMessage = result.error || 'Payment failed';
-        Alert.alert('Payment Failed', errorMessage);
+        const errorMessage = result.error || 'Failed to open UPI app';
+        Alert.alert('UPI Payment Error', errorMessage);
         onError?.(errorMessage);
       }
     } catch (error: any) {
@@ -133,12 +145,12 @@ export const BhimUpiButton: React.FC<BhimUpiButtonProps> = ({
       <TouchableOpacity
         style={[
           styles.button,
-          disabled && styles.buttonDisabled,
+          !isAvailable && styles.buttonUnavailable,
           isProcessing && styles.buttonProcessing,
           style,
         ]}
         onPress={handlePayment}
-        disabled={disabled || isProcessing}
+        disabled={disabled || isProcessing || !isAvailable}
       >
         {isProcessing ? (
           <ActivityIndicator color="white" size="small" />
@@ -146,7 +158,7 @@ export const BhimUpiButton: React.FC<BhimUpiButtonProps> = ({
           <>
             <Ionicons name="phone-portrait" size={20} color="white" style={styles.icon} />
             <Text style={[styles.buttonText, disabled && styles.buttonTextDisabled]}>
-              {buttonText}
+              {isAvailable ? buttonText : 'No UPI Apps Found'}
             </Text>
           </>
         )}
@@ -175,7 +187,7 @@ export const BhimUpiButton: React.FC<BhimUpiButtonProps> = ({
 
             <View style={styles.modalBody}>
               <Text style={[styles.instruction, { color: theme.textSecondary }]}>
-                Enter the recipient's UPI ID to proceed with payment
+                Enter the recipient&apos;s UPI ID. Your UPI app (Google Pay, PhonePe, etc.) will open to complete the payment.
               </Text>
 
               <TextInput
@@ -224,7 +236,7 @@ export const BhimUpiButton: React.FC<BhimUpiButtonProps> = ({
                 disabled={!upiId.trim() || !!upiIdError}
               >
                 <Text style={styles.payButtonText}>
-                  Pay ₹{amount.toFixed(2)}
+                  Open UPI App
                 </Text>
               </TouchableOpacity>
             </View>
@@ -250,8 +262,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  buttonDisabled: {
-    backgroundColor: '#CCCCCC',
+  buttonUnavailable: {
+    backgroundColor: '#6B7280', // Gray color for unavailable
     shadowOpacity: 0,
     elevation: 0,
   },

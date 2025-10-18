@@ -146,8 +146,8 @@ function buildPaymentHistoryQuery(userId) {
     {
       $match: {
         $or: [
-          { createdBy: mongoose.Types.ObjectId(userId) },
-          { 'participants.userId': mongoose.Types.ObjectId(userId) }
+          { createdBy: new mongoose.Types.ObjectId(userId) },
+          { 'participants.userId': new mongoose.Types.ObjectId(userId) }
         ]
       }
     },
@@ -180,8 +180,8 @@ function buildPaymentHistoryQuery(userId) {
             as: 'payment',
             cond: {
               $or: [
-                { $eq: ['$$payment.fromUserId', mongoose.Types.ObjectId(userId)] },
-                { $eq: ['$$payment.toUserId', mongoose.Types.ObjectId(userId)] }
+                { $eq: ['$$payment.fromUserId', new mongoose.Types.ObjectId(userId)] },
+                { $eq: ['$$payment.toUserId', new mongoose.Types.ObjectId(userId)] }
               ]
             }
           }
@@ -190,11 +190,34 @@ function buildPaymentHistoryQuery(userId) {
           $filter: {
             input: '$participants',
             as: 'participant',
-            cond: { $eq: ['$$participant.userId', mongoose.Types.ObjectId(userId)] }
+            cond: { $eq: ['$$participant.userId', new mongoose.Types.ObjectId(userId)] }
           }
         },
         creator: { $arrayElemAt: ['$creator', 0] },
         group: { $arrayElemAt: ['$group', 0] }
+      }
+    },
+    {
+      $unwind: {
+        path: '$payments',
+        preserveNullAndEmptyArrays: false
+      }
+    },
+    {
+      $project: {
+        _id: '$payments._id',
+        splitBillId: '$_id',
+        fromUserId: '$payments.fromUserId',
+        toUserId: '$payments.toUserId',
+        amount: '$payments.amount',
+        paymentMethod: '$payments.paymentMethod',
+        notes: '$payments.notes',
+        createdAt: '$payments.createdAt',
+        description: 1,
+        totalAmount: 1,
+        category: 1,
+        creator: 1,
+        group: 1
       }
     },
     { $sort: { createdAt: -1 } }

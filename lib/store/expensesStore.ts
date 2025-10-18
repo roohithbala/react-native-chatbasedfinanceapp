@@ -173,3 +173,5 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
   setError: (error: string | null) => set({ error }),
   clearError: () => set({ error: null }),
 }));
+
+export default useExpensesStore;

@@ -1,20 +1,20 @@
 import React, { useEffect } from 'react';
 
-import { Stack } from 'expo-router';
+import { Stack , router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { ThemeProvider } from './context/ThemeContext';
 import { GroupProvider } from './context/GroupContext';
 import CallNotification from './components/CallNotification';
-import { router } from 'expo-router';
+
 
 export default function RootLayout() {
   const { loadStoredAuth, isAuthenticated } = useFinanceStore();
 
   useEffect(() => {
     loadStoredAuth();
-  }, []);
+  }, [loadStoredAuth]);
 
   const handleCallAccept = () => {
     // Navigate to the appropriate call screen

@@ -124,3 +124,5 @@ export const useCallStore = create<CallState>((set, get) => ({
     get().resetCallState();
   }
 }));
+
+export default useCallStore;

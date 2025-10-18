@@ -5,11 +5,11 @@ import { socketService } from '../../lib/services/socketService';
 
 interface Chat {
   _id: string;
-  participants: Array<{
+  participants: {
     _id: string;
     name: string;
     avatar?: string;
-  }>;
+  }[];
   lastMessage?: {
     content: string;
     senderId: string;

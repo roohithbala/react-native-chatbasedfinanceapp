@@ -13,10 +13,10 @@ interface Expense {
 interface SplitBill {
   _id: string;
   totalAmount: number;
-  participants: Array<{
+  participants: {
     userId: string;
     amount: number;
-  }>;
+  }[];
   isSettled: boolean;
   createdAt: string;
 }

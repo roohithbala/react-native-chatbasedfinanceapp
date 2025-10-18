@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useFinanceStore } from '../lib/store/financeStore';
@@ -126,47 +126,7 @@ export const useGroupChat = () => {
   // Use either currentGroup or fetchedGroup
   const activeGroup = currentGroup || fetchedGroup;
 
-  useEffect(() => {
-    console.log('Messages state changed:', messages.length, 'messages');
-    if (messages.length > 0) {
-      console.log('Sample message:', messages[0]);
-    }
-  }, [messages]);
-
-  // Load messages and connect socket when component mounts or groupId changes
-  useEffect(() => {
-    console.log('🔄 useGroupChat useEffect triggered:', {
-      hasValidGroupId: !!validGroupId,
-      hasCurrentUser: !!currentUser,
-      groupsLength: groups.length
-    });
-    
-    if (validGroupId && currentUser) {
-      // Ensure groups are loaded before trying to access them
-      if (groups.length === 0) {
-        console.log('📋 Loading groups first...');
-        loadGroups();
-      } else {
-        console.log('📨 Loading messages and connecting socket...');
-        loadMessages();
-        connectSocket();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validGroupId, currentUser, groups.length]);
-
-  // Ensure group is selected when groups are loaded
-  useEffect(() => {
-    if (validGroupId && typeof validGroupId === 'string' && groups.length > 0 && !currentGroup) {
-      const groupToSelect = groups.find(g => g._id === validGroupId);
-      if (groupToSelect) {
-        selectGroup(groupToSelect);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validGroupId, groups.length, currentGroup]);
-
-  const connectSocket = async () => {
+  const connectSocket = useCallback(async () => {
     try {
       if (!groupId) return;
       await socketService.connect();
@@ -204,8 +164,18 @@ export const useGroupChat = () => {
             messageText: msg.text?.substring(0, 30)
           });
           
-          // Remove any temporary message with the same content and check for duplicates
-          const filtered = prev.filter(m => !(m.isTemp && m.text === msg.text && m.user._id === msg.user._id));
+          // Remove any temporary message with the same user and recent timestamp (within last 30 seconds)
+          // This is more reliable than text matching for long messages
+          const now = Date.now();
+          const filtered = prev.filter(m => {
+            if (m.isTemp && m.user._id === msg.user._id) {
+              const messageTime = new Date(m.createdAt).getTime();
+              const timeDiff = Math.abs(now - messageTime);
+              // Remove temp messages from same user within last 30 seconds
+              return timeDiff > 30000;
+            }
+            return true;
+          });
           
           console.log('🔍 After filtering temps:', {
             filteredCount: filtered.length,
@@ -368,9 +338,9 @@ export const useGroupChat = () => {
       setConnectionStatus('offline');
       Alert.alert('Connection Error', 'Failed to connect to chat server');
     }
-  };
+  }, [groupId]);
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     try {
       setIsLoading(true);
 
@@ -477,7 +447,35 @@ export const useGroupChat = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [groupId, currentUser, groupName, activeGroup?.name]);
+
+  useEffect(() => {
+    console.log('Messages state changed:', messages.length, 'messages');
+    if (messages.length > 0) {
+      console.log('Sample message:', messages[0]);
+    }
+  }, [messages]);
+
+  // Load messages and connect socket when component mounts or groupId changes
+  useEffect(() => {
+    console.log('🔄 useGroupChat useEffect triggered:', {
+      hasValidGroupId: !!validGroupId,
+      hasCurrentUser: !!currentUser,
+      groupsLength: groups.length
+    });
+    
+    if (validGroupId && currentUser) {
+      // Ensure groups are loaded before trying to access them
+      if (groups.length === 0) {
+        console.log('📋 Loading groups first...');
+        loadGroups();
+      } else {
+        console.log('📨 Loading messages and connecting socket...');
+        loadMessages();
+        connectSocket();
+      }
+    }
+  }, [validGroupId, currentUser, groups.length, loadMessages, connectSocket]);
 
   const sendMessage = async (messageText?: string, mediaData?: {
     uri: string;

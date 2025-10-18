@@ -30,8 +30,8 @@ async function getUserPaymentHistory(req, res) {
 
     const total = await SplitBill.countDocuments({
       $or: [
-        { createdBy: mongoose.Types.ObjectId(userId) },
-        { 'participants.userId': mongoose.Types.ObjectId(userId) }
+        { createdBy: new mongoose.Types.ObjectId(userId) },
+        { 'participants.userId': new mongoose.Types.ObjectId(userId) }
       ]
     });
 

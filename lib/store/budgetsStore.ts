@@ -258,3 +258,5 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
   setError: (error: string | null) => set({ error }),
   clearError: () => set({ error: null }),
 }));
+
+export default useBudgetsStore;

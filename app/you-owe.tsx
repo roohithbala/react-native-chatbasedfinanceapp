@@ -16,7 +16,9 @@ import SettlementCard from '@/app/components/SettlementCard';
 import YouOweEmptyState from '@/app/components/YouOweEmptyState';
 import YouOweErrorState from '@/app/components/YouOweErrorState';
 import YouOweLoadingState from '@/app/components/YouOweLoadingState';
+import PaymentHistory from '@/app/components/PaymentHistory';
 import { youOweStyles } from '@/lib/styles/youOweStyles';
+import socketService from '@/lib/services/socketService';
 
 export default function YouOweScreen() {
   const { theme } = useTheme();
@@ -25,9 +27,24 @@ export default function YouOweScreen() {
   const [settlements, setSettlements] = useState<SettlementPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false);
 
   useEffect(() => {
     loadSettlements();
+
+    // Set up real-time updates for split bill changes
+    const handleSplitBillUpdate = (updatedBill: any) => {
+      console.log('Real-time split bill update:', updatedBill);
+      // Reload settlements when a split bill is updated
+      loadSettlements();
+    };
+
+    socketService.getSocket()?.on('splitBillUpdate', handleSplitBillUpdate);
+
+    return () => {
+      // Clean up socket listener
+      socketService.getSocket()?.off('splitBillUpdate', handleSplitBillUpdate);
+    };
   }, []);
 
   const loadSettlements = async () => {
@@ -102,7 +119,15 @@ export default function YouOweScreen() {
               fromUserName: currentUser.name || 'You',
               toUserName: recipientName,
               billId: bill._id, // Add bill ID for easier lookup
-              billDescription: bill.description
+              billDescription: bill.description,
+              billCategory: bill.category,
+              billDate: bill.createdAt,
+              billNotes: bill.notes,
+              participants: bill.participants,
+              splitType: bill.splitType,
+              totalAmount: bill.totalAmount,
+              groupId: bill.groupId,
+              groupName: bill.groupId ? 'Group Bill' : 'Direct Bill'
             });
           }
         } catch (err) {
@@ -192,7 +217,11 @@ export default function YouOweScreen() {
           <YouOweEmptyState />
         ) : (
           <>
-            <YouOweSummary totalOwed={totalOwed} settlementCount={settlements.length} />
+            <YouOweSummary 
+              totalOwed={totalOwed} 
+              settlementCount={settlements.length}
+              onViewHistory={() => setShowPaymentHistory(true)}
+            />
 
             <Text style={[youOweStyles.sectionTitle, { color: theme.text }]}>Settlement Details</Text>
 
@@ -206,6 +235,12 @@ export default function YouOweScreen() {
           </>
         )}
       </ScrollView>
+
+      <PaymentHistory
+        userId={currentUser?._id || ''}
+        visible={showPaymentHistory}
+        onClose={() => setShowPaymentHistory(false)}
+      />
     </SafeAreaView>
   );
 }

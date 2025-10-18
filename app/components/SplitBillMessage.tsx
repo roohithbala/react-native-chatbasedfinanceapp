@@ -103,95 +103,50 @@ export default function SplitBillMessage({
 
   const initiateUPIPayment = async () => {
     try {
-      // Create UPI payment URL with proper format
-      // Using a more complete UPI URL format for better compatibility
-      const upiUrl = `tez://pay?pa=merchant@upi&pn=Split Bill Payment&am=${userShare.toFixed(2)}&cu=INR&tn=Payment for ${splitBillData.description}`;
+      // Check if UPI apps are available
+      const bhimUpiService = (await import('@/lib/services/bhimUpiService')).default;
+      const isAvailable = await bhimUpiService.isBhimUpiAvailable();
 
-      console.log('Attempting UPI payment with URL:', upiUrl);
-
-      const supported = await Linking.canOpenURL(upiUrl);
-      if (supported) {
-        await Linking.openURL(upiUrl);
-        // After UPI app opens, show a confirmation dialog
-        setTimeout(() => {
-          Alert.alert(
-            'Payment Initiated',
-            'Your UPI app has been opened. Please complete the payment there.',
-            [
-              {
-                text: 'Mark as Paid',
-                onPress: () => markAsPaidManually(),
-                style: 'default',
-              },
-              {
-                text: 'Cancel',
-                style: 'cancel',
-              },
-            ]
-          );
-        }, 1000);
-      } else {
-        // Try alternative UPI URL formats
-        const alternativeUrls = [
-          `paytmmp://pay?pa=merchant@upi&pn=Split Bill Payment&am=${userShare.toFixed(2)}&cu=INR`,
-          `phonepe://pay?pa=merchant@upi&pn=Split Bill Payment&am=${userShare.toFixed(2)}&cu=INR`,
-          `bhim://pay?pa=merchant@upi&pn=Split Bill Payment&am=${userShare.toFixed(2)}&cu=INR`
-        ];
-
-        let opened = false;
-        for (const url of alternativeUrls) {
-          try {
-            const altSupported = await Linking.canOpenURL(url);
-            if (altSupported) {
-              await Linking.openURL(url);
-              opened = true;
-              setTimeout(() => {
-                Alert.alert(
-                  'Payment Initiated',
-                  'Your UPI app has been opened. Please complete the payment there.',
-                  [
-                    {
-                      text: 'Mark as Paid',
-                      onPress: () => markAsPaidManually(),
-                      style: 'default',
-                    },
-                    {
-                      text: 'Cancel',
-                      style: 'cancel',
-                    },
-                  ]
-                );
-              }, 1000);
-              break;
-            }
-          } catch (error) {
-            console.log('Alternative UPI URL failed:', url);
-          }
-        }
-
-        if (!opened) {
-          Alert.alert(
-            'UPI Not Available',
-            'No UPI app found on this device. You can still mark the payment as completed manually.',
-            [
-              {
-                text: 'Mark as Paid',
-                onPress: () => markAsPaidManually(),
-                style: 'default',
-              },
-              {
-                text: 'Cancel',
-                style: 'cancel',
-              },
-            ]
-          );
-        }
+      if (!isAvailable) {
+        Alert.alert(
+          'UPI Not Available',
+          'No UPI apps found on your device. Please install Google Pay, PhonePe, Paytm, or BHIM UPI to make payments. You can still mark the payment as completed manually.',
+          [
+            {
+              text: 'Mark as Paid',
+              onPress: () => markAsPaidManually(),
+              style: 'default',
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+          ]
+        );
+        return;
       }
+
+      // If UPI is available, show UPI ID input modal instead of direct payment
+      Alert.alert(
+        'UPI Payment',
+        'To make a UPI payment, please use the "Pay with BHIM UPI" option in the payment modal or contact the recipient directly for their UPI ID.',
+        [
+          {
+            text: 'Mark as Paid',
+            onPress: () => markAsPaidManually(),
+            style: 'default',
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
     } catch (error) {
       console.error('UPI payment error:', error);
       Alert.alert(
         'UPI Error',
-        'Failed to open UPI app. You can mark the payment as completed manually.',
+        'Failed to check UPI availability. You can mark the payment as completed manually.',
         [
           {
             text: 'Mark as Paid',

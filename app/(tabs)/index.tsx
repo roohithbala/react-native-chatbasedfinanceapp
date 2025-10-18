@@ -1,15 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
   ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { useTheme } from '../context/ThemeContext';
 import getStyles from '@/lib/styles/homeStyles';
@@ -39,16 +34,7 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const styles = getStyles(theme);
 
-  useEffect(() => {
-    if (isAuthenticated && currentUser && expenses.length === 0 && groups.length === 0 && !isLoading) {
-      loadData().catch(error => {
-        console.error('Failed to load initial data:', error);
-       
-      });
-    }
-  }, [isAuthenticated, currentUser, expenses.length, groups.length, isLoading]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       console.log('Loading dashboard data...');
      
@@ -73,7 +59,16 @@ export default function HomeScreen() {
       console.error('Error loading dashboard data:', error);
       
     }
-  };
+  }, [loadExpenses, loadGroups, getSplitBills]);
+
+  useEffect(() => {
+    if (isAuthenticated && currentUser && expenses.length === 0 && groups.length === 0 && !isLoading) {
+      loadData().catch(error => {
+        console.error('Failed to load initial data:', error);
+       
+      });
+    }
+  }, [isAuthenticated, currentUser, expenses.length, groups.length, isLoading]);
 
   const handleTestConnectivity = async () => {
     try {

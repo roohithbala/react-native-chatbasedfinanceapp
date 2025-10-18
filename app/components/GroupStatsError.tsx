@@ -102,7 +102,7 @@ export default function GroupStatsError({
           lineHeight: 22,
           color: theme.textSecondary,
         }}>
-          This group no longer exists or you don't have access to it.
+          This group no longer exists or you don&apos;t have access to it.
         </Text>
         {onGoToChats && (
           <TouchableOpacity

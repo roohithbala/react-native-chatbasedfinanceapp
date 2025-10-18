@@ -92,6 +92,20 @@ const PORT = process.env.PORT || 3002;
 setInterval(() => {
   console.log(`💓 Server heartbeat - ${new Date().toISOString()} - Port: ${PORT}`);
 }, 300000); // Every 5 minutes
+
+// Process due reminders every hour
+setInterval(async () => {
+  try {
+    console.log('🔄 Processing due reminders...');
+    const reminderService = require('./utils/reminderService');
+    const result = await reminderService.processDueReminders();
+    if (result.processed > 0) {
+      console.log(`✅ Processed ${result.processed} due reminders`);
+    }
+  } catch (error) {
+    console.error('❌ Error processing due reminders:', error);
+  }
+}, 60 * 60 * 1000); // Every hour
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.131.135.172:8081'}`);

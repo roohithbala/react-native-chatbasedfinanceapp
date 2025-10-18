@@ -67,10 +67,13 @@ class BiometricAuthService {
    */
   async isBiometricEnabled(): Promise<boolean> {
     try {
+      console.log('🔐 Checking if biometric is enabled...');
       const enabled = await AsyncStorage.getItem(BiometricAuthService.BIOMETRIC_ENABLED_KEY);
-      return enabled === 'true';
+      const result = enabled === 'true';
+      console.log('🔐 Biometric enabled result:', result);
+      return result;
     } catch (error) {
-      console.error('Error checking biometric enabled status:', error);
+      console.error('❌ Error checking biometric enabled status:', error);
       return false;
     }
   }
@@ -128,7 +131,9 @@ class BiometricAuthService {
    */
   async authenticate(reason: string = 'Authenticate to continue'): Promise<BiometricAuthResult> {
     try {
+      console.log('🔐 Checking biometric capabilities...');
       const capabilities = await this.getBiometricCapabilities();
+      console.log('Biometric capabilities:', capabilities);
 
       if (!capabilities.canAuthenticate) {
         return {
@@ -137,6 +142,7 @@ class BiometricAuthService {
         };
       }
 
+      console.log('🔐 Starting biometric authentication prompt...');
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: reason,
         fallbackLabel: 'Use passcode',
@@ -144,8 +150,11 @@ class BiometricAuthService {
         disableDeviceFallback: false,
       });
 
+      console.log('🔐 Raw authentication result:', result);
+
       if (result.success) {
         const biometricType = this.getBiometricType(capabilities.supportedTypes);
+        console.log('✅ Biometric authentication successful, type:', biometricType);
         return {
           success: true,
           type: biometricType || undefined,
@@ -154,6 +163,8 @@ class BiometricAuthService {
         let error = 'Authentication failed';
         // Cast result to any to access error property that may not be in type definitions
         const resultWithError = result as any;
+        console.log('❌ Biometric authentication failed, raw result:', resultWithError);
+
         if (resultWithError.error) {
           switch (resultWithError.error) {
             case 'user_cancel':
@@ -175,10 +186,11 @@ class BiometricAuthService {
               error = `Authentication failed: ${resultWithError.error}`;
           }
         }
+        console.log('❌ Biometric authentication error:', error);
         return { success: false, error };
       }
     } catch (error) {
-      console.error('Biometric authentication error:', error);
+      console.error('❌ Biometric authentication error:', error);
       return {
         success: false,
         error: 'Biometric authentication failed',
@@ -203,12 +215,27 @@ class BiometricAuthService {
    * Quick biometric check for app unlock
    */
   async authenticateForAppUnlock(): Promise<BiometricAuthResult> {
-    const enabled = await this.isBiometricEnabled();
-    if (!enabled) {
-      return { success: false, error: 'Biometric authentication not enabled' };
-    }
+    try {
+      console.log('🔐 Checking if biometric is enabled for app unlock...');
+      const enabled = await this.isBiometricEnabled();
+      console.log('Biometric enabled status:', enabled);
 
-    return this.authenticate('Unlock SecureFinance');
+      if (!enabled) {
+        return { success: false, error: 'Biometric authentication not enabled' };
+      }
+
+      console.log('🔐 Starting biometric authentication for app unlock...');
+      const result = await this.authenticate('Unlock SecureFinance');
+      console.log('🔐 Biometric authentication result:', result);
+
+      return result;
+    } catch (error) {
+      console.error('❌ Error in authenticateForAppUnlock:', error);
+      return {
+        success: false,
+        error: 'Biometric authentication failed due to an unexpected error'
+      };
+    }
   }
 }
 

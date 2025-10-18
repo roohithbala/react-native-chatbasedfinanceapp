@@ -83,7 +83,7 @@ export default function BudgetScreen() {
   useEffect(() => {
     loadData();
     loadBudgetTrends();
-  }, []);
+  }, [loadData, loadBudgetTrends]);
 
   useEffect(() => {
     if (viewMode === 'historical') {
@@ -94,7 +94,7 @@ export default function BudgetScreen() {
         loadHistoricalBudgets({ period: 'monthly', year: selectedYear, month: selectedMonth });
       }
     }
-  }, [selectedPeriod, viewMode, selectedYear, selectedMonth]);
+  }, [selectedPeriod, viewMode, selectedYear, selectedMonth, loadHistoricalBudgets]);
 
   const { displayBudgetsData, displayTotals } = useBudgetDisplay({
     viewMode,

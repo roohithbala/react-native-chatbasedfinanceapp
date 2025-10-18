@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Switch } from 'react-native';
+import { View, Text, StyleSheet , Switch } from 'react-native';
+
 import { useTheme } from '../context/ThemeContext';
 
 interface SettingItem {

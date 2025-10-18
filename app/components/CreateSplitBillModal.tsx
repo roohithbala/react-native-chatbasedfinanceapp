@@ -41,7 +41,7 @@ export default function CreateSplitBillModal({
   const [totalAmount, setTotalAmount] = useState('');
   const [category, setCategory] = useState('Other');
   const [splitType, setSplitType] = useState<'equal' | 'custom' | 'percentage' | 'itemized'>('equal');
-  const [items, setItems] = useState<Array<{name: string, amount: string, assignedTo: string[]}>>([]);
+  const [items, setItems] = useState<{name: string, amount: string, assignedTo: string[]}[]>([]);
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemAmount, setNewItemAmount] = useState('');

@@ -428,3 +428,5 @@ export const chatAPIService = {
     }
   }
 };
+
+export default chatAPIService;

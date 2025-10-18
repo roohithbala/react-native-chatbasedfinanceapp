@@ -348,31 +348,57 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   biometricLogin: async () => {
     try {
+      console.log('🔐 Starting biometric login...');
       set({ isLoading: true, error: null });
 
       // Check if biometric is enabled
+      console.log('Checking if biometric is enabled...');
       const biometricEnabled = await biometricAuthService.isBiometricEnabled();
+      console.log('Biometric enabled:', biometricEnabled);
+
       if (!biometricEnabled) {
         throw new Error('Biometric authentication is not enabled');
       }
 
       // Perform biometric authentication
+      console.log('Performing biometric authentication...');
       const authResult = await biometricAuthService.authenticateForAppUnlock();
+      console.log('Biometric auth result:', authResult);
+
       if (!authResult.success) {
         throw new Error(authResult.error || 'Biometric authentication failed');
       }
 
       // For biometric login, we need stored credentials
       // In a real app, you'd store encrypted credentials or use a token-based approach
+      console.log('Retrieving stored credentials...');
       const storedUserData = await AsyncStorage.getItem('userData');
       const storedToken = await AsyncStorage.getItem('authToken');
+
+      console.log('Stored data check:', {
+        hasUserData: !!storedUserData,
+        hasToken: !!storedToken,
+        userDataLength: storedUserData?.length,
+        tokenLength: storedToken?.length
+      });
 
       if (!storedUserData || !storedToken) {
         throw new Error('No stored credentials found. Please login with email and password first.');
       }
 
-      const user = JSON.parse(storedUserData);
+      let user;
+      try {
+        user = JSON.parse(storedUserData);
+        console.log('Parsed user data:', { id: user._id, name: user.name, email: user.email });
+      } catch (parseError) {
+        console.error('Error parsing stored user data:', parseError);
+        // Clear corrupted data
+        await AsyncStorage.removeItem('userData');
+        await AsyncStorage.removeItem('authToken');
+        throw new Error('Stored user data is corrupted. Please login again.');
+      }
 
+      console.log('Setting authentication state...');
       set({
         isAuthenticated: true,
         authToken: storedToken,
@@ -385,33 +411,36 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       // Load all user data after successful biometric login
       try {
         console.log('Loading user data after biometric login...');
-        
+
         // Load groups first
         await get().loadGroups();
-        
+
         // After loading groups, set the first group as selected if available
         const groups = get().groups;
         if (Array.isArray(groups) && groups.length > 0) {
           set({ selectedGroup: groups[0] });
         }
-        
+
         // Load other data in parallel
         await Promise.all([
           get().loadExpenses(),
           get().loadBudgets(),
           get().getSplitBills()
         ]);
-        
+
         console.log('All user data loaded successfully after biometric login');
-        
+
         // Initialize socket listeners for real-time updates
         get().initializeSocketListeners();
+
+        console.log('✅ Biometric login completed successfully');
       } catch (error) {
         console.error('Error loading data after biometric login:', error);
         // Don't throw error, just log it - user can still use the app
       }
 
     } catch (error: any) {
+      console.error('❌ Biometric login failed:', error);
       set({
         error: error.message || 'Biometric login failed',
         isLoading: false,
@@ -1928,3 +1957,5 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     });
   },
 }));
+
+export default useFinanceStore;

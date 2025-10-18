@@ -181,3 +181,5 @@ export const useSplitBillsStore = create<SplitBillsState>((set, get) => ({
   setError: (error: string | null) => set({ error }),
   clearError: () => set({ error: null }),
 }));
+
+export default useSplitBillsStore;

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -12,6 +11,7 @@ import {
   TouchableOpacity as TouchableOpacityRN,
   Text as TextRN,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import getStyles from '@/lib/styles/chatStyles';

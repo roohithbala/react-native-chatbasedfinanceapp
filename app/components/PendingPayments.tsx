@@ -8,11 +8,11 @@ interface SplitBill {
   _id: string;
   description: string;
   createdAt: string | Date;
-  participants: Array<{
+  participants: {
     userId: string;
     amount: number;
     isPaid: boolean;
-  }>;
+  }[];
 }
 
 interface PendingPaymentsProps {

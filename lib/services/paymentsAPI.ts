@@ -44,6 +44,14 @@ export interface SettlementPlan {
   toUserName: string;
   billId?: string; // Add optional bill ID for easier lookup
   billDescription?: string; // Add optional bill description
+  billCategory?: string;
+  billDate?: Date;
+  billNotes?: string;
+  participants?: any[];
+  splitType?: string;
+  totalAmount?: number;
+  groupId?: string;
+  groupName?: string;
 }
 
 export interface Reminder {
@@ -140,10 +148,13 @@ export class PaymentsAPI {
     page: number = 1,
     limit: number = 20
   ): Promise<{
-    payments: any[];
-    totalPages: number;
-    currentPage: number;
-    total: number;
+    status: string;
+    data: {
+      payments: any[];
+      totalPages: number;
+      currentPage: number;
+      total: number;
+    };
   }> {
     try {
       const response = await api.get(`/payments/users/${userId}/history`, {

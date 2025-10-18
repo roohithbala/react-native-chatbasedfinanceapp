@@ -42,17 +42,20 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
   const { theme } = useTheme();
   const [isProcessing, setIsProcessing] = useState(false);
   const [showUpiModal, setShowUpiModal] = useState(false);
-  const { markSplitBillAsPaid, rejectSplitBill, currentUser } = useFinanceStore();
+  const { markSplitBillAsPaid, rejectSplitBill, currentUser, splitBills } = useFinanceStore();
+
+  // Get the latest split bill data from store instead of using stale message data
+  const latestSplitBill = splitBills.find(bill => bill._id === splitBill._id) || splitBill;
 
   // Find current user's participation
-  const currentUserParticipant = splitBill.participants?.find(
+  const currentUserParticipant = latestSplitBill.participants?.find(
     p => {
       const participantId = typeof p.userId === 'object' ? (p.userId as any)._id : p.userId;
       return participantId === currentUserId;
     }
   );
 
-  const isCreator = splitBill.createdBy?._id === currentUserId;
+  const isCreator = latestSplitBill.createdBy?._id === currentUserId;
   const hasPaid = currentUserParticipant?.isPaid || false;
   const hasRejected = currentUserParticipant?.isRejected || false;
   const userShare = currentUserParticipant?.amount ?? 0;
@@ -60,13 +63,13 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
   // Track split bill changes for debugging
   React.useEffect(() => {
     console.log('🔄 SplitBillChatCard: splitBill prop changed:', {
-      splitBillId: splitBill._id,
+      splitBillId: latestSplitBill._id,
       currentUserId,
       hasPaid,
       hasRejected,
       userShare,
-      participantCount: splitBill.participants?.length,
-      participants: splitBill.participants?.map(p => ({
+      participantCount: latestSplitBill.participants?.length,
+      participants: latestSplitBill.participants?.map(p => ({
         userId: typeof p.userId === 'object' ? (p.userId as any)._id : p.userId,
         isPaid: p.isPaid,
         isRejected: p.isRejected || false
@@ -77,18 +80,18 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
         amount: currentUserParticipant.amount
       } : null
     });
-  }, [splitBill, hasPaid, hasRejected, currentUserId, currentUserParticipant, userShare]);
+  }, [latestSplitBill, hasPaid, hasRejected, currentUserId, currentUserParticipant, userShare]);
   
   // Debug logging
   console.log('🎫 SplitBillChatCard render:', {
-    splitBillId: splitBill._id,
+    splitBillId: latestSplitBill._id,
     currentUserId,
     isCreator,
     hasPaid,
     hasRejected,
     userShare,
     participantData: currentUserParticipant,
-    allParticipants: splitBill.participants?.map(p => ({
+    allParticipants: latestSplitBill.participants?.map(p => ({
       userId: typeof p.userId === 'object' ? (p.userId as any)._id : p.userId,
       isPaid: p.isPaid,
       isRejected: p.isRejected,
@@ -97,7 +100,7 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
   });
   
   // Ensure totalAmount is a valid number
-  const totalAmount = splitBill.totalAmount ?? 0;
+  const totalAmount = latestSplitBill.totalAmount ?? 0;
   
   // Safety check - don't render if data is incomplete
   if (!splitBill._id || !splitBill.description || totalAmount === 0) {
@@ -109,7 +112,7 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
     if (!currentUserParticipant || hasPaid) return;
     
     // Get creator's UPI ID from splitBill data
-    const creatorUpiId = (splitBill.createdBy as any)?.upiId || currentUser?.upiId || 'merchant@upi';
+    const creatorUpiId = (latestSplitBill.createdBy as any)?.upiId || currentUser?.upiId || 'merchant@upi';
     
     if (!creatorUpiId || creatorUpiId === 'merchant@upi') {
       Alert.alert(
@@ -163,7 +166,7 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
 
     Alert.alert(
       'Reject Bill',
-      `Are you sure you want to reject "${splitBill.description}"?`,
+      `Are you sure you want to reject "${latestSplitBill.description}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -175,10 +178,10 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
             let errorMessage = '';
             
             try {
-              console.log('🚫 Rejecting split bill:', splitBill._id);
+              console.log('🚫 Rejecting split bill:', latestSplitBill._id);
               console.log('Current participant before reject:', currentUserParticipant);
               
-              await rejectSplitBill(splitBill._id);
+              await rejectSplitBill(latestSplitBill._id);
               
               console.log('✅ Split bill rejected successfully');
             } catch (error: any) {
@@ -244,10 +247,10 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
       const { chatAPIService } = await import('@/lib/services/ChatAPIService');
       
       await chatAPIService.reportUser({
-        reportedUserId: splitBill.createdBy?._id || 'unknown',
-        reportedUsername: splitBill.createdBy?.name || 'Unknown',
+        reportedUserId: latestSplitBill.createdBy?._id || 'unknown',
+        reportedUsername: latestSplitBill.createdBy?.name || 'Unknown',
         reason: `Split Bill Issue: ${reason}`,
-        description: `Issue with split bill "${splitBill.description}" (ID: ${splitBill._id})`
+        description: `Issue with split bill "${latestSplitBill.description}" (ID: ${latestSplitBill._id})`
       });
 
       Alert.alert('Report Submitted', 'Your report has been submitted. Our team will review it.');
@@ -274,7 +277,7 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
 
         <View style={styles.content}>
           <Text style={[styles.description, { color: theme.text }]}>
-            {splitBill.description}
+            {latestSplitBill.description}
           </Text>
 
           <View style={styles.amountContainer}>
@@ -290,7 +293,7 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
             <Text style={[styles.participantsLabel, { color: theme.textSecondary }]}>
               Participants:
             </Text>
-            {splitBill.participants.map((participant, index) => (
+            {latestSplitBill.participants.map((participant, index) => (
               <View key={typeof participant.userId === 'object' ? (participant.userId as any)._id : participant.userId} style={styles.participantRow}>
                 <Text style={[styles.participantText, { color: theme.text }]}>
                   Person {index + 1}: ₹{(participant.amount ?? 0).toFixed(2)}
@@ -340,7 +343,7 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
 
       <View style={styles.content}>
         <Text style={[styles.description, { color: theme.text }]}>
-          {splitBill.description}
+          {latestSplitBill.description}
         </Text>
 
         <View style={styles.amountContainer}>
@@ -356,7 +359,7 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
           <Text style={[styles.participantsLabel, { color: theme.textSecondary }]}>
             Participants:
           </Text>
-          {splitBill.participants.map((participant, index) => (
+          {latestSplitBill.participants.map((participant, index) => (
             <View key={typeof participant.userId === 'object' ? (participant.userId as any)._id : participant.userId} style={styles.participantRow}>
               <Text style={[styles.participantText, { color: theme.text }]}>
                 Person {index + 1}: ₹{(participant.amount ?? 0).toFixed(2)}
@@ -443,14 +446,13 @@ const SplitBillChatCard: React.FC<SplitBillChatCardProps> = ({
         </View>
       )}
 
-      {/* UPI Payment Modal */}
       <UpiPaymentModal
         visible={showUpiModal}
         amount={userShare}
-        description={splitBill.description}
-        recipientUpiId={(splitBill.createdBy as any)?.upiId || currentUser?.upiId || 'merchant@upi'}
-        recipientName={(splitBill.createdBy as any)?.name || 'Bill Creator'}
-        splitBillId={splitBill._id}
+        description={latestSplitBill.description}
+        recipientUpiId={(latestSplitBill.createdBy as any)?.upiId || currentUser?.upiId || 'merchant@upi'}
+        recipientName={(latestSplitBill.createdBy as any)?.name || 'Bill Creator'}
+        splitBillId={latestSplitBill._id}
         onClose={() => setShowUpiModal(false)}
         onPaymentSuccess={handlePaymentComplete}
       />
