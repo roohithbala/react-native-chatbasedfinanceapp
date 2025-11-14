@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, hexToRgba } from '../context/ThemeContext';
 
 interface ProfileHeaderProps {
   currentUser: any;
@@ -19,17 +18,16 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const { theme } = useTheme();
   const styles = getStyles(theme);
   return (
-    <LinearGradient colors={[theme.primary, theme.primaryLight]} style={styles.header}>
+    <View style={[styles.header, { backgroundColor: theme.primary }]}>
       <View style={styles.profileSection}>
         <View style={styles.avatarContainer}>
-          <LinearGradient
-            colors={[theme.surface, theme.surfaceSecondary]}
-            style={styles.avatarGradient}
+          <View
+            style={[styles.avatarGradient, { backgroundColor: theme.surface }]}
           >
             <Text style={styles.avatarText}>
               {currentUser.name.charAt(0).toUpperCase()}
             </Text>
-          </LinearGradient>
+          </View>
         </View>
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{currentUser.name}</Text>
@@ -53,7 +51,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           <Text style={styles.statLabel}>Groups</Text>
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 };
 
@@ -100,7 +98,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: theme.surface + '40', // 40% opacity
+    backgroundColor: hexToRgba(theme.surface, 0.4), // 40% opacity
     borderRadius: 16,
     padding: 16,
   },
@@ -120,7 +118,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    backgroundColor: theme.surfaceSecondary + '60', // 60% opacity
+    backgroundColor: hexToRgba(theme.surfaceSecondary, 0.6), // 60% opacity
     marginHorizontal: 16,
   },
 });

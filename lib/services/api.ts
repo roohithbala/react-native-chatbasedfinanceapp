@@ -167,7 +167,12 @@ export const budgetsAPI = {
       console.log('Budgets API response:', {
         status: response.status,
         dataType: typeof response.data,
-        dataKeys: response.data ? Object.keys(response.data) : []
+        dataKeys: response.data ? Object.keys(response.data) : [],
+        hasData: !!response.data,
+        hasStatus: !!(response.data && response.data.status),
+        statusValue: response.data?.status,
+        hasDataData: !!(response.data && response.data.data),
+        hasBudgets: !!(response.data && response.data.data && response.data.data.budgets)
       });
 
       // Check if response.data is a string (HTML error page)
@@ -176,10 +181,32 @@ export const budgetsAPI = {
         throw new Error('Server returned invalid response format for budgets');
       }
 
+      // More lenient validation for debugging
+      if (!response.data) {
+        console.error('No response data received');
+        throw new Error('No data received from server');
+      }
+
+      // Check if this is an error response
+      if (response.data.status === 'error') {
+        console.error('Server returned error:', response.data);
+        throw new Error(response.data.message || 'Server error occurred');
+      }
+
       // Validate response structure
-      if (!response.data || !response.data.status || response.data.status !== 'success' || !response.data.data?.budgets) {
-        console.error('Invalid budget response structure:', response.data);
-        throw new Error('Invalid budget data received from server');
+      if (!response.data.status || response.data.status !== 'success') {
+        console.error('Invalid status in budget response:', response.data);
+        throw new Error(`Server returned status: ${response.data.status}`);
+      }
+
+      if (!response.data.data) {
+        console.error('No data field in budget response:', response.data);
+        throw new Error('Server response missing data field');
+      }
+
+      if (!response.data.data.budgets) {
+        console.error('No budgets field in response data:', response.data.data);
+        throw new Error('Server response missing budgets field');
       }
 
       return response.data.data;
@@ -188,22 +215,35 @@ export const budgetsAPI = {
       console.error('Error details:', {
         message: error.message,
         status: error.response?.status,
-        dataType: typeof error.response?.data
+        dataType: typeof error.response?.data,
+        responseData: error.response?.data
       });
 
-      // Handle rate limiting
-      if (error.response?.status === 429) {
-        console.warn('Rate limit exceeded for budgets API');
+      // Handle specific HTTP status codes
+      if (error.response?.status === 401) {
+        throw new Error('Authentication failed. Please log in again.');
+      } else if (error.response?.status === 403) {
+        throw new Error('Access denied. You may not have permission to view budgets.');
+      } else if (error.response?.status === 404) {
+        throw new Error('Budgets service not found. Please check server configuration.');
+      } else if (error.response?.status >= 500) {
+        throw new Error('Server error. Please try again later.');
+      } else if (error.response?.status === 429) {
         throw new Error('Rate limit exceeded. Please try again later.');
       }
 
-      // Enhance error messages for common issues
-      if (error.name === 'NetworkError' || !error.response) {
-        throw new Error('Unable to fetch budgets. Please check your connection and try again.');
+      // Handle network errors
+      if (error.name === 'NetworkError' || error.message.includes('Network Error') || !error.response) {
+        throw new Error('Unable to connect to server. Please check your internet connection and ensure the server is running.');
       }
 
-      // Rethrow the error with its enhanced message from the interceptor
-      throw error;
+      // Rethrow with original message if it's already descriptive
+      if (error.message && !error.message.includes('Invalid budget data received from server')) {
+        throw error;
+      }
+
+      // Fallback error
+      throw new Error('Failed to load budgets. Please try again.');
     }
   },
 

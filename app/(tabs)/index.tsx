@@ -3,6 +3,8 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  View,
+  Text,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFinanceStore } from '@/lib/store/financeStore';
@@ -15,6 +17,7 @@ import PendingPayments from '../components/PendingPayments';
 import HomeStats from '../components/HomeStats';
 import HomeActions from '../components/HomeActions';
 import useHomeData from '../hooks/useHomeData';
+import AccountOverview from '../components/AccountOverview';
 
 export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -93,7 +96,7 @@ export default function HomeScreen() {
     }
   };
 
-  const { recentExpenses, pendingSplitBills, totalOwed, totalExpensesThisMonth } = useHomeData();
+  const { recentExpenses, pendingSplitBills, totalOwed, totalExpensesThisMonth, budgetRemaining, netPosition, lastMonthExpenses } = useHomeData();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -110,7 +113,13 @@ export default function HomeScreen() {
           onTestConnectivity={handleTestConnectivity}
         />
 
-        <HomeStats totalExpensesThisMonth={totalExpensesThisMonth} totalOwed={totalOwed} />
+        <AccountOverview
+          totalExpensesThisMonth={totalExpensesThisMonth}
+          budgetRemaining={budgetRemaining}
+          netPosition={netPosition}
+        />
+
+        <HomeStats totalExpensesThisMonth={totalExpensesThisMonth} totalOwed={totalOwed} budgetRemaining={budgetRemaining} netPosition={netPosition} lastMonthExpenses={lastMonthExpenses} />
 
         {/* Quick Actions */}
         <HomeActions />

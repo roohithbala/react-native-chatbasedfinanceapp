@@ -41,6 +41,26 @@ const userSchema = new mongoose.Schema({
     trim: true,
     match: /^[a-zA-Z0-9.-]+@[a-zA-Z0-9.-]+$/
   },
+  otp: {
+    type: String,
+    required: false
+  },
+  otpExpires: {
+    type: Date,
+    required: false
+  },
+  otpVerified: {
+    type: Boolean,
+    default: false
+  },
+  resetOTP: {
+    type: String,
+    required: false
+  },
+  resetOTPExpiry: {
+    type: Date,
+    required: false
+  },
   avatar: {
     type: String,
     default: '👤'

@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, hexToRgba } from '../context/ThemeContext';
 
 interface ReminderSettingsProps {
   settings: {
@@ -54,7 +54,7 @@ const ReminderSettings: React.FC<ReminderSettingsProps> = ({
         <Switch
           value={settings.enablePaymentDueReminders}
           onValueChange={(value) => updateSetting('enablePaymentDueReminders', value)}
-          trackColor={{ false: theme.border, true: theme.primary + '50' }}
+          trackColor={{ false: theme.border, true: hexToRgba(theme.primary, 0.5) }}
           thumbColor={settings.enablePaymentDueReminders ? theme.primary : theme.textSecondary}
         />
       </View>
@@ -98,7 +98,7 @@ const ReminderSettings: React.FC<ReminderSettingsProps> = ({
         <Switch
           value={settings.enableSettlementReminders}
           onValueChange={(value) => updateSetting('enableSettlementReminders', value)}
-          trackColor={{ false: theme.border, true: theme.primary + '50' }}
+          trackColor={{ false: theme.border, true: hexToRgba(theme.primary, 0.5) }}
           thumbColor={settings.enableSettlementReminders ? theme.primary : theme.textSecondary}
         />
       </View>
@@ -142,7 +142,7 @@ const ReminderSettings: React.FC<ReminderSettingsProps> = ({
         <Switch
           value={settings.enableOverdueReminders}
           onValueChange={(value) => updateSetting('enableOverdueReminders', value)}
-          trackColor={{ false: theme.border, true: theme.primary + '50' }}
+          trackColor={{ false: theme.border, true: hexToRgba(theme.primary, 0.5) }}
           thumbColor={settings.enableOverdueReminders ? theme.primary : theme.textSecondary}
         />
       </View>

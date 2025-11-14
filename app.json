@@ -73,15 +73,16 @@
         {
           "microphonePermission": "Allow SecureFinance to access your microphone for voice and video calls"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "extra": {
       "eas": {
         "projectId": "eadbdbb7-4aea-4077-b627-3d61cb465198"
       },
-      "API_URL": "http://10.131.135.172:3001/api",
-      "SOCKET_URL": "http://10.131.135.172:3001",
-      "FRONTEND_URL": "http://10.131.135.172:8081"
+      "API_URL": "http://10.209.229.172:3001/api",
+      "SOCKET_URL": "http://10.209.229.172:3001",
+      "FRONTEND_URL": "exp://10.209.229.172:8081"
     }
   }
 }

@@ -22,6 +22,7 @@ import SplitBillService from '../services/splitBillService';
 import freeAIService, { SpendingAnalysis } from '../services/freeAIService';
 import socketService from '../services/socketService';
 import biometricAuthService from '../services/biometricAuthService';
+import { API_BASE_URL } from '../services/apiConfig';
 
 export type { SplitBill };
 
@@ -92,7 +93,7 @@ export interface Group {
   }[];
 }
 
-interface FinanceState {
+export interface FinanceState {
   currentUser: User | null;
   isAuthenticated: boolean;
   authToken: string | null;
@@ -109,7 +110,7 @@ interface FinanceState {
   
   // Auth actions
   clearStorage: () => Promise<void>;
-  login: (credentials: { email?: string; username?: string; password: string }) => Promise<void>;
+  login: (credentials: { email?: string; username?: string; password: string }) => Promise<{ requiresOTP: boolean; email?: string; message?: string; otp?: string } | undefined>;
   register: (userData: { name: string; email: string; username: string; password: string; upiId: string }) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
@@ -117,6 +118,9 @@ interface FinanceState {
   biometricLogin: () => Promise<void>;
   updateBiometricPreference: (enabled: boolean) => Promise<void>;
   googleAuth: (idToken: string) => Promise<void>;
+  sendOTP: (email: string) => Promise<any>;
+  verifyOTP: (email: string, otp: string) => Promise<any>;
+  otpLogin: (email: string, otp: string) => Promise<void>;
   
   // Expense actions
   addExpense: (expense: CreateExpenseData) => Promise<void>;
@@ -268,12 +272,25 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
 
-  login: async (credentials: { email?: string; username?: string; password: string }) => {
+  login: async (credentials: { email?: string; username?: string; password: string }): Promise<{ requiresOTP: boolean; email?: string; message?: string; otp?: string } | undefined> => {
     try {
       set({ isLoading: true, error: null });
       
       const response = await authAPI.login(credentials);
       
+      // Check if OTP is required (new mandatory OTP flow)
+      if (response.requiresOTP) {
+        set({ isLoading: false });
+        // Return the OTP requirement info instead of throwing error
+        return {
+          requiresOTP: true,
+          email: response.email,
+          message: response.message,
+          otp: response.otp // Only in development
+        };
+      }
+      
+      // Legacy flow - direct token return (shouldn't happen with new backend)
       if (response.token && response.user) {
         await AsyncStorage.setItem('authToken', response.token);
         await AsyncStorage.setItem('userData', JSON.stringify(response.user));
@@ -315,6 +332,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           console.error('Error loading data after login:', error);
           // Don't throw error, just log it - user can still use the app
         }
+        
+        return undefined; // Legacy flow - authentication successful, no OTP required
       } else {
         throw new Error('Invalid response from server');
       }
@@ -559,6 +578,96 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
 
+  sendOTP: async (email: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await authAPI.sendOTP(email);
+      set({ isLoading: false });
+      return response;
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to send OTP',
+        isLoading: false
+      });
+      throw error;
+    }
+  },
+
+  verifyOTP: async (email: string, otp: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await authAPI.verifyOTP(email, otp);
+      set({ isLoading: false });
+      return response;
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'OTP verification failed',
+        isLoading: false
+      });
+      throw error;
+    }
+  },
+
+  otpLogin: async (email: string, otp: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const response = await authAPI.otpLogin(email, otp);
+
+      if (response.token && response.user) {
+        await AsyncStorage.setItem('authToken', response.token);
+        await AsyncStorage.setItem('userData', JSON.stringify(response.user));
+
+        set({
+          isAuthenticated: true,
+          authToken: response.token,
+          currentUser: response.user,
+          groups: Array.isArray(response.user.groups) ? response.user.groups : [],
+          selectedGroup: Array.isArray(response.user.groups) ? response.user.groups[0] || null : null,
+          isLoading: false,
+        });
+
+        // Load all user data after successful OTP authentication
+        try {
+          console.log('Loading user data after OTP auth...');
+
+          // Load groups first
+          await get().loadGroups();
+
+          // After loading groups, set the first group as selected if available
+          const groups = get().groups;
+          if (Array.isArray(groups) && groups.length > 0) {
+            set({ selectedGroup: groups[0] });
+          }
+
+          // Load other data in parallel
+          await Promise.all([
+            get().loadExpenses(),
+            get().loadBudgets(),
+            get().getSplitBills()
+          ]);
+
+          console.log('All user data loaded successfully after OTP auth');
+
+          // Initialize socket listeners for real-time updates
+          get().initializeSocketListeners();
+        } catch (error) {
+          console.error('Error loading data after OTP auth:', error);
+          // Don't throw error, just log it - user can still use the app
+        }
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'OTP authentication failed',
+        isLoading: false,
+        groups: [], // Ensure groups is always an array
+      });
+      throw error;
+    }
+  },
+
   register: async (userData: { name: string; email: string; username: string; password: string; upiId: string }) => {
     try {
       set({ isLoading: true, error: null });
@@ -713,6 +822,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       if (token[1] && userData[1]) {
         const user = JSON.parse(userData[1]);
         
+        // First, set authentication state optimistically
         set({
           isAuthenticated: true,
           authToken: token[1],
@@ -727,10 +837,26 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           insights: [],
         });
         
-        console.log('Authentication restored, loading user data...');
+        console.log('Authentication restored, validating token...');
         
-        // Load real groups from backend after authentication is set
+        // Try to validate the token with a simple API call before loading all data
         try {
+          // Use a simple health check or user profile endpoint to validate token
+          const response = await fetch(`${API_BASE_URL.replace('/api', '')}/api/health`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token[1]}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Token validation failed: ${response.status}`);
+          }
+          
+          console.log('Token validated successfully, loading user data...');
+          
+          // Token is valid, proceed with loading data
           await get().loadGroups();
           
           // After loading groups, set the first group as selected if available
@@ -750,9 +876,29 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           
           // Initialize socket listeners for real-time updates
           get().initializeSocketListeners();
-        } catch (error) {
-          console.error('Error loading data after auth restore:', error);
-          // Don't throw error, just log it - user can still use the app
+          
+        } catch (validationError) {
+          console.error('Token validation failed:', validationError);
+          
+          // Token is invalid/expired, clear authentication state
+          console.log('Clearing invalid authentication state...');
+          await AsyncStorage.removeItem('authToken');
+          await AsyncStorage.removeItem('userData');
+          
+          set({
+            isAuthenticated: false,
+            authToken: null,
+            currentUser: null,
+            groups: [],
+            expenses: [],
+            splitBills: [],
+            budgets: {},
+            messages: {},
+            predictions: [],
+            insights: [],
+          });
+          
+          console.log('Authentication state cleared due to invalid token');
         }
       } else {
         // No stored auth data, ensure clean state
@@ -1797,6 +1943,19 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       // Test authentication
       if (!get().authToken) {
         throw new Error('No authentication token found. Please log in again.');
+      }
+      
+      console.log('Testing budgets API directly...');
+      try {
+        const budgetsResponse = await budgetsAPI.getBudgets();
+        console.log('Budgets API test successful:', {
+          hasBudgets: !!budgetsResponse?.budgets,
+          budgetsType: typeof budgetsResponse?.budgets,
+          budgetsKeys: budgetsResponse?.budgets ? Object.keys(budgetsResponse.budgets) : []
+        });
+      } catch (budgetError: any) {
+        console.error('Budgets API test failed:', budgetError);
+        throw new Error(`Budgets API failed: ${budgetError.message || 'Unknown error'}`);
       }
       
       // Test data loading

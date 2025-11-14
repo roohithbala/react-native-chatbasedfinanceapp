@@ -104,7 +104,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.warning + '20', // 20% opacity
+    backgroundColor: 'rgba(245, 158, 11, 0.2)', // 20% opacity orange/warning color
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

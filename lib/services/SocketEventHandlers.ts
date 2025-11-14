@@ -111,6 +111,24 @@ export class SocketEventHandlers {
     });
   }
 
+  onMessageDeleted(callback: (data: { messageId: string; userId: string }) => void) {
+    if (!this.socket) return;
+
+    this.socket.on('messageDeleted', (data: { messageId: string; userId: string }) => {
+      callback(data);
+    });
+  }
+
+  offMessageDeleted() {
+    if (!this.socket) return;
+    this.socket.off('messageDeleted');
+  }
+
+  offSplitBillUpdate() {
+    if (!this.socket) return;
+    this.socket.off('splitBillUpdate');
+  }
+
   removeEventListeners() {
     if (!this.socket) return;
 
@@ -124,5 +142,6 @@ export class SocketEventHandlers {
     this.socket.off('budgetUpdate');
     this.socket.off('insightUpdate');
     this.socket.off('splitBillUpdate');
+    this.socket.off('messageDeleted');
   }
 }

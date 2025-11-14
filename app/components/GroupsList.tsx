@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, hexToRgba } from '../context/ThemeContext';
 
 interface Group {
   _id: string;
@@ -92,7 +92,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.primary + '20', // 20% opacity
+    backgroundColor: hexToRgba(theme.primary, 0.2), // 20% opacity
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

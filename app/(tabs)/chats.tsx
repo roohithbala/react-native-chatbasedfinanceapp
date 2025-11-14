@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ChatsHeaderWrapper from '../components/ChatsHeaderWrapper';
 import ChatsSearch from '../components/ChatsSearch';
 import ChatsContentWrapper from '../components/ChatsContentWrapper';
 import { ChatTabs } from '../components/ChatTabs';
-import { ChatsTabContent } from '../components/ChatsTabContent';
 import { JoinGroupModal } from '../components/JoinGroupModal';
 import { NewChatModal } from '../components/NewChatModal';
-import { SearchResults } from '../components/SearchResults';
 import ChatMenu from '../components/ChatMenu';
 import { useChatsLogic } from '@/hooks/useChatsLogic';
 import { useTheme } from '../context/ThemeContext';

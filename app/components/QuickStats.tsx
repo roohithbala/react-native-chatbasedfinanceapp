@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 
 interface QuickStatsProps {
@@ -20,15 +19,15 @@ export const QuickStats: React.FC<QuickStatsProps> = ({ realStats }) => {
       <Text style={[styles.sectionTitle, { color: theme.text }]}>Quick Stats</Text>
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
-          <LinearGradient colors={[theme.error || '#EF4444', theme.error || '#F87171']} style={styles.statGradient}>
+          <View style={[styles.statGradient, { backgroundColor: theme.error || '#EF4444' }]}>
             <Ionicons name="trending-up" size={24} color="white" />
             <Text style={styles.statValue}>{theme.currency}{realStats.thisMonthTotal.toFixed(2)}</Text>
             <Text style={styles.statLabel}>This Month</Text>
-          </LinearGradient>
+          </View>
         </View>
 
         <View style={styles.statCard}>
-          <LinearGradient colors={[theme.success || '#10B981', theme.success || '#34D399']} style={styles.statGradient}>
+          <View style={[styles.statGradient, { backgroundColor: theme.success || '#10B981' }]}>
             <Ionicons
               name={realStats.percentageChange >= 0 ? "trending-up" : "trending-down"}
               size={24}
@@ -38,23 +37,23 @@ export const QuickStats: React.FC<QuickStatsProps> = ({ realStats }) => {
               {realStats.percentageChange >= 0 ? '+' : ''}{realStats.percentageChange.toFixed(1)}%
             </Text>
             <Text style={styles.statLabel}>vs Last Month</Text>
-          </LinearGradient>
+          </View>
         </View>
 
         <View style={styles.statCard}>
-          <LinearGradient colors={[theme.primary || '#8B5CF6', theme.primary || '#A78BFA']} style={styles.statGradient}>
+          <View style={[styles.statGradient, { backgroundColor: theme.primary || '#8B5CF6' }]}>
             <Ionicons name="people" size={24} color="white" />
             <Text style={styles.statValue}>{realStats.activeGroups}</Text>
             <Text style={styles.statLabel}>Active Groups</Text>
-          </LinearGradient>
+          </View>
         </View>
 
         <View style={styles.statCard}>
-          <LinearGradient colors={[theme.warning || '#F59E0B', theme.warning || '#FBBF24']} style={styles.statGradient}>
+          <View style={[styles.statGradient, { backgroundColor: theme.warning || '#F59E0B' }]}>
             <Ionicons name="wallet" size={24} color="white" />
             <Text style={styles.statValue}>{theme.currency}{realStats.remainingBudget.toFixed(2)}</Text>
             <Text style={styles.statLabel}>Remaining Budget</Text>
-          </LinearGradient>
+          </View>
         </View>
       </View>
     </View>

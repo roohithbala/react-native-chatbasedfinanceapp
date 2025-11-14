@@ -165,6 +165,18 @@ export class SocketService {
     this.eventHandlers.onSplitBillUpdate(callback);
   }
 
+  onMessageDeleted(callback: (data: { messageId: string; userId: string }) => void) {
+    this.eventHandlers.onMessageDeleted(callback);
+  }
+
+  offMessageDeleted() {
+    this.eventHandlers.offMessageDeleted();
+  }
+
+  offSplitBillUpdate() {
+    this.eventHandlers.offSplitBillUpdate();
+  }
+
   // Call handling
   sendCallOffer(offer: any, targetUserId: string, groupId?: string) {
     this.callHandlers.sendCallOffer(offer, targetUserId, groupId);

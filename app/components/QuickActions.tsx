@@ -15,13 +15,24 @@ export default function QuickActions() {
       <View style={styles.actionGrid}>
         <TouchableOpacity
           style={[styles.actionCard, { backgroundColor: theme.surface }]}
+          onPress={() => router.push('/you-owe')}
+        >
+          <View style={styles.actionIcon}>
+            <Ionicons name="card" size={24} color={theme.primary} />
+          </View>
+          <Text style={styles.actionTitle}>Pay Bills</Text>
+          <Text style={styles.actionSubtitle}>Settle payments</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: theme.surface }]}
           onPress={() => router.push('/(tabs)/expenses')}
         >
           <View style={styles.actionIcon}>
-            <Ionicons name="add" size={24} color={theme.primary} />
+            <Ionicons name="add-circle" size={24} color={theme.success} />
           </View>
           <Text style={styles.actionTitle}>Add Expense</Text>
-          <Text style={styles.actionSubtitle}>Track new spending</Text>
+          <Text style={styles.actionSubtitle}>Track spending</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -29,10 +40,10 @@ export default function QuickActions() {
           onPress={() => router.push('/(tabs)/chats')}
         >
           <View style={styles.actionIcon}>
-            <Ionicons name="people" size={24} color={theme.success} />
+            <Ionicons name="people" size={24} color={theme.info} />
           </View>
-          <Text style={styles.actionTitle}>Group Chat</Text>
-          <Text style={styles.actionSubtitle}>Split bills with friends</Text>
+          <Text style={styles.actionTitle}>Split Bills</Text>
+          <Text style={styles.actionSubtitle}>With friends</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -43,18 +54,7 @@ export default function QuickActions() {
             <Ionicons name="pie-chart" size={24} color={theme.warning} />
           </View>
           <Text style={styles.actionTitle}>Budget</Text>
-          <Text style={styles.actionSubtitle}>Manage your limits</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: theme.surface }]}
-          onPress={() => router.push('/(tabs)/insights')}
-        >
-          <View style={styles.actionIcon}>
-            <Ionicons name="trending-up" size={24} color={theme.primary} />
-          </View>
-          <Text style={styles.actionTitle}>Insights</Text>
-          <Text style={styles.actionSubtitle}>View analytics</Text>
+          <Text style={styles.actionSubtitle}>Set limits</Text>
         </TouchableOpacity>
       </View>
     </View>

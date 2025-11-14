@@ -1,13 +1,16 @@
 // API configuration
-export const API_BASE_URL = __DEV__
-  ? 'http://10.131.135.172:3001' // Development server IP
-  : 'https://your-production-api.com'; // Production URL
+import { Platform } from 'react-native';
 
-// For React Native, you might need to use different URLs for different platforms
-// export const API_BASE_URL = Platform.OS === 'android'
-//   ? 'http://10.0.2.2:3002' // Android emulator
-//   : 'http://localhost:3002'; // iOS simulator
+// Dev machine IP for physical devices on the same LAN. Replace with your host IP if different.
+const DEV_LOCAL_IP = '10.209.229.172';
+const DEV_PORT = 3001;
+
+// For development we prefer the LAN IP so physical devices / Expo LAN mode can reach the dev server.
+// If you are running exclusively on an Android emulator, update this to 10.0.2.2 manually.
+export const API_BASE_URL = __DEV__
+  ? `http://${DEV_LOCAL_IP}:${DEV_PORT}`
+  : 'https://your-production-api.com';
 
 export const WS_BASE_URL = __DEV__
-  ? 'ws://10.131.135.172:3001'
+  ? `ws://${DEV_LOCAL_IP}:${DEV_PORT}`
   : 'wss://your-production-api.com';

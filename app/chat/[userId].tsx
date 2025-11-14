@@ -22,14 +22,14 @@ import { MediaViewer } from '../components/MediaViewer';
 import { useChatStore } from '@/lib/store/chatStore';
 import { chatAPIService } from '@/lib/services/ChatAPIService';
 import { directMessagesAPI } from '@/lib/services/api';
-import { socketService } from '../lib/services/socketService';
+import { socketService } from '@/lib/services/socketService';
 import { useDirectChatCommands } from '@/lib/hooks/useDirectChatCommands';
 import { useProfileData } from '@/hooks/useProfileData';
 import UpiIdInputModal from '../components/UpiIdInputModal';
 import SplitBillModal from '../components/SplitBillModal';
 
 export default function ChatDetailScreen() {
-  const { userId } = useLocalSearchParams<{ userId: string }>();
+  const { userId, action } = useLocalSearchParams<{ userId: string; action?: string }>();
   const { theme } = useTheme();
   const styles = getStyles(theme);
 
@@ -224,6 +224,14 @@ export default function ChatDetailScreen() {
       socketService.disconnect();
     };
   }, [userId, loadMessages, currentUser?._id, currentUser?.name, currentUser?.username]);
+
+  // Auto-open split bill modal if action parameter is set
+  React.useEffect(() => {
+    if (action === 'split-bill' && otherUser) {
+      console.log('DirectChat - Auto-opening split bill modal from action parameter');
+      setShowSplitBillModal(true);
+    }
+  }, [action, otherUser]);
 
   const handleSend = async () => {
     if (!newMessage.trim()) return;

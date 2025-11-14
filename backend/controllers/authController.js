@@ -7,11 +7,26 @@ const {
   validateProfileUpdate,
   generateToken,
   checkUserExists,
-  formatUserResponse
+  formatUserResponse,
+  generateOTP,
+  generateOTPExpiry,
+  verifyOTPUtil,
+  clearOTP
 } = require('../utils/authUtils');
+const {
+  sendOTPEmail,
+  sendPasswordResetConfirmationEmail,
+  sendLoginSuccessEmail,
+  sendLoginFailureEmail
+} = require('../utils/emailService');
 
 // Initialize Google OAuth client
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Utility: escape user input for RegExp
+const escapeRegExp = (string) => {
+  return String(string).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
+};
 
 // Register new user
 const register = async (userData) => {
@@ -92,7 +107,7 @@ const register = async (userData) => {
   };
 };
 
-// Login user
+// Login user - Now triggers OTP verification for all users
 const login = async (loginData) => {
   const { email, password, username } = loginData;
 
@@ -109,7 +124,7 @@ const login = async (loginData) => {
   if (email) {
     user = await User.findOne({ email: email.toLowerCase() }).populate('groups');
   } else if (username) {
-    user = await User.findOne({ username: username.trim() }).populate('groups');
+    user = await User.findOne({ username: new RegExp('^' + escapeRegExp(username.trim()) + '$', 'i') }).populate('groups');
   }
 
   if (!user) {
@@ -119,6 +134,15 @@ const login = async (loginData) => {
   // Check password
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
+    // Send login failure notification if we have the user's email
+    try {
+      if (user && user.email) {
+        await sendLoginFailureEmail(user.email, user.name, 'Incorrect password');
+      }
+    } catch (e) {
+      console.error('Error sending login failure email:', e);
+    }
+
     throw new Error('Invalid credentials');
   }
 
@@ -126,14 +150,33 @@ const login = async (loginData) => {
   user.lastSeen = new Date();
   await user.save();
 
-  // Generate JWT
-  console.log('Login: Generating token for user._id:', user._id, 'type:', typeof user._id);
-  const token = generateToken(user._id);
+  // Generate and send OTP instead of returning token directly
+  const otp = generateOTP();
+  const otpExpires = generateOTPExpiry();
 
+  // Save OTP to user
+  user.otp = otp;
+  user.otpExpires = otpExpires;
+  user.otpVerified = false;
+  await user.save();
+
+  // Send OTP via email
+  const emailSent = await sendOTPEmail(user.email, otp, 'login');
+  if (!emailSent) {
+    console.error('Failed to send OTP email to:', user.email);
+    // Still proceed but log the error - don't fail the login
+  }
+
+  // TODO: Send OTP via email service (for now, just log it)
+  console.log(`OTP for ${user.email}: ${otp} (expires at ${otpExpires})`);
+
+  // In production, you would send this via email service like SendGrid, AWS SES, etc.
   return {
-    message: 'Login successful',
-    token,
-    user: formatUserResponse(user, true)
+    message: 'OTP sent to your email. Please verify to complete login.',
+    requiresOTP: true,
+    email: user.email,
+    otp: process.env.NODE_ENV === 'development' ? otp : undefined, // Only return OTP in development
+    expiresIn: '10 minutes'
   };
 };
 
@@ -165,11 +208,11 @@ const updateProfile = async (userId, updateData) => {
   }
 
   // Check if username is being changed and validate uniqueness
-  if (username !== undefined && username !== user.username) {
+    if (username !== undefined && username !== user.username) {
     if (!username || username.trim() === '') {
       throw new Error('Username cannot be empty');
     }
-    const existingUser = await User.findOne({ username: username.trim() });
+    const existingUser = await User.findOne({ username: new RegExp('^' + escapeRegExp(username.trim()) + '$', 'i') });
     if (existingUser && existingUser._id.toString() !== user._id.toString()) {
       throw new Error(`Username "${username.trim()}" is already taken by another user`);
     }
@@ -266,6 +309,13 @@ const googleAuth = async (idToken) => {
 
       console.log('Google login: Generating token for user._id:', user._id, 'type:', typeof user._id);
       const token = generateToken(user._id);
+      try {
+        if (user && user.email) {
+          await sendLoginSuccessEmail(user.email, user.name, {});
+        }
+      } catch (e) {
+        console.error('Error sending login success email (google existing user):', e);
+      }
       return {
         message: 'Google login successful',
         token,
@@ -286,6 +336,13 @@ const googleAuth = async (idToken) => {
 
       console.log('Google link: Generating token for existingUser._id:', existingUser._id, 'type:', typeof existingUser._id);
       const token = generateToken(existingUser._id);
+      try {
+        if (existingUser && existingUser.email) {
+          await sendLoginSuccessEmail(existingUser.email, existingUser.name, {});
+        }
+      } catch (e) {
+        console.error('Error sending login success email (google linked user):', e);
+      }
       return {
         message: 'Google account linked successfully',
         token,
@@ -349,6 +406,13 @@ const googleAuth = async (idToken) => {
     // Generate JWT
     console.log('Google register: Generating token for user._id:', user._id, 'type:', typeof user._id);
     const token = generateToken(user._id);
+    try {
+      if (user && user.email) {
+        await sendLoginSuccessEmail(user.email, user.name, {});
+      }
+    } catch (e) {
+      console.error('Error sending login success email (google new user):', e);
+    }
 
     return {
       message: 'Google registration successful',
@@ -364,11 +428,306 @@ const googleAuth = async (idToken) => {
   }
 };
 
+// Send OTP to user's email or username
+const sendOTP = async (identifier) => {
+  try {
+    console.log('Sending OTP to identifier:', identifier);
+
+    // Try to find user by email or username
+    let user = null;
+    if (identifier && identifier.includes('@')) {
+      user = await User.findOne({ email: identifier.toLowerCase() });
+    } else {
+      user = await User.findOne({ username: new RegExp('^' + escapeRegExp(identifier.trim()) + '$', 'i') });
+    }
+
+    // Fallback: try the other field
+    if (!user) {
+      user = await User.findOne({ email: identifier.toLowerCase() }) || await User.findOne({ username: new RegExp('^' + escapeRegExp(identifier.trim()) + '$', 'i') });
+    }
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const email = user.email; // ensure we send to user's registered email
+
+    // Generate OTP
+    const otp = generateOTP();
+    const otpExpires = generateOTPExpiry();
+
+    // Save OTP to user
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    user.otpVerified = false;
+    await user.save();
+
+    // Send OTP via email
+    const emailSent = await sendOTPEmail(email, otp, 'login');
+    if (!emailSent) {
+      throw new Error('Failed to send OTP email. Please try again.');
+    }
+
+    console.log(`OTP for ${email}: ${otp} (expires at ${otpExpires})`);
+
+    return {
+      message: 'OTP sent successfully',
+      otp: process.env.NODE_ENV === 'development' ? otp : undefined,
+      expiresIn: '10 minutes'
+    };
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    throw new Error('Failed to send OTP: ' + error.message);
+  }
+};
+
+// Verify OTP - accepts email or username as identifier
+const verifyOTP = async (identifier, otp) => {
+  try {
+    console.log('Verifying OTP for identifier:', identifier);
+
+    // Try to find user by email or username
+    let user = null;
+    if (identifier && identifier.includes('@')) {
+      user = await User.findOne({ email: identifier.toLowerCase() });
+    } else {
+      user = await User.findOne({ username: new RegExp('^' + escapeRegExp(identifier.trim()) + '$', 'i') });
+    }
+
+    // Fallback: try the other field (case-insensitive username)
+    if (!user) {
+      user = await User.findOne({ email: identifier.toLowerCase() }) || await User.findOne({ username: new RegExp('^' + escapeRegExp(identifier.trim()) + '$', 'i') });
+    }
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify OTP
+    const verification = verifyOTPUtil(otp, user.otp, user.otpExpires);
+    if (!verification.valid) {
+      // Notify user of failed login attempt (invalid OTP)
+      try {
+        if (user && user.email) {
+          await sendLoginFailureEmail(user.email, user.name, verification.message);
+        }
+      } catch (e) {
+        console.error('Error sending login failure email on OTP failure:', e);
+      }
+
+      throw new Error(verification.message);
+    }
+
+    // Clear OTP after successful verification
+    await clearOTP(user);
+
+    return {
+      message: 'OTP verified successfully',
+      verified: true
+    };
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    throw new Error(error.message);
+  }
+};
+
+// OTP Login - accepts either email or username as identifier
+const otpLogin = async (identifier, otp) => {
+  try {
+    console.log('OTP login for identifier:', identifier);
+    console.log('User provided OTP:', otp, 'Type:', typeof otp);
+
+    // Determine whether identifier is an email or username
+    let user = null;
+    if (identifier && identifier.includes('@')) {
+      user = await User.findOne({ email: identifier.toLowerCase() }).populate('groups');
+    } else {
+      user = await User.findOne({ username: new RegExp('^' + escapeRegExp(identifier.trim()) + '$', 'i') }).populate('groups');
+    }
+
+    // Fallback: try the other field if not found
+    if (!user) {
+      // Try email search (in case username was passed as an email or case differences)
+      try {
+        user = await User.findOne({ email: identifier.toLowerCase() }).populate('groups');
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    console.log('Stored OTP:', user.otp, 'Type:', typeof user.otp);
+    console.log('OTP expires:', user.otpExpires);
+    console.log('Current time:', new Date());
+
+    // Verify OTP
+    const verification = verifyOTPUtil(otp, user.otp, user.otpExpires);
+    console.log('OTP verification result:', verification);
+
+    if (!verification.valid) {
+      throw new Error(verification.message);
+    }
+
+    // Clear OTP after successful login
+    await clearOTP(user);
+
+    // Update last seen
+    user.lastSeen = new Date();
+    await user.save();
+
+    // Generate JWT
+    console.log('OTP login: Generating token for user._id:', user._id, 'type:', typeof user._id);
+    const token = generateToken(user._id);
+
+    // Send login success notification (best-effort)
+    try {
+      if (user && user.email) {
+        await sendLoginSuccessEmail(user.email, user.name, {});
+      }
+    } catch (e) {
+      console.error('Error sending login success email:', e);
+    }
+
+    return {
+      message: 'OTP login successful',
+      token,
+      user: formatUserResponse(user, true)
+    };
+  } catch (error) {
+    console.error('OTP login error:', error);
+    throw new Error(error.message);
+  }
+};
+
+// Forgot Password - Send reset OTP
+const forgotPassword = async (email) => {
+  try {
+    // Check if user exists
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      throw new Error('No account found with this email address');
+    }
+
+    // Generate reset OTP
+    const resetOTP = generateOTP();
+    const resetOTPExpiry = generateOTPExpiry();
+
+    // Save reset OTP to user
+    user.resetOTP = resetOTP;
+    user.resetOTPExpiry = resetOTPExpiry;
+    await user.save();
+
+    // Send reset OTP email
+    await sendOTPEmail(email, resetOTP, 'password reset');
+
+    return {
+      message: 'Password reset OTP sent to your email',
+      email: email
+    };
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    throw new Error(error.message);
+  }
+};
+
+// Verify Reset OTP
+const verifyResetOTP = async (email, otp) => {
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Check if OTP matches and is not expired
+    if (!user.resetOTP || user.resetOTP !== otp) {
+      throw new Error('Invalid OTP');
+    }
+
+    if (!user.resetOTPExpiry || user.resetOTPExpiry < new Date()) {
+      throw new Error('OTP expired');
+    }
+
+    // Generate reset token (can be user ID + timestamp for simplicity)
+    const resetToken = `${user._id}_${Date.now()}`;
+
+    // Clear the OTP
+    user.resetOTP = null;
+    user.resetOTPExpiry = null;
+    await user.save();
+
+    return {
+      message: 'OTP verified successfully',
+      resetToken: resetToken
+    };
+  } catch (error) {
+    console.error('Verify reset OTP error:', error);
+    throw new Error(error.message);
+  }
+};
+
+// Reset Password
+const resetPassword = async (resetToken, newPassword) => {
+  try {
+    // Parse reset token (userId_timestamp)
+    const [userId, timestamp] = resetToken.split('_');
+
+    if (!userId || !timestamp) {
+      throw new Error('Invalid reset token');
+    }
+
+    // Check if token is not too old (24 hours)
+    const tokenAge = Date.now() - parseInt(timestamp);
+    if (tokenAge > 24 * 60 * 60 * 1000) {
+      throw new Error('Reset token expired');
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Validate new password
+    if (newPassword.length < 6) {
+      throw new Error('Password must be at least 6 characters long');
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    // Send password reset confirmation (best-effort)
+    try {
+      if (user && user.email) {
+        await sendPasswordResetConfirmationEmail(user.email, user.name);
+      }
+    } catch (e) {
+      console.error('Error sending password reset confirmation email:', e);
+    }
+
+    return {
+      message: 'Password reset successfully'
+    };
+  } catch (error) {
+    console.error('Reset password error:', error);
+    throw new Error(error.message);
+  }
+};
+
 module.exports = {
   register,
   login,
   getCurrentUser,
   updateProfile,
   logout,
-  googleAuth
+  googleAuth,
+  sendOTP,
+  verifyOTP,
+  otpLogin,
+  forgotPassword,
+  verifyResetOTP,
+  resetPassword
 };

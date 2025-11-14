@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useBudgetsStore } from '@/lib/store/budgetsStore';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useTheme, hexToRgba } from '@/app/context/ThemeContext';
 
 interface BudgetImpactAnalysisProps {
   category: string;
@@ -133,7 +133,7 @@ export default function BudgetImpactAnalysis({
       </View>
 
       {budgetImpact.willExceedBudget && (
-        <View style={[styles.warningContainer, { backgroundColor: theme.error + '20' }]}>
+        <View style={[styles.warningContainer, { backgroundColor: hexToRgba(theme.error, 0.2) }]}>
           <Ionicons name="warning" size={16} color={theme.error} />
           <Text style={[styles.warningText, { color: theme.error }]}>
             This bill will exceed your {category} budget by {theme.currency}{budgetImpact.excessAmount.toFixed(2)}

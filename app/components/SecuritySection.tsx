@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, hexToRgba } from '../context/ThemeContext';
 
 export const SecuritySection: React.FC = () => {
   const { theme } = useTheme();
@@ -38,17 +38,17 @@ const getStyles = (theme: any) => StyleSheet.create({
   securityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.success + '20', // 20% opacity
+    backgroundColor: hexToRgba(theme.success, 0.2), // 20% opacity
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: theme.success + '40', // 40% opacity
+    borderColor: hexToRgba(theme.success, 0.4), // 40% opacity
   },
   securityIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: theme.success + '30', // 30% opacity
+    backgroundColor: hexToRgba(theme.success, 0.3), // 30% opacity
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

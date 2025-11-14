@@ -83,4 +83,49 @@ export const authAPI = {
       );
     }
   },
+
+  sendOTP: async (email: string) => {
+    try {
+      const response = await api.post('/auth/send-otp', { email });
+      return response.data;
+    } catch (error: any) {
+      console.error('Send OTP error:', error);
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to send OTP'
+      );
+    }
+  },
+
+  verifyOTP: async (email: string, otp: string) => {
+    try {
+      const response = await api.post('/auth/verify-otp', { email, otp });
+      return response.data;
+    } catch (error: any) {
+      console.error('Verify OTP error:', error);
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'OTP verification failed'
+      );
+    }
+  },
+
+  otpLogin: async (email: string, otp: string) => {
+    try {
+      const response = await api.post('/auth/otp-login', { email, otp });
+      if (!response.data || !response.data.user || !response.data.token) {
+        throw new Error('Invalid response from server');
+      }
+      return response.data;
+    } catch (error: any) {
+      console.error('OTP login error:', error);
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'OTP login failed'
+      );
+    }
+  },
 };

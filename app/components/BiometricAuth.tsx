@@ -24,12 +24,6 @@ export default function BiometricAuth({
 
   return (
     <View style={styles.biometricContainer}>
-      <View style={styles.dividerContainer}>
-        <View style={styles.divider} />
-        <Text style={styles.dividerText}>or</Text>
-        <View style={styles.divider} />
-      </View>
-
       <TouchableOpacity
         style={styles.biometricButton}
         onPress={onBiometricLogin}
@@ -53,6 +47,12 @@ export default function BiometricAuth({
           </Text>
         </LinearGradient>
       </TouchableOpacity>
+
+      <View style={styles.dividerContainer}>
+        <View style={styles.divider} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.divider} />
+      </View>
     </View>
   );
 }
@@ -61,23 +61,6 @@ const getStyles = (theme: any) => StyleSheet.create({
   biometricContainer: {
     marginTop: 20,
     alignItems: 'center',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    width: '100%',
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: theme.border,
-  },
-  dividerText: {
-    paddingHorizontal: 16,
-    color: theme.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
   },
   biometricButton: {
     borderRadius: 16,
@@ -101,5 +84,22 @@ const getStyles = (theme: any) => StyleSheet.create({
     fontWeight: '600',
     color: 'white',
     letterSpacing: 0.5,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    width: '100%',
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: theme.border,
+  },
+  dividerText: {
+    paddingHorizontal: 16,
+    color: theme.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

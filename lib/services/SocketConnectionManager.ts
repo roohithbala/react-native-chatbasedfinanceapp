@@ -22,7 +22,7 @@ export class SocketConnectionManager {
       }
 
       console.log('🔌 Initializing socket connection with auth token...');
-      const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.131.135.172:8081/api';
+      const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
       const SOCKET_URL = EXPO_PUBLIC_API_URL.replace('/api', '');
 
       console.log('🔌 Connecting to socket server:', SOCKET_URL);

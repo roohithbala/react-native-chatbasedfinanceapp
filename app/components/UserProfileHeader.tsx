@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 
 interface UserProfileHeaderProps {
@@ -18,11 +17,9 @@ export default function UserProfileHeader({
   const { theme } = useTheme();
 
   return (
-    <LinearGradient
-      colors={[theme.primary, '#8B5CF6', '#EC4899']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
       style={{
+        backgroundColor: theme.primary,
         paddingTop: 20,
         paddingHorizontal: 16,
         paddingBottom: 20,
@@ -77,6 +74,6 @@ export default function UserProfileHeader({
           </TouchableOpacity>
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }

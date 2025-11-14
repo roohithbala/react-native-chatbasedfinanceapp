@@ -38,4 +38,24 @@ export const getStyles = (theme: any) => StyleSheet.create({
     fontWeight: '600',
     marginBottom: 16,
   },
+  infoContainer: {
+    gap: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  infoLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: '400',
+    flex: 2,
+    textAlign: 'right',
+  },
 });

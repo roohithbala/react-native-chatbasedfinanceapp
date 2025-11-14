@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, Linking } from 'react-native';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useTheme, hexToRgba } from '@/app/context/ThemeContext';
 import { SettlementPlan , PaymentsAPI } from '@/lib/services/paymentsAPI';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -258,7 +258,7 @@ export default function SettlementCard({ settlement, onSettlePayment }: Settleme
                     alignItems: 'center',
                     paddingVertical: 4,
                     paddingHorizontal: 8,
-                    backgroundColor: isCurrentUser ? theme.primary + '10' : 'transparent',
+                    backgroundColor: isCurrentUser ? hexToRgba(theme.primary, 0.1) : 'transparent',
                     borderRadius: 4,
                     marginBottom: 2,
                   }}>

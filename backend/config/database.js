@@ -48,20 +48,11 @@ const configureDatabase = async () => {
   } catch (err) {
     console.log('⚠️  MongoDB connection failed, running in offline mode');
     console.log('📝 Using in-memory data store for development');
-    console.error('Connection error:', err.message);
-    console.log('🔄 Will retry connection every 30 seconds...');
-
-    // Retry connection every 30 seconds
-    setInterval(async () => {
-      try {
-        await mongoose.connect(mongoUri);
-        console.log('✅ MongoDB connected successfully on retry');
-      } catch (retryErr) {
-        console.log('🔄 MongoDB retry failed, will try again in 30 seconds');
-      }
-    }, 30000);
+    console.error('Connection error details:', err.message);
+    console.error('Full error:', err);
 
     // Don't exit the process, continue with offline mode
+    console.log('🔄 Server will continue running in offline mode');
   }
 };
 

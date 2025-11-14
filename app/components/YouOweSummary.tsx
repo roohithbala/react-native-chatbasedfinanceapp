@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useTheme, hexToRgba } from '@/app/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 
 interface YouOweSummaryProps {
@@ -42,7 +42,7 @@ export default function YouOweSummary({ totalOwed, settlementCount, onViewHistor
             style={{
               paddingHorizontal: 12,
               paddingVertical: 6,
-              backgroundColor: theme.primary + '20',
+              backgroundColor: hexToRgba(theme.primary, 0.2),
               borderRadius: 6,
               flexDirection: 'row',
               alignItems: 'center',

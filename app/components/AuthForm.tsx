@@ -1,42 +1,125 @@
-import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import OTPInput from './OTPInput';
+
+// Professional Input Component without floating labels
+const ProfessionalInput = ({
+  placeholder,
+  value,
+  onChangeText,
+  secureTextEntry = false,
+  keyboardType = 'default',
+  autoCapitalize = 'none',
+  theme,
+  disabled = false,
+}: {
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  secureTextEntry?: boolean;
+  keyboardType?: any;
+  autoCapitalize?: any;
+  theme: any;
+  disabled?: boolean;
+}) => {
+  const [isFocused, setIsFocused] = useState(false);
+
+  const inputStyles = StyleSheet.create({
+    inputGroup: {
+      gap: 8,
+      marginBottom: 12,
+    },
+    inputWrapper: {
+      borderRadius: 12,
+      height: 56,
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+      borderColor: isFocused ? theme.primary : theme.border,
+      borderWidth: isFocused ? 2 : 1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    textInput: {
+      flex: 1,
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      fontSize: 16,
+      fontWeight: '500',
+      color: theme.text,
+    },
+  });
+
+  return (
+    <View style={inputStyles.inputGroup}>
+      <View style={inputStyles.inputWrapper}>
+        <TextInput
+          style={inputStyles.textInput}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={theme.textSecondary}
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          editable={!disabled}
+        />
+      </View>
+    </View>
+  );
+};
 
 interface AuthFormProps {
   isLogin: boolean;
   email: string;
   setEmail: (email: string) => void;
-  password: string;
-  setPassword: (password: string) => void;
-  name: string;
-  setName: (name: string) => void;
   username: string;
   setUsername: (username: string) => void;
+  password: string;
+  setPassword: (password: string) => void;
+  otp: string;
+  setOtp: (otp: string) => void;
+  name: string;
+  setName: (name: string) => void;
   upiId: string;
   setUpiId: (upiId: string) => void;
   onSubmit: () => void;
+  onResendOTP?: () => void;
   onSwitchMode: () => void;
+  onForgotPassword?: () => void;
   isLoading: boolean;
   storeLoading: boolean;
+  showOTPInput: boolean;
+  otpError?: string;
 }
 
 export default function AuthForm({
   isLogin,
   email,
   setEmail,
-  password,
-  setPassword,
-  name,
-  setName,
   username,
   setUsername,
+  password,
+  setPassword,
+  otp,
+  setOtp,
+  name,
+  setName,
   upiId,
   setUpiId,
   onSubmit,
+  onResendOTP,
   onSwitchMode,
+  onForgotPassword,
   isLoading,
-  storeLoading
+  storeLoading,
+  showOTPInput,
+  otpError
 }: AuthFormProps) {
   const { theme } = useTheme();
   const styles = getStyles(theme);
@@ -45,89 +128,136 @@ export default function AuthForm({
     <View style={styles.form}>
       {!isLogin && (
         <>
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.text }]}>Full Name</Text>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
-              <TextInput
-                style={[styles.textInput, { color: theme.text }]}
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter your full name"
-                autoCapitalize="words"
-              />
-            </View>
-          </View>
+          <ProfessionalInput
+            placeholder="Full Name"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+            theme={theme}
+            disabled={isLoading || storeLoading}
+          />
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.text }]}>Username</Text>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
-              <TextInput
-                style={[styles.textInput, { color: theme.text }]}
-                value={username}
-                onChangeText={setUsername}
-                placeholder="Choose a username"
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
+          <ProfessionalInput
+            placeholder="Username"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            theme={theme}
+            disabled={isLoading || storeLoading}
+          />
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.text }]}>UPI ID</Text>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
-              <TextInput
-                style={[styles.textInput, { color: theme.text }]}
-                value={upiId}
-                onChangeText={setUpiId}
-                placeholder="Enter your UPI ID (e.g., user@paytm)"
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
-          </View>
+          <ProfessionalInput
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            theme={theme}
+            disabled={isLoading || storeLoading}
+          />
+
+          <ProfessionalInput
+            placeholder="UPI ID (e.g., user@paytm)"
+            value={upiId}
+            onChangeText={setUpiId}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            theme={theme}
+            disabled={isLoading || storeLoading}
+          />
         </>
       )}
 
-      <View style={styles.inputGroup}>
-        <Text style={[styles.inputLabel, { color: theme.text }]}>Email or Username</Text>
-        <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
-          <TextInput
-            style={[styles.textInput, { color: theme.text }]}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Enter your email or username"
-            autoCapitalize="none"
-          />
-        </View>
-      </View>
+      {isLogin ? (
+        showOTPInput ? (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: theme.text }]}>Enter OTP</Text>
+            <OTPInput
+              length={6}
+              onComplete={setOtp}
+              onChange={setOtp}
+              disabled={isLoading || storeLoading}
+              error={otpError}
+            />
+            <TouchableOpacity
+              style={styles.resendButton}
+              onPress={onResendOTP}
+              disabled={isLoading || storeLoading}
+            >
+              <Text style={[styles.resendText, { color: theme.primary }]}>
+                Resend OTP
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.loginInputs}>
+            <ProfessionalInput
+              placeholder="Email or Username"
+              value={email || username}
+              onChangeText={(text) => {
+                // Clear both fields when user starts typing
+                if (email && username) {
+                  setEmail('');
+                  setUsername('');
+                }
+                // Determine if it's email or username
+                if (text.includes('@')) {
+                  setEmail(text);
+                  setUsername('');
+                } else {
+                  setUsername(text);
+                  setEmail('');
+                }
+              }}
+              autoCapitalize="none"
+              keyboardType={email ? "email-address" : "default"}
+              theme={theme}
+              disabled={isLoading || storeLoading}
+            />
 
-      <View style={styles.inputGroup}>
-        <Text style={[styles.inputLabel, { color: theme.text }]}>Password</Text>
-        <View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
-          <TextInput
-            style={[styles.textInput, { color: theme.text }]}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Enter your password"
-            secureTextEntry
-          />
-        </View>
-      </View>
+            <ProfessionalInput
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              theme={theme}
+              disabled={isLoading || storeLoading}
+            />
+
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={onForgotPassword}
+              disabled={isLoading || storeLoading}
+            >
+              <Text style={[styles.forgotPasswordText, { color: theme.primary }]}>
+                Forgot Password?
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )
+      ) : (
+        <ProfessionalInput
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          theme={theme}
+          disabled={isLoading || storeLoading}
+        />
+      )}
 
       <TouchableOpacity
-        style={styles.submitButton}
+        style={[styles.submitButton, { backgroundColor: theme.primary }]}
         onPress={onSubmit}
         disabled={isLoading || storeLoading}
       >
-        <LinearGradient
-          colors={[theme.primary, theme.primaryLight]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.submitGradient}
-        >
+        <View style={styles.submitGradient}>
           <Text style={[styles.submitText, { color: theme.text }]}>
-            {isLoading || storeLoading ? 'Loading...' : (isLogin ? 'Login' : 'Sign Up')}
+            {isLoading || storeLoading ? 'Loading...' : (
+              isLogin ? (showOTPInput ? 'Verify OTP' : 'Login') : 'Sign Up'
+            )}
           </Text>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -148,7 +278,11 @@ export default function AuthForm({
 
 const getStyles = (theme: any) => StyleSheet.create({
   form: {
-    gap: 20,
+    gap: 16,
+    paddingVertical: 10,
+  },
+  loginInputs: {
+    gap: 12,
   },
   inputGroup: {
     gap: 8,
@@ -160,24 +294,28 @@ const getStyles = (theme: any) => StyleSheet.create({
     marginLeft: 4,
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.surface,
+    position: 'relative',
     borderRadius: 16,
-    borderWidth: 2,
-    borderColor: theme.border,
+    minHeight: 56,
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
+  floatingLabel: {
+    position: 'absolute',
+    left: 16,
+    fontWeight: '500',
+    backgroundColor: 'transparent',
+  },
   textInput: {
     flex: 1,
     paddingVertical: 16,
     paddingHorizontal: 16,
+    paddingTop: 20,
     fontSize: 16,
-    color: theme.text,
     fontWeight: '500',
   },
   submitButton: {
@@ -205,7 +343,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   switchModeButton: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 16,
   },
   switchModeText: {
     fontSize: 16,
@@ -215,6 +353,27 @@ const getStyles = (theme: any) => StyleSheet.create({
   switchModeLink: {
     color: theme.primary,
     fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  resendButton: {
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  resendText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '600',
     textDecorationLine: 'underline',
   },
 });

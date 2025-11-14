@@ -128,11 +128,50 @@ const formatUserResponse = (user, includeGroups = false) => {
   return baseUser;
 };
 
+// Generate OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Generate OTP expiry time (10 minutes from now)
+const generateOTPExpiry = () => {
+  return new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+};
+
+// Verify OTP
+const verifyOTPUtil = (inputOTP, storedOTP, expiryTime) => {
+  if (!storedOTP) {
+    return { valid: false, message: 'No OTP found. Please request a new one.' };
+  }
+
+  if (new Date() > expiryTime) {
+    return { valid: false, message: 'OTP has expired. Please request a new one.' };
+  }
+
+  if (inputOTP !== storedOTP) {
+    return { valid: false, message: 'Invalid OTP. Please check and try again.' };
+  }
+
+  return { valid: true, message: 'OTP verified successfully' };
+};
+
+// Clear OTP after successful verification
+const clearOTP = async (user) => {
+  user.otp = undefined;
+  user.otpExpires = undefined;
+  user.otpVerified = true;
+  await user.save();
+};
+
 module.exports = {
   validateRegistrationData,
   validateLoginData,
   validateProfileUpdate,
   generateToken,
   checkUserExists,
-  formatUserResponse
+  formatUserResponse,
+  generateOTP,
+  generateOTPExpiry,
+  verifyOTPUtil,
+  clearOTP
 };

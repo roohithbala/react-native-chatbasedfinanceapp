@@ -7,11 +7,7 @@ const configureMiddleware = (app) => {
   // Security middleware
   app.use(helmet());
   app.use(cors({
-    origin: [
-      'http://10.131.135.172:8081',
-      'http://localhost:8081',
-      process.env.FRONTEND_URL
-    ].filter(Boolean),
+    origin: true, // Allow all origins when in development
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']

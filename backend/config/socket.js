@@ -7,8 +7,10 @@ const configureSocket = (server) => {
   const io = socketIo(server, {
     cors: {
       origin: [
-        'http://10.131.135.172:8081',
         'http://localhost:8081',
+        'http://127.0.0.1:8081',
+        'exp://10.209.229.172:8081',
+        'http://10.209.229.172:8081',
         process.env.FRONTEND_URL
       ].filter(Boolean),
       methods: ["GET", "POST"],

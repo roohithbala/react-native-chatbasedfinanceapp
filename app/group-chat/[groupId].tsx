@@ -15,11 +15,13 @@ import GroupChatHeader from './components/GroupChatHeader';
 import GroupChatMessages from './components/GroupChatMessages';
 import { useGroupChatCommands } from '@/lib/hooks/useGroupChatCommands';
 import { getGroupChatStyles } from '@/lib/styles/groupChatStyles';
+import { MediaViewer } from '../components/MediaViewer';
 
 export default function GroupChatScreen() {
-  const { groupId, groupName } = useLocalSearchParams<{
+  const { groupId, groupName, action } = useLocalSearchParams<{
     groupId: string;
     groupName: string;
+    action?: string;
   }>();
 
   // Validate groupId
@@ -47,6 +49,14 @@ export default function GroupChatScreen() {
     }
   }, [activeGroup]);
 
+  // Auto-open split bill modal if action parameter is set
+  React.useEffect(() => {
+    if (action === 'split-bill' && activeGroup) {
+      console.log('GroupChat - Auto-opening split bill modal from action parameter');
+      setShowSplitBillModal(true);
+    }
+  }, [action, activeGroup]);
+
   const {
     typingUsers,
   } = useTyping(validGroupId, currentUser?._id);
@@ -55,6 +65,8 @@ export default function GroupChatScreen() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
   const [showGroupManagement, setShowGroupManagement] = useState(false);
+  const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
+  const [selectedMediaForViewer, setSelectedMediaForViewer] = useState<any | null>(null);
 
   const handleMessageChange = (text: string) => {
     setMessage(text);
@@ -139,6 +151,12 @@ export default function GroupChatScreen() {
             currentUser={currentUser}
             loadMessages={loadMessages}
             theme={theme}
+            onOpenMedia={(mediaUrl, mediaType, fileName) => {
+              if (mediaUrl && mediaType) {
+                setSelectedMediaForViewer({ mediaUrl, mediaType, fileName });
+                setMediaViewerVisible(true);
+              }
+            }}
           />
 
           {/* Input */}
@@ -209,7 +227,17 @@ export default function GroupChatScreen() {
             setShowAddMember(true);
           }}
         />
+
+        {/* Media Viewer */}
+        <MediaViewer
+          visible={mediaViewerVisible}
+          mediaUrl={selectedMediaForViewer?.mediaUrl || null}
+          mediaType={selectedMediaForViewer?.mediaType || null}
+          fileName={selectedMediaForViewer?.fileName}
+          onClose={() => { setMediaViewerVisible(false); setSelectedMediaForViewer(null); }}
+          onDownload={() => {}}
+        />
       </SafeAreaView>
     </GroupProvider>
   );
-}
+};

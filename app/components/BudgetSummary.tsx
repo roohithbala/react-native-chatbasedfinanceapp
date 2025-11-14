@@ -46,7 +46,7 @@ export const BudgetSummary: React.FC<BudgetSummaryProps> = ({
             <Text style={styles.statLabel}>Remaining</Text>
             <Text style={[
               styles.statValue,
-              { color: remaining >= 0 ? (theme.success || '#10B981') : (theme.error || '#EF4444') }
+              { color: theme.error || '#EF4444' } // Always show remaining in red
             ]}>
               {theme.currency}{remaining.toFixed(2)}
             </Text>
@@ -60,7 +60,7 @@ export const BudgetSummary: React.FC<BudgetSummaryProps> = ({
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack}>
             <LinearGradient
-              colors={remaining >= 0 ? [theme.success || '#10B981', theme.success || '#34D399'] : [theme.error || '#EF4444', theme.error || '#F87171']}
+              colors={[theme.error || '#EF4444', theme.error || '#F87171']}
               style={[
                 styles.progressFill,
                 { width: `${Math.min(Math.max(remainingPercentage, 0), 100)}%` },

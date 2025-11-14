@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ColorValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 
 interface BudgetCardProps {
@@ -42,11 +41,8 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <LinearGradient
-        colors={categoryColors}
-        style={styles.cardHeader}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <View
+        style={[styles.cardHeader, { backgroundColor: categoryColors[0] }]}
       >
         <View style={styles.headerContent}>
           <View style={styles.categoryInfo}>
@@ -78,7 +74,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
             )}
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <View style={[styles.cardBody, { backgroundColor: theme.surface }]}>
         <View style={styles.statsRow}>
@@ -101,11 +97,10 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
 
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack}>
-            <LinearGradient
-              colors={[progressColor, progressColor]}
+            <View
               style={[
                 styles.progressFill,
-                { width: `${safeProgressPercentage}%` },
+                { width: `${safeProgressPercentage}%`, backgroundColor: progressColor },
               ]}
             />
           </View>

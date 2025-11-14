@@ -1,6 +1,5 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import googleAuthService from '../../lib/services/googleAuthService';
 
@@ -20,7 +19,6 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       console.log('Starting Google sign-in...');
       const googleAuth = googleAuthService.getInstance();
 
-      // Check if configured
       if (!googleAuth.isConfigured()) {
         onError('Google OAuth is not properly configured. Please check your environment variables.');
         return;
@@ -33,7 +31,8 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         console.log('Google sign-in successful, sending ID token to backend');
         onSuccess(result.params.id_token);
       } else {
-        const errorMsg = result.params?.error || result.errorCode || 'Google sign-in failed';
+        const errorMsg =
+          result.params?.error || result.errorCode || 'Google sign-in failed';
         console.error('Google sign-in failed:', errorMsg);
         onError(errorMsg);
       }
@@ -49,17 +48,13 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       onPress={handleGoogleSignIn}
       disabled={disabled}
     >
-      <LinearGradient
-        colors={['#4285F4', '#34A853']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.gradient}
-      >
+      {/* Replaced LinearGradient with View */}
+      <View style={styles.gradient}>
         <View style={styles.content}>
           <Ionicons name="logo-google" size={20} color="#FFFFFF" style={styles.icon} />
           <Text style={styles.text}>Continue with Google</Text>
         </View>
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -79,6 +74,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#4285F4', // fallback solid color instead of gradient
   },
   content: {
     flexDirection: 'row',

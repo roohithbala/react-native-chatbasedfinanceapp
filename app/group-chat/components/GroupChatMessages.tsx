@@ -12,6 +12,7 @@ interface GroupChatMessagesProps {
   currentUser: any;
   loadMessages: () => void;
   theme: any;
+  onOpenMedia?: (mediaUrl: string, mediaType: string, fileName?: string) => void;
 }
 
 export default function GroupChatMessages({
@@ -21,6 +22,7 @@ export default function GroupChatMessages({
   currentUser,
   loadMessages,
   theme,
+  onOpenMedia,
 }: GroupChatMessagesProps) {
   const scrollViewRef = useRef<ScrollView>(null);
   const isUserAtBottomRef = useRef(true);
@@ -77,10 +79,10 @@ export default function GroupChatMessages({
         onRetryImage={(id) => {
           console.log('Retry image:', id);
         }}
-        onOpenMedia={(mediaUrl, mediaType, fileName) => {
+        onOpenMedia={onOpenMedia || ((mediaUrl, mediaType, fileName) => {
           console.log('Open media:', mediaUrl, mediaType, fileName);
           // TODO: Implement media viewer
-        }}
+        })}
         currentUserId={currentUser._id}
         onSplitBillUpdate={() => loadMessages()}
         senderName={!isOwnMessage ? msg.user.name : undefined}

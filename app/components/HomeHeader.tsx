@@ -1,9 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, hexToRgba } from '../context/ThemeContext';
 
 interface HomeHeaderProps {
   userName: string;
@@ -12,9 +11,37 @@ interface HomeHeaderProps {
 
 export default function HomeHeader({ userName, onTestConnectivity }: HomeHeaderProps) {
   const { theme } = useTheme();
+
+  if (!theme) {
+    return (
+      <View style={{ paddingTop: 20, paddingHorizontal: 20, paddingBottom: 24, backgroundColor: '#2563EB' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={{ fontSize: 16, color: '#FFFFFF', marginBottom: 4 }}>Good {getTimeOfDay()},</Text>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFFFFF' }}>{userName}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity
+              style={{ backgroundColor: '#2563EB', padding: 8, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }}
+              onPress={onTestConnectivity}
+            >
+              <Ionicons name="wifi" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ backgroundColor: '#FFFFFF40', borderRadius: 20, padding: 4 }}
+              onPress={() => router.push('/(tabs)/profile')}
+            >
+              <Ionicons name="person-circle" size={40} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   const styles = getStyles(theme);
   return (
-    <LinearGradient colors={[theme.primary, theme.primaryDark]} style={styles.header}>
+    <View style={[styles.header, { backgroundColor: theme.primary }]}>
       <View style={styles.headerContent}>
         <View>
           <Text style={styles.greeting}>Good {getTimeOfDay()},</Text>
@@ -35,7 +62,7 @@ export default function HomeHeader({ userName, onTestConnectivity }: HomeHeaderP
           </TouchableOpacity>
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -70,7 +97,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     color: theme.surface,
   },
   profileButton: {
-    backgroundColor: theme.surface + '40', // 40% opacity
+    backgroundColor: hexToRgba(theme.surface, 0.4), // 40% opacity
     borderRadius: 20,
     padding: 4,
   },

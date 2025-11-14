@@ -3,27 +3,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Configuration
 const getApiBaseUrl = () => {
-  // For React Native development, localhost doesn't work from emulator/device
-  // Try common development IPs or use environment variable
-  const serverIP = process.env.EXPO_PUBLIC_SERVER_IP ||
-                   '10.0.2.2' || // Android emulator localhost
-                   '192.168.1.100' || // Common local network IP
-                   'localhost';
+  // Use environment variable directly for API URL
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-  const serverPort = process.env.EXPO_PUBLIC_BACKEND_PORT || '3001';
+  if (apiUrl) {
+    return apiUrl;
+  }
 
+  // Fallback for development - use the configured IP and port
   if (__DEV__) {
-    return `http://${serverIP}:${serverPort}/api`;
+    return 'http://10.209.229.172:3001/api';
   } else {
-    return 'https://your-production-api.com/api';
+    return 'https://api.chatfinance.com/api';
   }
 };
 
 export const API_BASE_URL = getApiBaseUrl();
 
 console.log('API Base URL:', API_BASE_URL);
-console.log('Server IP being used:', process.env.EXPO_PUBLIC_SERVER_IP || '10.0.2.2');
-console.log('Server Port:', process.env.EXPO_PUBLIC_BACKEND_PORT || '3001');
+console.log('Using EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
 
 // Network connectivity check
 export const checkServerConnectivity = async (): Promise<boolean> => {
@@ -31,7 +29,9 @@ export const checkServerConnectivity = async (): Promise<boolean> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    const response = await fetch(`${API_BASE_URL.replace('/api', '')}/api/health`, {
+    // Use the API base URL and replace /api with /health for health check
+    const healthUrl = API_BASE_URL.replace('/api', '/health');
+    const response = await fetch(healthUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -50,7 +50,11 @@ export const checkServerConnectivity = async (): Promise<boolean> => {
 // Auto-detect server IP (useful for development)
 export const detectServerIP = async (): Promise<string | null> => {
   const commonIPs = [
-    '10.131.135.172', // Current configured IP
+    '10.209.229.172', // Current configured IP - prioritize this
+    'localhost', // Localhost for development
+    '127.0.0.1', // Localhost IP
+    '10.47.189.172', // Previous configured IP
+    '10.131.135.172', // Previous configured IP
     '10.27.93.172', // Previous configured IP
     '10.42.112.172', // Previous configured IP
     '10.40.155.172', // Previous configured IP
@@ -59,9 +63,7 @@ export const detectServerIP = async (): Promise<string | null> => {
     '192.168.1.102',
     '192.168.0.100',
     '192.168.0.101',
-    '192.168.0.102',
-    'localhost',
-    '127.0.0.1'
+    '192.168.0.102'
   ];
 
   for (const ip of commonIPs) {
@@ -145,6 +147,23 @@ api.interceptors.response.use(
       data: error.response?.data,
       headers: error.response?.headers
     });
+
+    // Handle authentication errors (token expired)
+    if (error.response?.status === 401) {
+      console.warn('Token expired or invalid. Clearing authentication state...');
+      try {
+        // Clear tokens from storage (synchronously for now)
+        AsyncStorage.removeItem('authToken');
+        AsyncStorage.removeItem('userData');
+        console.log('Authentication tokens cleared from storage');
+        
+        // Force a reload or redirect to auth screen
+        // Since we can't directly access the store here, we'll rely on the components to handle the auth state
+        console.log('Please log in again - tokens have been cleared');
+      } catch (storageError) {
+        console.error('Error clearing auth storage:', storageError);
+      }
+    }
 
     // Handle rate limiting
     if (error.response?.status === 429) {

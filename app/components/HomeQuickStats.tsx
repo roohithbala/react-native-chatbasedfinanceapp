@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { router } from 'expo-router';
@@ -8,43 +7,66 @@ import { router } from 'expo-router';
 interface HomeQuickStatsProps {
   totalExpensesThisMonth: number;
   totalOwed: number;
+  budgetRemaining?: number;
+  netPosition?: number;
+  lastMonthExpenses?: number;
 }
 
-export default function HomeQuickStats({ totalExpensesThisMonth, totalOwed }: HomeQuickStatsProps) {
+export default function HomeQuickStats({
+  totalExpensesThisMonth,
+  totalOwed,
+  budgetRemaining = 0,
+  netPosition = 0,
+  lastMonthExpenses = 0
+}: HomeQuickStatsProps) {
   const { theme } = useTheme();
   const styles = getStyles(theme);
 
-  // Ensure values are valid numbers, default to 0 if not
   const safeTotalExpenses = typeof totalExpensesThisMonth === 'number' && !isNaN(totalExpensesThisMonth) ? totalExpensesThisMonth : 0;
-  const safeTotalOwed = typeof totalOwed === 'number' && !isNaN(totalOwed) ? totalOwed : 0;
+  const safeLastMonth = typeof lastMonthExpenses === 'number' && !isNaN(lastMonthExpenses) ? lastMonthExpenses : 0;
+  const safeBudgetRemaining = typeof budgetRemaining === 'number' && !isNaN(budgetRemaining) ? budgetRemaining : 0;
+  const safeNetPosition = typeof netPosition === 'number' && !isNaN(netPosition) ? netPosition : 0;
+
+  const spendingChange = safeLastMonth > 0 ? ((safeTotalExpenses - safeLastMonth) / safeLastMonth) * 100 : 0;
+  const isSpendingUp = spendingChange > 0;
 
   return (
     <View style={[styles.statsContainer, { backgroundColor: theme.background }]}>
-      <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/expenses')}>
-        <LinearGradient
-          colors={[theme.success, theme.success + 'CC']}
-          style={styles.statGradient}
+      
+      {/* Trend Stat */}
+      <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/insights')}>
+        <View
+          style={[
+            styles.statGradient,
+            { backgroundColor: isSpendingUp ? theme.warning : theme.success }
+          ]}
+        >
+          <Ionicons name={isSpendingUp ? "trending-up" : "trending-down"} size={24} color={theme.surface} />
+          <Text style={styles.statAmount}>
+            {spendingChange > 0 ? '+' : ''}{spendingChange.toFixed(1)}%
+          </Text>
+          <Text style={styles.statLabel}>vs Last Month</Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* Budget Stat */}
+      <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/budget')}>
+        <View
+          style={[
+            styles.statGradient,
+            { backgroundColor: safeBudgetRemaining > 0 ? theme.success : theme.error }
+          ]}
         >
           <Ionicons name="wallet" size={24} color={theme.surface} />
           <Text style={styles.statAmount}>
-            {theme.currency}{safeTotalExpenses.toFixed(2)}
+            {theme.currency}{Math.abs(safeBudgetRemaining).toFixed(0)}
           </Text>
-          <Text style={styles.statLabel}>This Month</Text>
-        </LinearGradient>
+          <Text style={styles.statLabel}>
+            {safeBudgetRemaining >= 0 ? 'Budget Left' : 'Over Budget'}
+          </Text>
+        </View>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.statCard} onPress={() => router.push('/you-owe')}>
-        <LinearGradient
-          colors={[theme.warning, theme.warning + 'CC']}
-          style={styles.statGradient}
-        >
-          <Ionicons name="time" size={24} color={theme.surface} />
-          <Text style={styles.statAmount}>
-            {theme.currency}{safeTotalOwed.toFixed(2)}
-          </Text>
-          <Text style={styles.statLabel}>You Owe</Text>
-        </LinearGradient>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -70,6 +92,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   statGradient: {
     padding: 20,
     alignItems: 'center',
+    justifyContent: 'center', // ensures identical UI
   },
   statAmount: {
     fontSize: 24,

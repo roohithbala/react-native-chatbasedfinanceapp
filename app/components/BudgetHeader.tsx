@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFinanceStore } from '../../lib/store/financeStore';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, hexToRgba } from '../context/ThemeContext';
 import { expensesAPI } from '../../lib/services/api';
 
 export const BudgetHeader: React.FC = () => {
@@ -46,7 +46,7 @@ export const BudgetHeader: React.FC = () => {
         </View>
 
         <TouchableOpacity
-          style={[styles.resetButton, { backgroundColor: theme.surface + '20' }]}
+          style={[styles.resetButton, { backgroundColor: hexToRgba(theme.surface, 0.2) }]}
           onPress={handleResetExpenses}
         >
           <Text style={[styles.resetButtonText, { color: theme.surface }]}>Archive Expenses</Text>

@@ -55,18 +55,14 @@ process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err);
   console.error('Stack trace:', err.stack);
   // Don't exit immediately, try to keep server running
-  setTimeout(() => {
-    console.log('🔄 Attempting to keep server alive after uncaught exception...');
-  }, 1000);
+  console.log('🔄 Attempting to keep server alive after uncaught exception...');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
   console.error('Stack trace:', reason?.stack || reason);
   // Don't exit immediately, try to keep server running
-  setTimeout(() => {
-    console.log('🔄 Attempting to keep server alive after unhandled rejection...');
-  }, 1000);
+  console.log('🔄 Attempting to keep server alive after unhandled rejection...');
 });
 
 // Handle process termination gracefully
@@ -86,11 +82,12 @@ process.on('SIGTERM', () => {
   });
 });
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0'; // Listen on all network interfaces for mobile access
 
 // Keep server alive with periodic health checks
 setInterval(() => {
-  console.log(`💓 Server heartbeat - ${new Date().toISOString()} - Port: ${PORT}`);
+  console.log(`💓 Server heartbeat - ${new Date().toISOString()} - Host: ${HOST}, Port: ${PORT}`);
 }, 300000); // Every 5 minutes
 
 // Process due reminders every hour
@@ -106,10 +103,11 @@ setInterval(async () => {
     console.error('❌ Error processing due reminders:', error);
   }
 }, 60 * 60 * 1000); // Every hour
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://10.131.135.172:8081'}`);
-  console.log(`🔗 API Health Check: http://localhost:${PORT}/api/health`);
+
+server.listen(PORT, HOST, () => {
+  console.log(`🚀 Server running on ${HOST}:${PORT}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'exp://10.209.229.172:8081'}`);
+  console.log(`🔗 API Health Check: http://${HOST}:${PORT}/api/health`);
   console.log(`🕐 Server started at: ${new Date().toISOString()}`);
 }).on('error', (err) => {
   console.error('❌ Failed to start server:', err.message);

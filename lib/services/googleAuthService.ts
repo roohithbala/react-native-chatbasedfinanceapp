@@ -61,7 +61,7 @@ class GoogleAuthService {
       console.log('Client ID:', clientId);
 
       // Use AuthRequest with authorization code flow (recommended by Google)
-      const redirectUri = 'https://auth.expo.io/@roohithbalag23csd/securefinance-app';
+      const redirectUri = 'https://auth.expo.io/@roohithbala/securefinance-app';
       console.log('Using redirect URI:', redirectUri);
 
       const request = new AuthSession.AuthRequest({

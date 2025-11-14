@@ -1,64 +1,77 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+// ThemeProvider.tsx
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Appearance, ColorSchemeName } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 export interface ThemeColors {
-  // Background colors
+  // Backgrounds / Surfaces
   background: string;
   surface: string;
   surfaceSecondary: string;
   card: string;
 
-  // Text colors
+  // Text
   text: string;
   textSecondary: string;
   textTertiary: string;
 
-  // Primary colors
+  // Primary
   primary: string;
   primaryLight: string;
   primaryDark: string;
 
-  // Status colors
+  // Status
   success: string;
   warning: string;
   error: string;
   info: string;
 
-  // Border colors
+  // Borders / shadows
   border: string;
   borderLight: string;
-
-  // Shadow colors
   shadow: string;
 
-  // Tab bar colors
+  // Tab bar
   tabBarBackground: string;
   tabBarActive: string;
   tabBarInactive: string;
 
-  // Input colors
+  // Input
   inputBackground: string;
   inputBorder: string;
   inputPlaceholder: string;
 
-  // Modal colors
+  // Modal
   modalBackground: string;
   modalOverlay: string;
 
-  // Currency
+  // Currency / misc
   currency: string;
 }
 
-const lightTheme: ThemeColors = {
+/** Utility: convert hex (#RRGGBB or RRGGBB) to rgba() with opacity (0-1) */
+export const hexToRgba = (hex: string, opacity: number): string => {
+  const cleanHex = hex.replace('#', '');
+  if (cleanHex.length !== 6) {
+    // fallback to black transparent if invalid
+    return `rgba(0,0,0,${opacity})`;
+  }
+  const r = parseInt(cleanHex.substr(0, 2), 16);
+  const g = parseInt(cleanHex.substr(2, 2), 16);
+  const b = parseInt(cleanHex.substr(4, 2), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+};
+
+/** Light theme */
+export const lightTheme: ThemeColors = {
   background: '#F8FAFC',
   surface: '#FFFFFF',
   surfaceSecondary: '#F1F5F9',
   card: '#FFFFFF',
 
-  text: '#1E293B',
+  text: '#0F172A',
   textSecondary: '#64748B',
   textTertiary: '#94A3B8',
 
@@ -73,7 +86,6 @@ const lightTheme: ThemeColors = {
 
   border: '#E2E8F0',
   borderLight: '#F1F5F9',
-
   shadow: 'rgba(0, 0, 0, 0.1)',
 
   tabBarBackground: '#FFFFFF',
@@ -90,7 +102,8 @@ const lightTheme: ThemeColors = {
   currency: '₹',
 };
 
-const darkTheme: ThemeColors = {
+/** Dark theme */
+export const darkTheme: ThemeColors = {
   background: '#0F172A',
   surface: '#1E293B',
   surfaceSecondary: '#334155',
@@ -98,7 +111,7 @@ const darkTheme: ThemeColors = {
 
   text: '#F8FAFC',
   textSecondary: '#CBD5E1',
-  textTertiary: '#64748B',
+  textTertiary: '#94A3B8',
 
   primary: '#3B82F6',
   primaryLight: '#60A5FA',
@@ -111,7 +124,6 @@ const darkTheme: ThemeColors = {
 
   border: '#334155',
   borderLight: '#475569',
-
   shadow: 'rgba(0, 0, 0, 0.3)',
 
   tabBarBackground: '#1E293B',
@@ -131,70 +143,77 @@ const darkTheme: ThemeColors = {
 export interface ThemeContextType {
   theme: ThemeColors;
   themeMode: ThemeMode;
-  systemTheme: ColorSchemeName;
+  systemTheme: ColorSchemeName | null;
   setThemeMode: (mode: ThemeMode) => Promise<void>;
   toggleTheme: () => Promise<void>;
+  light: ThemeColors;
+  dark: ThemeColors;
 }
+
+const STORAGE_KEY = 'theme_mode';
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
+export const useTheme = (): ThemeContextType => {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme must be used within a ThemeProvider');
+  return ctx;
 };
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
-  const [systemTheme, setSystemTheme] = useState<ColorSchemeName>(Appearance.getColorScheme());
+  const [systemTheme, setSystemTheme] = useState<ColorSchemeName | null>(Appearance.getColorScheme());
 
-  // Load saved theme mode on mount
+  // load saved mode
   useEffect(() => {
-    const loadThemeMode = async () => {
+    let mounted = true;
+    const load = async () => {
       try {
-        const savedMode = await AsyncStorage.getItem('theme_mode');
-        if (savedMode && ['light', 'dark', 'system'].includes(savedMode)) {
-          setThemeModeState(savedMode as ThemeMode);
+        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+        if (!mounted) return;
+        if (saved === 'light' || saved === 'dark' || saved === 'system') {
+          setThemeModeState(saved);
         }
-      } catch (error) {
-        console.error('Error loading theme mode:', error);
+      } catch (e) {
+        console.error('Failed to load theme mode', e);
       }
     };
-
-    loadThemeMode();
+    load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // Listen for system theme changes
+  // listen for system theme changes
   useEffect(() => {
-    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+    const sub = Appearance.addChangeListener(({ colorScheme }) => {
       setSystemTheme(colorScheme);
     });
-
-    return () => subscription?.remove();
+    return () => {
+      // remove listener
+      // on modern RN, addChangeListener returns a subscription with remove()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((sub as any)?.remove) (sub as any).remove();
+    };
   }, []);
 
-  // Determine current theme based on mode
   const getCurrentTheme = (): ThemeColors => {
     if (themeMode === 'light') return lightTheme;
     if (themeMode === 'dark') return darkTheme;
-
-    // System mode
     return systemTheme === 'dark' ? darkTheme : lightTheme;
   };
 
-  const setThemeMode = async (mode: ThemeMode) => {
+  const setThemeMode = async (mode: ThemeMode): Promise<void> => {
     try {
       setThemeModeState(mode);
-      await AsyncStorage.setItem('theme_mode', mode);
-    } catch (error) {
-      console.error('Error saving theme mode:', error);
+      await AsyncStorage.setItem(STORAGE_KEY, mode);
+    } catch (e) {
+      console.error('Error saving theme mode', e);
     }
   };
 
-  const toggleTheme = async () => {
-    const newMode = themeMode === 'light' ? 'dark' : 'light';
+  const toggleTheme = async (): Promise<void> => {
+    const newMode: ThemeMode = themeMode === 'light' ? 'dark' : 'light';
     await setThemeMode(newMode);
   };
 
@@ -206,16 +225,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     systemTheme,
     setThemeMode,
     toggleTheme,
+    light: lightTheme,
+    dark: darkTheme,
   };
 
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
-
-// Export themes for direct access if needed
-export { lightTheme, darkTheme };
 
 export default ThemeProvider;

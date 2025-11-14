@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useTheme, hexToRgba } from '@/app/context/ThemeContext';
 import { PaymentsAPI } from '@/lib/services/paymentsAPI';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -231,7 +231,7 @@ export default function PaymentHistory({ userId, visible, onClose }: PaymentHist
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: theme.primary + '20',
+                  backgroundColor: hexToRgba(theme.primary, 0.2),
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 12,

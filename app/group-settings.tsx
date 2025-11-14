@@ -157,7 +157,7 @@ export default function GroupSettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <ExpenseScreenHeader title="Group Settings" />
+      <ExpenseScreenHeader title={mode === 'info' ? "Group Info" : "Group Settings"} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {mode === 'edit' && (
@@ -191,14 +191,44 @@ export default function GroupSettingsScreen() {
           </View>
         )}
 
-        {mode === 'settings' && isOwner && (
-          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Group Settings</Text>
-            <GroupSettingsActions
-              groupId={groupId as string}
-              onDeleteGroup={handleDeleteGroup}
-            />
-          </View>
+        {mode === 'info' && (
+          <>
+            <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Group Information</Text>
+              <View style={styles.infoContainer}>
+                <View style={styles.infoRow}>
+                  <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Name:</Text>
+                  <Text style={[styles.infoValue, { color: theme.text }]}>{group.name}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Members:</Text>
+                  <Text style={[styles.infoValue, { color: theme.text }]}>{members.length}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Created:</Text>
+                  <Text style={[styles.infoValue, { color: theme.text }]}>
+                    {new Date(group.createdAt).toLocaleDateString()}
+                  </Text>
+                </View>
+                {group.description && (
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Description:</Text>
+                    <Text style={[styles.infoValue, { color: theme.text }]}>{group.description}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Group Members</Text>
+              <GroupMembersList
+                members={members}
+                currentUser={currentUser}
+                isOwner={false} // Read-only mode
+                onRemoveMember={() => {}} // No-op in info mode
+              />
+            </View>
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
