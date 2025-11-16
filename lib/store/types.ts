@@ -15,6 +15,8 @@ export interface User {
   username: string;
   email: string;
   avatar: string;
+  upiId?: string;
+  paymentMethods?: string[];
   preferences?: {
     notifications: boolean;
     biometric: boolean;

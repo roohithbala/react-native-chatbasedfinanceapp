@@ -158,10 +158,24 @@ export default function BudgetScreen() {
 
   // Flatten detailedExpenses from periodData for easier access by BudgetList
   // Support several possible key names that the backend might return
-  const detailedCandidates = periodData?.detailedBudgets || periodData?.detailedExpenses || periodData?.expensesByCategory || periodData?.detailed || periodData?.expenses || {};
-  const historicalExpensesArray: any[] = Array.isArray(detailedCandidates)
-    ? detailedCandidates
-    : Object.values(detailedCandidates || {}).flat();
+  let historicalExpensesArray: any[] = [];
+  if (selectedPeriod === 'yearly') {
+    // Aggregate expenses from all months available for the selected year
+    const yearKey = String(selectedYear);
+    const keys = historicalBudgets ? Object.keys(historicalBudgets) : [];
+    const monthKeys = keys.filter(k => k === yearKey || k.startsWith(`${yearKey}-`));
+    const agg: any[] = [];
+    monthKeys.forEach((k) => {
+      const pd = historicalBudgets[k] || {};
+      const candidates = pd?.detailedBudgets || pd?.detailedExpenses || pd?.expensesByCategory || pd?.detailed || pd?.expenses || {};
+      const arr = Array.isArray(candidates) ? candidates : Object.values(candidates || {}).flat();
+      agg.push(...arr);
+    });
+    historicalExpensesArray = agg;
+  } else {
+    const detailedCandidates = periodData?.detailedBudgets || periodData?.detailedExpenses || periodData?.expensesByCategory || periodData?.detailed || periodData?.expenses || {};
+    historicalExpensesArray = Array.isArray(detailedCandidates) ? detailedCandidates : Object.values(detailedCandidates || {}).flat();
+  }
 
   console.log('ℹ️ Historical expenses count for', periodKey, ':', historicalExpensesArray.length);
 
@@ -176,12 +190,37 @@ export default function BudgetScreen() {
       }
     }
 
-    // Fallback: sum amounts from historicalExpensesArray for the category
+    // Fallback: check expensesByCategory mapping if present (case-insensitive match)
     try {
+      const catKeyNorm = (categoryKey || '').toString().toLowerCase();
+      const byCat = periodData?.expensesByCategory || periodData?.expensesByCat || periodData?.expensesBy || null;
+      if (byCat && typeof byCat === 'object') {
+        // try exact key then case-insensitive match
+        const exact = byCat[categoryKey] || byCat[categoryKey?.toString()];
+        if (Array.isArray(exact)) {
+          return exact.reduce((s: number, ex: any) => s + (Number(ex.amount) || 0), 0);
+        }
+        // case-insensitive search
+        for (const k of Object.keys(byCat)) {
+          if (k.toString().toLowerCase() === catKeyNorm) {
+            const arr = byCat[k];
+            if (Array.isArray(arr)) return arr.reduce((s: number, ex: any) => s + (Number(ex.amount) || 0), 0);
+          }
+        }
+      }
+
+      // Otherwise, normalize expense.category-like fields when summing
+      const normalizeExpenseCategory = (expense: any) => {
+        if (!expense || typeof expense !== 'object') return '';
+        const val = expense.category || expense.categoryName || expense.categoryKey || (expense.tags && expense.tags[0]) || '';
+        return String(val).toLowerCase();
+      };
+
       return historicalExpensesArray
-        .filter((e: any) => e && e.category === categoryKey)
-        .reduce((sum: number, e: any) => sum + (e.amount || e.value || 0), 0);
+        .filter((e: any) => normalizeExpenseCategory(e) === catKeyNorm)
+        .reduce((sum: number, e: any) => sum + (Number(e.amount) || Number(e.value) || 0), 0);
     } catch (err) {
+      console.warn('Error computing historical spent for', categoryKey, err);
       return 0;
     }
   };
@@ -189,6 +228,7 @@ export default function BudgetScreen() {
   const { displayBudgetsData, displayTotals } = useBudgetDisplay({
     viewMode,
     budgets,
+    expenses,
     historicalBudgets,
     selectedPeriod,
     selectedYear,
@@ -235,9 +275,9 @@ export default function BudgetScreen() {
       <View style={{ flex: 1 }}>
         {/* The entire scrollable area is the BudgetList FlatList. Move summary, period header and section title into the list header. */}
         {(() => {
-          const now = new Date();
-          const currentYear = now.getFullYear();
-          const currentMonthNum = now.getMonth() + 1;
+          // Use the selectedYear/selectedMonth so selecting a past month shows its transactions
+          const currentYear = selectedYear || (new Date()).getFullYear();
+          const currentMonthNum = selectedMonth || ((new Date()).getMonth() + 1);
           const expensesForList = viewMode === 'historical'
             ? historicalExpensesArray
             : Array.isArray(expenses)
@@ -282,7 +322,7 @@ export default function BudgetScreen() {
               budgets={displayBudgetsData}
               categoryIcons={categoryIcons}
               categoryColors={categoryColors}
-              getSpentAmount={viewMode === 'current' ? getMonthlySpentAmount : getHistoricalSpentAmount}
+              getSpentAmount={(cat) => viewMode === 'current' ? (getMonthlySpentAmount as any)(cat, selectedYear, selectedMonth) : getHistoricalSpentAmount(cat)}
               getPersonalSpentAmount={getPersonalSpentAmount}
               getGroupSpentAmount={getGroupSpentAmount}
               getProgressPercentage={getProgressPercentage}

@@ -91,71 +91,22 @@ export const useExpensesLogic = () => {
   };
 
   const handleManualReload = () => {
-    Alert.alert(
-      'Debug Options',
-      'Choose an action:',
-      [
-        { text: 'Reload Data', onPress: () => {
-          expensesLoadedRef.current = false;
-          splitBillsLoadedRef.current = false;
-          loadExpenses().catch((error: any) => {
-            console.error('Manual reload failed:', error);
-            expensesLoadedRef.current = false;
-          });
-          if (selectedGroup?._id) {
-            getGroupSplitBills(selectedGroup._id).catch((error: any) => {
-              console.error('Manual split bills reload failed:', error);
-              splitBillsLoadedRef.current = false;
-            });
-          }
-        }},
-        { text: 'Test API', onPress: testExpensesAPI },
-        { text: 'Force Load Expenses', onPress: async () => {
-          try {
-            expensesLoadedRef.current = false;
-            await loadExpenses();
-            Alert.alert('Success', 'Expenses loaded successfully');
-          } catch (error: any) {
-            console.error('Force load failed:', error);
-            Alert.alert('Error', `Failed to load expenses: ${error.message}`);
-          }
-        }},
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
-
-  const testExpensesAPI = async () => {
-    try {
-      console.log('Testing expenses API connectivity...');
-      const response = await fetch(`${API_BASE_URL}/expenses`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await AsyncStorage.getItem('authToken')}`,
-        },
+    // Simple reload behaviour for users: refresh expenses and split bills for the selected group
+    expensesLoadedRef.current = false;
+    splitBillsLoadedRef.current = false;
+    loadExpenses().catch((error: any) => {
+      console.error('Manual reload failed:', error);
+      expensesLoadedRef.current = false;
+    });
+    if (selectedGroup?._id) {
+      getGroupSplitBills(selectedGroup._id).catch((error: any) => {
+        console.error('Manual split bills reload failed:', error);
+        splitBillsLoadedRef.current = false;
       });
-
-      console.log('Expenses API test response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Expenses API test data:', data);
-        Alert.alert('API Reachable', `Status: ${response.status}\nData keys: ${Object.keys(data).join(', ')}`);
-      } else {
-        const errorText = await response.text();
-        console.error('Expenses API test error:', errorText);
-        Alert.alert('API Error', `Status: ${response.status}\n${errorText}`);
-      }
-    } catch (error: any) {
-      console.error('Expenses API test failed:', error);
-      Alert.alert('API Test Failed', error.message);
     }
   };
+
+  // Removed debug-only API test — keep hook lean for production UI
 
   const handleAddExpense = async (expenseData: any) => {
     try {

@@ -23,6 +23,7 @@ import freeAIService, { SpendingAnalysis } from '../services/freeAIService';
 import socketService from '../services/socketService';
 import biometricAuthService from '../services/biometricAuthService';
 import { API_BASE_URL } from '../services/apiConfig';
+import { useBudgetsStore } from './budgetsStore';
 
 export type { SplitBill };
 
@@ -32,6 +33,7 @@ export interface User {
   username: string;
   email: string;
   upiId: string;
+  paymentMethods?: string[];
   avatar: string;
   preferences?: {
     notifications: boolean;
@@ -959,6 +961,65 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         expenses: [...state.expenses, expense],
         isLoading: false
       }));
+
+      // If this expense belongs to a budget category, record spent amount per category (don't mutate original limits)
+      try {
+        const category = expense.category || expenseData.category;
+        const amount = Number(expense.amount || expenseData.amount) || 0;
+        if (category && amount > 0) {
+          const bState = useBudgetsStore.getState();
+          if (bState && typeof bState.incrementSpentForCategory === 'function') {
+            bState.incrementSpentForCategory(category, amount);
+            console.log(`🔻 Recorded spent ${amount} for budget category '${category}'`);
+          } else {
+            // Fallback: update budgetsStore state directly
+            try {
+              useBudgetsStore.setState((s: any) => {
+                const prev = s.spentByCategory || {};
+                const prevVal = Number(prev[category]) || 0;
+                return { spentByCategory: { ...prev, [category]: prevVal + amount } };
+              });
+            } catch (inner) {
+              console.warn('Failed to record spentByCategory fallback:', inner);
+            }
+          }
+        }
+          // Also, if we have a cached historicalBudgets entry for the expense's period, append the expense there
+          try {
+            const createdAt = expense.createdAt ? new Date(expense.createdAt) : new Date();
+            const y = createdAt.getFullYear();
+            const m = createdAt.getMonth() + 1;
+            const monthKey = `${y}-${String(m).padStart(2, '0')}`;
+            const yearKey = String(y);
+            const hbState = useBudgetsStore.getState();
+            if (hbState && hbState.historicalBudgets && typeof hbState.historicalBudgets === 'object') {
+              const updatePeriod = (key: string) => {
+                try {
+                  const existing = hbState.historicalBudgets[key];
+                  if (!existing) return;
+                  const prevExpenses = Array.isArray(existing.expenses) ? existing.expenses : [];
+                  const newExpenses = [...prevExpenses, expense];
+                  const prevByCat = existing.expensesByCategory || {};
+                  const catKey = String(category || expense.category || expense.categoryName || (expense.tags && expense.tags[0]) || 'Other');
+                  const prevArr = Array.isArray(prevByCat[catKey]) ? prevByCat[catKey] : [];
+                  const newByCat = { ...prevByCat, [catKey]: [...prevArr, expense] };
+                  const newPeriod = { ...existing, expenses: newExpenses, expensesByCategory: newByCat };
+                  useBudgetsStore.setState({ historicalBudgets: { ...hbState.historicalBudgets, [key]: newPeriod } });
+                  console.log(`📥 Appended expense ${expense._id} to historicalBudgets[${key}]`);
+                } catch (err) {
+                  console.warn('Failed to append expense to historical period', key, err);
+                }
+              };
+
+              updatePeriod(monthKey);
+              updatePeriod(yearKey);
+            }
+          } catch (hbErr) {
+            console.warn('Error updating historicalBudgets cache with new expense:', hbErr);
+          }
+      } catch (deductErr) {
+        console.warn('Error recording expense spent for budgets:', deductErr);
+      }
     } catch (error: any) {
       console.error('Add expense error:', error);
       set({ 
@@ -1013,6 +1074,20 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         error: null,
         isLoading: false
       });
+
+      // Initialize spentByCategory in budgets store so historical/current summaries have initial state
+      try {
+        const spentMap: { [k: string]: number } = {};
+        expenses.forEach((exp: any) => {
+          if (!exp || !exp.category) return;
+          const key = String(exp.category);
+          spentMap[key] = (spentMap[key] || 0) + (Number(exp.amount) || 0);
+        });
+        useBudgetsStore.setState({ spentByCategory: spentMap });
+        console.log('Initialized budgetsStore.spentByCategory with', Object.keys(spentMap).length, 'categories');
+      } catch (e) {
+        console.warn('Failed to initialize spentByCategory from expenses:', e);
+      }
 
       console.log('Expenses loaded successfully');
     } catch (error: any) {

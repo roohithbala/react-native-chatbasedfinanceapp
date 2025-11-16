@@ -31,8 +31,7 @@ export default function HomeScreen() {
     getSplitBills,
     isAuthenticated,
     isLoading,
-    error,
-    testConnectivity
+    error
   } = useFinanceStore();
   const { theme } = useTheme();
   const styles = getStyles(theme);
@@ -73,17 +72,7 @@ export default function HomeScreen() {
     }
   }, [isAuthenticated, currentUser, expenses.length, groups.length, isLoading]);
 
-  const handleTestConnectivity = async () => {
-    try {
-      const result = await testConnectivity();
-      Alert.alert(
-        result.success ? 'Connection Test Passed' : 'Connection Test Failed',
-        result.message
-      );
-    } catch (error: any) {
-      Alert.alert('Test Failed', error.message || 'Unknown error occurred');
-    }
-  };
+  
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -110,7 +99,6 @@ export default function HomeScreen() {
       >
         <HomeHeader
           userName={currentUser?.name || 'User'}
-          onTestConnectivity={handleTestConnectivity}
         />
 
         <AccountOverview

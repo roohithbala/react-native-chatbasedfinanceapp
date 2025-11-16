@@ -9,28 +9,7 @@ export const BudgetHeader: React.FC = () => {
   const { currentUser } = useFinanceStore();
   const { theme } = useTheme();
 
-  const handleResetExpenses = async () => {
-    Alert.alert(
-      'Archive All Expenses',
-      'Are you sure you want to archive all expenses? You can view your spending history later, but they will be hidden from active expense lists.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Archive',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await expensesAPI.resetExpenses();
-              Alert.alert('Success', 'All expenses have been archived. You can view your spending history in the insights section.');
-              // You might want to refresh the expenses data here
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to archive expenses');
-            }
-          },
-        },
-      ]
-    );
-  };
+  // Archive / reset expenses feature removed per UX request
 
   return (
     <LinearGradient
@@ -45,12 +24,7 @@ export const BudgetHeader: React.FC = () => {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.resetButton, { backgroundColor: hexToRgba(theme.surface, 0.2) }]}
-          onPress={handleResetExpenses}
-        >
-          <Text style={[styles.resetButtonText, { color: theme.surface }]}>Archive Expenses</Text>
-        </TouchableOpacity>
+        {/* Archive button removed */}
       </View>
     </LinearGradient>
   );

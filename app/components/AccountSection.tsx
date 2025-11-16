@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+// Use the legacy FileSystem export to keep writeAsStringAsync available without deprecation errors
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
 import { useTheme } from '../context/ThemeContext';
 import { useFinanceStore } from '../lib/store/financeStore';
@@ -80,21 +82,50 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ onMenuAction }) 
           name: currentUser?.name,
           email: currentUser?.email,
           username: currentUser?.username,
+          paymentMethods: Array.isArray(currentUser?.paymentMethods) ? currentUser.paymentMethods : (currentUser?.paymentMethods || []),
         },
-        expenses: (expenses as Expense[]).map(expense => ({
-          id: expense._id,
-          description: expense.description,
-          amount: expense.amount,
-          category: expense.category,
-          date: expense.createdAt,
-          groupId: expense.groupId,
-        })),
+        // Only include transactions created by the current user
+        expenses: (expenses as Expense[])
+          .filter((expense) => {
+              const uid = currentUser?._id || (currentUser as any)?.id;
+              if (!uid) return false;
+              if (!expense) return false;
+              const eUser = (expense as any).userId || (expense as any).user || (expense as any).createdBy || (expense as any).created_by || null;
+              if (!eUser) return false;
+              if (typeof eUser === 'string') return eUser === uid;
+              if (typeof eUser === 'object') return (eUser._id === uid) || (eUser.id === uid) || (eUser === uid);
+              return false;
+            })
+          .map(expense => ({
+            id: expense._id,
+            description: expense.description,
+            amount: expense.amount,
+            category: expense.category,
+            paymentMethod: (expense as any).paymentMethod || null,
+            tags: Array.isArray(expense.tags) ? expense.tags : [],
+            notes: (expense as any).notes || null,
+            date: expense.createdAt,
+            groupId: expense.groupId,
+          })),
         groups: (groups as Group[])?.map((group: Group) => ({
           id: group._id,
           name: group.name,
           members: group.members?.length || 0,
         })) || [],
-        splitBills: (splitBills as SplitBill[]).map((bill: SplitBill) => ({
+        // Include split bills where the user is a participant or the creator
+        splitBills: (splitBills as SplitBill[])
+          .filter((bill: SplitBill) => {
+            const uid = currentUser?._id;
+            if (!uid) return false;
+            if (bill.groupId && bill.createdBy === uid) return true;
+            return Array.isArray(bill.participants) && bill.participants.some(p => {
+              if (!p) return false;
+              if (typeof p.userId === 'string') return p.userId === uid;
+              if (typeof p.userId === 'object' && p.userId && '_id' in p.userId) return (p.userId as any)._id === uid;
+              return false;
+            });
+          })
+          .map((bill: SplitBill) => ({
           id: bill._id,
           description: bill.description,
           amount: bill.totalAmount,
@@ -130,19 +161,29 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ onMenuAction }) 
       } else {
         // For mobile, save to file system and share
         const fileUri = `${(FileSystem as any).documentDirectory}${filename}`;
-        await FileSystem.writeAsStringAsync(fileUri, jsonString);
+        try {
+          await FileSystem.writeAsStringAsync(fileUri, jsonString);
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'application/json',
-            dialogTitle: 'Export Financial Data',
-          });
-        } else {
-          Alert.alert('Success', `Data exported to ${fileUri}`);
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: 'application/json',
+              dialogTitle: 'Export Financial Data',
+            });
+          } else {
+            Alert.alert('Success', `Data exported to ${fileUri}`);
+          }
+          Alert.alert('Success', 'Your financial data has been exported successfully!');
+        } catch (err) {
+          console.warn('Export write/share failed, falling back to clipboard:', err);
+          try {
+            await Clipboard.setStringAsync(jsonString);
+            Alert.alert('Export Fallback', 'Unable to save file — JSON data copied to clipboard. Paste it into a file to save.');
+          } catch (clipErr) {
+            console.error('Clipboard fallback failed:', clipErr);
+            Alert.alert('Error', 'Failed to export data. Please try again.');
+          }
         }
       }
-
-      Alert.alert('Success', 'Your financial data has been exported successfully!');
     } catch (error) {
       console.error('JSON export error:', error);
       Alert.alert('Error', 'Failed to export data as JSON. Please try again.');
@@ -151,13 +192,27 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ onMenuAction }) 
 
   const exportAsCSV = async () => {
     try {
-      // Create CSV for expenses
-      let csvContent = 'Date,Description,Amount,Category,Group\n';
-      (expenses as Expense[]).forEach(expense => {
-        const date = new Date(expense.createdAt).toLocaleDateString();
-        const description = `"${expense.description.replace(/"/g, '""')}"`;
-        csvContent += `${date},${description},${expense.amount},${expense.category},${expense.groupId || ''}\n`;
-      });
+      // Create CSV for the current user's expenses
+      const uid = currentUser?._id;
+      let csvContent = 'Date,Description,Amount,Category,PaymentMethod,Tags,Notes,Group\n';
+      (expenses as Expense[])
+        .filter((expense) => {
+          if (!uid) return false;
+          if (!expense) return false;
+          const eUser = (expense as any).userId || (expense as any).user || (expense as any).createdBy || (expense as any).created_by || null;
+          if (!eUser) return false;
+          if (typeof eUser === 'string') return eUser === uid;
+          if (typeof eUser === 'object') return (eUser._id === uid) || (eUser.id === uid) || (eUser === uid);
+          return false;
+        })
+        .forEach(expense => {
+          const date = expense.createdAt ? new Date(expense.createdAt).toLocaleDateString() : '';
+          const description = `"${(expense.description || '').toString().replace(/"/g, '""')}"`;
+          const paymentMethod = ((expense as any).paymentMethod || '').toString().replace(/,/g, ' ');
+          const tags = Array.isArray(expense.tags) ? expense.tags.join('|').replace(/,/g, ' ') : '';
+          const notes = ((expense as any).notes || '').toString().replace(/"/g, '""');
+          csvContent += `${date},${description},${expense.amount},${expense.category || ''},${paymentMethod},"${tags}","${notes}",${expense.groupId || ''}\n`;
+        });
 
       const filename = `expenses_${new Date().toISOString().split('T')[0]}.csv`;
 
@@ -175,19 +230,29 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ onMenuAction }) 
       } else {
         // For mobile, save to file system and share
         const fileUri = `${(FileSystem as any).documentDirectory}${filename}`;
-        await FileSystem.writeAsStringAsync(fileUri, csvContent);
+        try {
+          await FileSystem.writeAsStringAsync(fileUri, csvContent);
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'text/csv',
-            dialogTitle: 'Export Expenses as CSV',
-          });
-        } else {
-          Alert.alert('Success', `Expenses exported to: ${fileUri}`);
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: 'text/csv',
+              dialogTitle: 'Export Expenses as CSV',
+            });
+          } else {
+            Alert.alert('Success', `Expenses exported to: ${fileUri}`);
+          }
+          Alert.alert('Success', 'Your expenses have been exported as CSV!');
+        } catch (err) {
+          console.warn('CSV export write/share failed, falling back to clipboard:', err);
+          try {
+            await Clipboard.setStringAsync(csvContent);
+            Alert.alert('Export Fallback', 'Unable to save file — CSV data copied to clipboard. Paste it into a file to save.');
+          } catch (clipErr) {
+            console.error('Clipboard fallback failed for CSV:', clipErr);
+            Alert.alert('Error', 'Failed to export expenses. Please try again.');
+          }
         }
       }
-
-      Alert.alert('Success', 'Your expenses have been exported as CSV!');
     } catch (error) {
       console.error('CSV export error:', error);
       Alert.alert('Error', 'Failed to export data as CSV. Please try again.');
@@ -197,7 +262,8 @@ export const AccountSection: React.FC<AccountSectionProps> = ({ onMenuAction }) 
   const handleMenuPress = (action: string) => {
     switch (action) {
       case 'paymentMethods':
-        Alert.alert('Payment Methods', 'Payment methods feature coming soon!');
+        // Route the user to Edit Profile so they can manage payment methods from their profile
+        onMenuAction('editProfile');
         break;
       case 'exportData':
         handleExportData();

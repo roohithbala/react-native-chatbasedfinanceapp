@@ -34,6 +34,9 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onClose })
   const [notifications, setNotifications] = useState(currentUser?.preferences?.notifications ?? true);
   const [biometric, setBiometric] = useState(currentUser?.preferences?.biometric ?? false);
   const [darkMode, setDarkMode] = useState(currentUser?.preferences?.darkMode ?? false);
+  const [paymentMethods, setPaymentMethods] = useState(
+    Array.isArray(currentUser?.paymentMethods) ? currentUser?.paymentMethods.join(', ') : (currentUser?.paymentMethods || '')
+  );
 
   const handleSave = async () => {
     if (!name.trim() || !email.trim() || !username.trim() || !upiId.trim()) {
@@ -66,6 +69,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onClose })
         username: username.trim(),
         upiId: upiId.trim(),
         avatar: avatar.trim(),
+          paymentMethods: paymentMethods.split(',').map((p: string) => p.trim()).filter((p: string) => p.length > 0),
         preferences: {
           ...currentUser?.preferences,
           notifications,
@@ -225,6 +229,23 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onClose })
                 autoCapitalize="characters"
                 editable={!loading}
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text }]}>Payment Methods</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.inputBackground, 
+                  borderColor: theme.inputBorder, 
+                  color: theme.text 
+                }]}
+                value={paymentMethods}
+                onChangeText={setPaymentMethods}
+                placeholder="Cash, Card, BHIM UPI, EMI, Other"
+                placeholderTextColor={theme.inputPlaceholder}
+                editable={!loading}
+              />
+              <Text style={[styles.helpText, { color: theme.textSecondary }]}>Comma-separated. These will appear when selecting payment method for expenses.</Text>
             </View>
 
             <View style={styles.inputGroup}>

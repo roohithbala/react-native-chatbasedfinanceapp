@@ -7,6 +7,7 @@ interface BudgetsState {
   budgets: Budget;
   detailedBudgets: any;
   historicalBudgets: any;
+  spentByCategory: { [category: string]: number };
   budgetTrends: any;
   selectedPeriod: 'monthly' | 'yearly';
   selectedYear: number;
@@ -21,6 +22,7 @@ interface BudgetsState {
   loadBudgetTrends: (months?: number) => Promise<void>;
   rolloverBudgets: (params?: { rolloverUnused?: boolean; rolloverPercentage?: number }) => Promise<void>;
   resetBudgets: (params?: { period?: string; resetAmount?: number }) => Promise<void>;
+  incrementSpentForCategory: (category: string, amount: number) => void;
   setSelectedPeriod: (period: 'monthly' | 'yearly') => void;
   setSelectedYear: (year: number) => void;
   setSelectedMonth: (month: number) => void;
@@ -33,6 +35,7 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
   budgets: {},
   detailedBudgets: {},
   historicalBudgets: {},
+  spentByCategory: {},
   budgetTrends: {},
   selectedPeriod: 'monthly',
   selectedYear: new Date().getFullYear(),
@@ -63,6 +66,18 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
         isLoading: false
       });
       throw error;
+    }
+  },
+
+  incrementSpentForCategory: (category: string, amount: number) => {
+    try {
+      set((state) => {
+        const prev = state.spentByCategory || {};
+        const prevVal = Number(prev[category]) || 0;
+        return { spentByCategory: { ...prev, [category]: prevVal + Number(amount || 0) } };
+      });
+    } catch (e) {
+      console.warn('Failed to increment spent for category', category, e);
     }
   },
 

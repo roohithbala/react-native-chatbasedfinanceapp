@@ -6,10 +6,9 @@ import { useTheme, hexToRgba } from '../context/ThemeContext';
 
 interface HomeHeaderProps {
   userName: string;
-  onTestConnectivity: () => void;
 }
 
-export default function HomeHeader({ userName, onTestConnectivity }: HomeHeaderProps) {
+export default function HomeHeader({ userName }: HomeHeaderProps) {
   const { theme } = useTheme();
 
   if (!theme) {
@@ -21,12 +20,6 @@ export default function HomeHeader({ userName, onTestConnectivity }: HomeHeaderP
             <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFFFFF' }}>{userName}</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity
-              style={{ backgroundColor: '#2563EB', padding: 8, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }}
-              onPress={onTestConnectivity}
-            >
-              <Ionicons name="wifi" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
             <TouchableOpacity
               style={{ backgroundColor: '#FFFFFF40', borderRadius: 20, padding: 4 }}
               onPress={() => router.push('/(tabs)/profile')}
@@ -48,12 +41,6 @@ export default function HomeHeader({ userName, onTestConnectivity }: HomeHeaderP
           <Text style={styles.userName}>{userName}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={onTestConnectivity}
-          >
-            <Ionicons name="wifi" size={20} color={theme.surface} />
-          </TouchableOpacity>
           <TouchableOpacity
             style={styles.profileButton}
             onPress={() => router.push('/(tabs)/profile')}
