@@ -122,6 +122,7 @@ export default function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricType, setBiometricType] = useState<'fingerprint' | 'facial' | 'iris' | null>(null);
+  const [biometricReason, setBiometricReason] = useState<string | null>(null);
   const [showOTPInput, setShowOTPInput] = useState(false);
   const [otpError, setOtpError] = useState<string | undefined>();
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -143,8 +144,20 @@ export default function AuthScreen() {
     try {
       const enabled = await biometricAuthService.isBiometricEnabled();
       const type = await biometricAuthService.getStoredBiometricType();
+      const capabilities = await biometricAuthService.getBiometricCapabilities();
+
+      let reason: string | null = null;
+      if (!capabilities.canAuthenticate) {
+        if (!capabilities.hasHardware) reason = 'Your device does not support biometric authentication.';
+        else if (!capabilities.isEnrolled) reason = 'No biometric data is enrolled on this device. Please enroll fingerprints/face in device settings.';
+        else reason = 'Biometric authentication is not available on this device.';
+      } else if (!enabled) {
+        reason = 'Biometric login is not enabled. Tap Enable to set it up for quick login.';
+      }
+
       setBiometricEnabled(enabled);
       setBiometricType(type);
+      setBiometricReason(reason);
     } catch (error) {
       console.error('Error checking biometric status:', error);
     }
@@ -163,6 +176,27 @@ export default function AuthScreen() {
     } catch (error: any) {
       console.error('Biometric login error:', error);
       Alert.alert('Authentication Failed', error.message || 'Biometric authentication failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEnableBiometric = async () => {
+    setIsLoading(true);
+    try {
+      const res = await biometricAuthService.enableBiometric();
+      if (res.success) {
+        const type = await biometricAuthService.getStoredBiometricType();
+        setBiometricEnabled(true);
+        setBiometricType(type);
+        setBiometricReason(null);
+        Alert.alert('Success', 'Biometric login enabled');
+      } else {
+        Alert.alert('Could not enable', res.error || 'Failed to enable biometric authentication');
+      }
+    } catch (e: any) {
+      console.error('Enable biometric error:', e);
+      Alert.alert('Error', 'Failed to enable biometric authentication');
     } finally {
       setIsLoading(false);
     }
@@ -547,7 +581,9 @@ export default function AuthScreen() {
               isLoading={isLoading}
               storeLoading={storeLoading}
               showOTPInput={showOTPInput}
-              otpError={otpError}
+                otpError={otpError}
+                authError={error}
+                onClearError={clearError}
             />
 
             {isLogin && (
@@ -556,6 +592,8 @@ export default function AuthScreen() {
                 biometricType={biometricType}
                 onBiometricLogin={handleBiometricLogin}
                 disabled={isLoading || storeLoading}
+                biometricReason={biometricReason}
+                onEnable={handleEnableBiometric}
               />
             )}
 

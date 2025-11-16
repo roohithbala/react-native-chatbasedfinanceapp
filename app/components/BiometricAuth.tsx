@@ -9,18 +9,41 @@ interface BiometricAuthProps {
   biometricType: 'fingerprint' | 'facial' | 'iris' | null;
   onBiometricLogin: () => void;
   disabled?: boolean;
+  biometricReason?: string | null;
+  onEnable?: () => void;
 }
 
 export default function BiometricAuth({
   biometricEnabled,
   biometricType,
   onBiometricLogin,
-  disabled = false
+  disabled = false,
+  biometricReason = null,
+  onEnable,
 }: BiometricAuthProps) {
   const { theme } = useTheme();
   const styles = getStyles(theme);
 
-  if (!biometricEnabled) return null;
+  // When biometric is not enabled show an inline explanation and an enable action
+  if (!biometricEnabled) {
+    return (
+      <View style={styles.disabledContainer}>
+        <Text style={[styles.disabledTitle, { color: theme.text }]}>Biometric login unavailable</Text>
+        <Text style={[styles.disabledText, { color: theme.textSecondary }]}>
+          {biometricReason || 'Biometric login is currently disabled or unavailable on this device.'}
+        </Text>
+        {onEnable && (
+          <TouchableOpacity
+            style={[styles.enableButton, { backgroundColor: theme.primary }]}
+            onPress={onEnable}
+            disabled={disabled}
+          >
+            <Text style={[styles.enableButtonText, { color: theme.text }]}>Enable</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.biometricContainer}>
@@ -101,5 +124,30 @@ const getStyles = (theme: any) => StyleSheet.create({
     color: theme.textSecondary,
     fontSize: 14,
     fontWeight: '500',
+  },
+  disabledContainer: {
+    marginTop: 14,
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  disabledTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  disabledText: {
+    fontSize: 13,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
+  enableButton: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+  },
+  enableButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

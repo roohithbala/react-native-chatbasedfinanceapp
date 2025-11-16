@@ -10,6 +10,7 @@ const {
   groupBudgetsByPeriod,
   calculateBudgetTrends
 } = require('../utils/budgetUtils');
+const { calculatePeriodDates, createDefaultAlerts } = require('../utils/budgetUtils');
 
 /**
  * Get user budgets with spent amounts and metrics
@@ -19,11 +20,60 @@ const {
 async function getBudgets(req, res) {
   try {
     const query = buildBudgetQuery(req.userId, req.query);
-    const budgets = await Budget.find(query).sort({ category: 1 });
+    const period = req.query?.period || 'monthly';
+    const groupId = req.query?.groupId;
 
-    // Calculate spent amounts for each budget
+    // Fetch all active budgets (may include expired ones if not cleaned up earlier)
+    let budgets = await Budget.find(query).sort({ category: 1 });
+
+    const now = new Date();
+    const currentBudgets = [];
+
+    // Deactivate any active budgets that are expired, and collect budgets that are current
+    for (const budget of budgets) {
+      if (budget.startDate <= now && budget.endDate >= now) {
+        currentBudgets.push(budget);
+      } else {
+        // If budget is marked active but has already expired, deactivate it so we don't show stale entries
+        if (budget.isActive && budget.endDate < now) {
+          budget.isActive = false;
+          try {
+            await budget.save();
+          } catch (e) {
+            console.warn('Failed to deactivate expired budget', budget._id, e.message);
+          }
+        }
+      }
+    }
+
+    // Determine all categories user has ever had budgets for (respect groupId if present)
+    const distinctQuery = { isActive: { $in: [true, false] } };
+    if (groupId) distinctQuery.groupId = groupId; else distinctQuery.userId = req.userId;
+    const allCategories = await Budget.distinct('category', distinctQuery);
+
+    // For any category that does not have a current budget, create a new zeroed budget for the current period
+    const categoriesPresent = new Set(currentBudgets.map(b => b.category));
+    for (const category of allCategories) {
+      if (!categoriesPresent.has(category)) {
+        const { startDate, endDate } = calculatePeriodDates(period);
+        const newBudget = new Budget({
+          userId: req.userId,
+          groupId: groupId || undefined,
+          category,
+          amount: 0,
+          period,
+          startDate,
+          endDate,
+          alerts: createDefaultAlerts()
+        });
+        await newBudget.save();
+        currentBudgets.push(newBudget);
+      }
+    }
+
+    // Calculate spent amounts for each current budget
     const budgetsWithSpent = await Promise.all(
-      budgets.map(calculateBudgetMetrics)
+      currentBudgets.map(calculateBudgetMetrics)
     );
 
     // Transform budgets for frontend compatibility
@@ -34,8 +84,8 @@ async function getBudgets(req, res) {
     res.json({
       status: 'success',
       data: {
-        budgets: budgetObject, // Simple format for frontend compatibility
-        detailedBudgets, // Detailed format for advanced features
+        budgets: budgetObject,
+        detailedBudgets,
         ...totals
       },
       message: 'Budgets retrieved successfully'
@@ -99,6 +149,18 @@ async function getHistoricalBudgets(req, res) {
       budgets.map(calculateBudgetMetrics)
     );
 
+    // Also fetch raw expenses for the requested period so the frontend
+    // can display transactions even if no budgets exist for that month/year
+    const expensesQuery = {
+      userId,
+      createdAt: {
+        $gte: startDate,
+        $lte: endDate
+      }
+    };
+    const periodExpenses = await Expense.find(expensesQuery).sort({ createdAt: -1 });
+    console.log('📅 Found historical expenses for period:', periodExpenses.length);
+
     // Group by period for historical view
     const groupedBudgets = groupBudgetsByPeriod(budgetsWithSpent, period);
 
@@ -114,6 +176,15 @@ async function getHistoricalBudgets(req, res) {
         period,
         startDate,
         endDate
+      ,
+        // provide raw expenses and an expenses-by-category map for the period
+        expenses: periodExpenses,
+        expensesByCategory: periodExpenses.reduce((acc, exp) => {
+          const cat = exp.category || 'Uncategorized';
+          if (!acc[cat]) acc[cat] = [];
+          acc[cat].push(exp);
+          return acc;
+        }, {})
       },
       message: 'Historical budgets retrieved successfully'
     });

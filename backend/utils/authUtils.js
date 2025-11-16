@@ -138,21 +138,28 @@ const generateOTPExpiry = () => {
   return new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 };
 
-// Verify OTP
-const verifyOTPUtil = (inputOTP, storedOTP, expiryTime) => {
-  if (!storedOTP) {
+const bcrypt = require('bcryptjs');
+
+// Verify OTP (supports hashed stored OTP)
+const verifyOTPUtil = async (inputOTP, storedOTPHash, expiryTime) => {
+  if (!storedOTPHash) {
     return { valid: false, message: 'No OTP found. Please request a new one.' };
   }
 
-  if (new Date() > expiryTime) {
+  if (!expiryTime || new Date() > expiryTime) {
     return { valid: false, message: 'OTP has expired. Please request a new one.' };
   }
 
-  if (inputOTP !== storedOTP) {
-    return { valid: false, message: 'Invalid OTP. Please check and try again.' };
+  try {
+    const match = await bcrypt.compare(String(inputOTP), String(storedOTPHash));
+    if (!match) {
+      return { valid: false, message: 'Invalid OTP. Please check and try again.' };
+    }
+    return { valid: true, message: 'OTP verified successfully' };
+  } catch (err) {
+    console.error('Error comparing OTP hash:', err);
+    return { valid: false, message: 'OTP verification failed' };
   }
-
-  return { valid: true, message: 'OTP verified successfully' };
 };
 
 // Clear OTP after successful verification

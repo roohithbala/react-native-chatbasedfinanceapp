@@ -187,6 +187,29 @@ export class PaymentsAPI {
     }
   }
 
+  static async processCardTransaction(
+    paymentData: {
+      cardNumber: string;
+      expiry: string;
+      cvv: string;
+      nameOnCard?: string;
+      amount: number;
+      currency?: string;
+      description?: string;
+      recipientId?: string;
+      splitBillId?: string;
+      groupId?: string;
+    }
+  ): Promise<any> {
+    try {
+      const response = await api.post('/payments/card', paymentData);
+      return response.data;
+    } catch (error) {
+      console.error('Card transaction error:', error);
+      throw error;
+    }
+  }
+
   static async createBhimUpiPaymentIntent(
     paymentData: {
       amount: number;

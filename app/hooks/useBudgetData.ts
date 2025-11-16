@@ -83,9 +83,32 @@ export const useBudgetData = () => {
   }, [expenses]);
 
   const getSpentAmount = (category: string) => {
+    const catKey = (category || '').toString().toLowerCase();
     return expenses
-      .filter(expense => expense.category === category)
-      .reduce((sum, expense) => sum + expense.amount, 0);
+      .filter(expense => {
+        if (!expense) return false;
+        const expCat = (expense.category || (expense as any).categoryName || '').toString().toLowerCase();
+        return expCat === catKey;
+      })
+      .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+  };
+
+  const getMonthlySpentAmount = (category: string, year?: number, month?: number) => {
+    const catKey = (category || '').toString().toLowerCase();
+    const now = new Date();
+    const y = year || now.getFullYear();
+    const m = month || (now.getMonth() + 1);
+
+    return expenses
+      .filter(expense => {
+        if (!expense) return false;
+        const expCat = (expense.category || (expense as any).categoryName || '').toString().toLowerCase();
+        if (expCat !== catKey) return false;
+        const d = expense.createdAt ? new Date(expense.createdAt) : null;
+        if (!d || Number.isNaN(d.getTime())) return false;
+        return d.getFullYear() === y && (d.getMonth() + 1) === m;
+      })
+      .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
   };
 
   const getPersonalSpentAmount = (category: string) => {
@@ -123,6 +146,7 @@ export const useBudgetData = () => {
     totalBudget,
     totalSpent,
     getSpentAmount,
+    getMonthlySpentAmount,
     getPersonalSpentAmount,
     getGroupSpentAmount,
     getProgressPercentage,

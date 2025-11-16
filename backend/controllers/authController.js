@@ -13,6 +13,7 @@ const {
   verifyOTPUtil,
   clearOTP
 } = require('../utils/authUtils');
+const bcrypt = require('bcryptjs');
 const {
   sendOTPEmail,
   sendPasswordResetConfirmationEmail,
@@ -154,11 +155,18 @@ const login = async (loginData) => {
   const otp = generateOTP();
   const otpExpires = generateOTPExpiry();
 
-  // Save OTP to user
-  user.otp = otp;
-  user.otpExpires = otpExpires;
-  user.otpVerified = false;
-  await user.save();
+  // Hash OTP before saving
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const otpHash = await bcrypt.hash(otp, salt);
+    user.otp = otpHash;
+    user.otpExpires = otpExpires;
+    user.otpVerified = false;
+    await user.save();
+  } catch (e) {
+    console.error('Failed to hash/save OTP:', e);
+    throw new Error('Failed to generate OTP');
+  }
 
   // Send OTP via email
   const emailSent = await sendOTPEmail(user.email, otp, 'login');
@@ -456,11 +464,18 @@ const sendOTP = async (identifier) => {
     const otp = generateOTP();
     const otpExpires = generateOTPExpiry();
 
-    // Save OTP to user
-    user.otp = otp;
-    user.otpExpires = otpExpires;
-    user.otpVerified = false;
-    await user.save();
+    // Hash and save OTP to user
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const otpHash = await bcrypt.hash(otp, salt);
+      user.otp = otpHash;
+      user.otpExpires = otpExpires;
+      user.otpVerified = false;
+      await user.save();
+    } catch (e) {
+      console.error('Failed to hash/save OTP for sendOTP:', e);
+      throw new Error('Failed to generate OTP');
+    }
 
     // Send OTP via email
     const emailSent = await sendOTPEmail(email, otp, 'login');
@@ -503,8 +518,8 @@ const verifyOTP = async (identifier, otp) => {
       throw new Error('User not found');
     }
 
-    // Verify OTP
-    const verification = verifyOTPUtil(otp, user.otp, user.otpExpires);
+    // Verify OTP (verifyOTPUtil is async now)
+    const verification = await verifyOTPUtil(otp, user.otp, user.otpExpires);
     if (!verification.valid) {
       // Notify user of failed login attempt (invalid OTP)
       try {
@@ -563,8 +578,8 @@ const otpLogin = async (identifier, otp) => {
     console.log('OTP expires:', user.otpExpires);
     console.log('Current time:', new Date());
 
-    // Verify OTP
-    const verification = verifyOTPUtil(otp, user.otp, user.otpExpires);
+    // Verify OTP (await async util)
+    const verification = await verifyOTPUtil(otp, user.otp, user.otpExpires);
     console.log('OTP verification result:', verification);
 
     if (!verification.valid) {
@@ -615,10 +630,17 @@ const forgotPassword = async (email) => {
     const resetOTP = generateOTP();
     const resetOTPExpiry = generateOTPExpiry();
 
-    // Save reset OTP to user
-    user.resetOTP = resetOTP;
-    user.resetOTPExpiry = resetOTPExpiry;
-    await user.save();
+    // Hash reset OTP and save to user
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const resetHash = await bcrypt.hash(resetOTP, salt);
+      user.resetOTP = resetHash;
+      user.resetOTPExpiry = resetOTPExpiry;
+      await user.save();
+    } catch (e) {
+      console.error('Failed to hash/save reset OTP:', e);
+      throw new Error('Failed to generate reset OTP');
+    }
 
     // Send reset OTP email
     await sendOTPEmail(email, resetOTP, 'password reset');
@@ -641,13 +663,18 @@ const verifyResetOTP = async (email, otp) => {
       throw new Error('User not found');
     }
 
-    // Check if OTP matches and is not expired
-    if (!user.resetOTP || user.resetOTP !== otp) {
+    // Check if OTP matches and is not expired (resetOTP is stored hashed)
+    if (!user.resetOTP) {
       throw new Error('Invalid OTP');
     }
 
     if (!user.resetOTPExpiry || user.resetOTPExpiry < new Date()) {
       throw new Error('OTP expired');
+    }
+
+    const match = await bcrypt.compare(String(otp), String(user.resetOTP));
+    if (!match) {
+      throw new Error('Invalid OTP');
     }
 
     // Generate reset token (can be user ID + timestamp for simplicity)

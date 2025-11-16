@@ -369,3 +369,194 @@ module.exports = {
   sendLoginSuccessEmail,
   sendLoginFailureEmail
 };
+
+// Send notification when a member joins a group (to existing members)
+const sendMemberJoinedEmail = async (email, name, group, newMemberName) => {
+  try {
+    const transporter = createTransporter();
+    const mailOptions = {
+      from: getFromHeader(),
+      to: email,
+      subject: `New member joined ${group.name}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #0ea5a4 0%, #065f46 100%); padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Secure Finance</h1>
+          </div>
+          <div style="background: #fff; padding: 20px; border: 1px solid #e6e6e6; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #111827;">New Member Joined</h2>
+            <p style="color: #374151;">Hi ${name || 'there'},</p>
+            <p style="color: #374151;">${newMemberName} has just joined the group <strong>${group.name}</strong>.</p>
+            <p style="color: #374151;">You can see the new member in the group members list in the app.</p>
+            <p style="color: #374151;">Thanks,<br/>Secure Finance Team</p>
+          </div>
+          <div style="text-align: center; padding: 12px; color: #6b7280; font-size: 12px;">© ${new Date().getFullYear()} Secure Finance</div>
+        </div>
+      `
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Member joined email sent:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending member joined email:', error);
+    return false;
+  }
+};
+
+// Send notification to the added member (welcome email)
+const sendMemberAddedEmail = async (email, name, group, addedByName) => {
+  try {
+    const transporter = createTransporter();
+    const mailOptions = {
+      from: getFromHeader(),
+      to: email,
+      subject: `You've been added to ${group.name}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #0ea5a4 0%, #065f46 100%); padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Secure Finance</h1>
+          </div>
+          <div style="background: #fff; padding: 20px; border: 1px solid #e6e6e6; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #111827;">Welcome to ${group.name}</h2>
+            <p style="color: #374151;">Hi ${name || 'there'},</p>
+            <p style="color: #374151;">You've been added to the group <strong>${group.name}</strong> by ${addedByName}.</p>
+            <p style="color: #374151;">Open the app to view group activity and budgets.</p>
+            <p style="color: #374151;">Thanks,<br/>Secure Finance Team</p>
+          </div>
+          <div style="text-align: center; padding: 12px; color: #6b7280; font-size: 12px;">© ${new Date().getFullYear()} Secure Finance</div>
+        </div>
+      `
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Member added email sent:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending member added email:', error);
+    return false;
+  }
+};
+
+// Send notification when a new expense is added to a group
+const sendNewExpenseEmail = async (email, name, expense, group, creatorName) => {
+  try {
+    const transporter = createTransporter();
+    const mailOptions = {
+      from: getFromHeader(),
+      to: email,
+      subject: `New expense in ${group.name}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #0ea5a4 0%, #065f46 100%); padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Secure Finance</h1>
+          </div>
+          <div style="background: #fff; padding: 20px; border: 1px solid #e6e6e6; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #111827;">New Group Expense</h2>
+            <p style="color: #374151;">Hi ${name || 'there'},</p>
+            <p style="color: #374151;">${creatorName} added a new expense to <strong>${group.name}</strong>:</p>
+            <div style="background:#f8f9fa;padding:12px;border-radius:6px;margin:12px 0;">
+              <p style="margin:0;"><strong>${expense.description || 'Expense'}</strong></p>
+              <p style="margin:0;color:#10B981;font-weight:700;">Amount: ₹${(expense.amount||0).toFixed(2)}</p>
+              <p style="margin:0;color:#6b7280;">Category: ${expense.category || 'Other'}</p>
+            </div>
+            <p style="color: #374151;">Open the app to view transaction details and settle if needed.</p>
+            <p style="color: #374151;">Thanks,<br/>Secure Finance Team</p>
+          </div>
+          <div style="text-align: center; padding: 12px; color: #6b7280; font-size: 12px;">© ${new Date().getFullYear()} Secure Finance</div>
+        </div>
+      `
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('New expense email sent:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending new expense email:', error);
+    return false;
+  }
+};
+
+// Send split bill created notification to participants (immediate)
+const sendSplitBillCreatedEmail = async (recipientUserId, splitBill, requesterUser) => {
+  try {
+    const recipient = await User.findById(recipientUserId);
+    if (!recipient || !recipient.email) return false;
+    const transporter = createTransporter();
+    const mailOptions = {
+      from: getFromHeader(),
+      to: recipient.email,
+      subject: `New split bill: ${splitBill.description}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #0ea5a4 0%, #065f46 100%); padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Secure Finance</h1>
+          </div>
+          <div style="background: #fff; padding: 20px; border: 1px solid #e6e6e6; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #111827;">Split Bill Created</h2>
+            <p style="color: #374151;">Hi ${recipient.name || 'there'},</p>
+            <p style="color: #374151;">${requesterUser.name || 'Someone'} created a split bill:</p>
+            <div style="background:#f8f9fa;padding:12px;border-radius:6px;margin:12px 0;">
+              <p style="margin:0;"><strong>${splitBill.description}</strong></p>
+              <p style="margin:0;color:#10B981;font-weight:700;">Total: ₹${(splitBill.totalAmount||0).toFixed(2)}</p>
+            </div>
+            <p style="color: #374151;">Open the app to view your share and settle it.</p>
+            <p style="color: #374151;">Thanks,<br/>Secure Finance Team</p>
+          </div>
+          <div style="text-align: center; padding: 12px; color: #6b7280; font-size: 12px;">© ${new Date().getFullYear()} Secure Finance</div>
+        </div>
+      `
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Split bill created email sent:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending split bill created email:', error);
+    return false;
+  }
+};
+
+// Export new helpers
+module.exports.sendMemberJoinedEmail = sendMemberJoinedEmail;
+module.exports.sendMemberAddedEmail = sendMemberAddedEmail;
+module.exports.sendNewExpenseEmail = sendNewExpenseEmail;
+module.exports.sendSplitBillCreatedEmail = sendSplitBillCreatedEmail;
+
+// Send group settings updated notification to a member
+const sendGroupSettingsUpdatedEmail = async (email, name, group, changedSettings = {}, adminName = 'Group Admin') => {
+  try {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: getFromHeader(),
+      to: email,
+      subject: `Group Settings Updated: ${group.name}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #0ea5a4 0%, #065f46 100%); padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Secure Finance</h1>
+          </div>
+          <div style="background: #fff; padding: 20px; border: 1px solid #e6e6e6; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #111827;">Group Settings Updated</h2>
+            <p style="color: #374151;">Hi ${name || 'there'},</p>
+            <p style="color: #374151;">The settings for the group <strong>${group.name}</strong> were updated by ${adminName}.</p>
+            <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; margin: 12px 0;">
+              <h3 style="margin:0; color:#333; font-size:14px;">Changed Settings</h3>
+              <pre style="white-space:pre-wrap; font-size:13px; color:#374151;">${JSON.stringify(changedSettings, null, 2)}</pre>
+            </div>
+            <p style="color: #374151;">If you have questions about these changes, please check the group in the app or contact the group admin.</p>
+            <p style="color: #374151;">Thanks,<br/>Secure Finance Team</p>
+          </div>
+          <div style="text-align: center; padding: 12px; color: #6b7280; font-size: 12px;">© ${new Date().getFullYear()} Secure Finance</div>
+        </div>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Group settings email sent to', email, info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending group settings updated email to', email, error);
+    return false;
+  }
+};
+
+// Export new helper
+module.exports.sendGroupSettingsUpdatedEmail = sendGroupSettingsUpdatedEmail;

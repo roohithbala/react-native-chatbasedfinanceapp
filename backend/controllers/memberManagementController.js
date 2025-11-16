@@ -4,6 +4,7 @@ const {
   validateGroupMembership,
   canAddMemberToGroup
 } = require('../utils/groupUtils');
+const { sendMemberAddedEmail, sendMemberJoinedEmail } = require('../utils/emailService');
 
 /**
  * Join group with invite code
@@ -47,6 +48,33 @@ const joinGroup = async (inviteCode, userId) => {
   }
 
   await group.populate('members.userId', 'name email avatar');
+
+  // Send welcome email to the joined user (fire-and-forget)
+  try {
+    if (user && user.email) {
+      sendMemberAddedEmail(user.email, user.name || user.username, group, 'Invite');
+    }
+  } catch (e) {
+    console.error('Error sending welcome email on joinGroup:', e.message || e);
+  }
+
+  // Notify existing members that someone joined
+  try {
+    const newMemberName = user ? (user.name || user.username) : 'A user';
+    const sendPromises = group.members.map(async (m) => {
+      try {
+        const userObj = m.userId;
+        if (userObj && userObj.email && userObj._id.toString() !== userId.toString()) {
+          await sendMemberJoinedEmail(userObj.email, userObj.name || userObj.username, group, newMemberName);
+        }
+      } catch (e) {
+        console.error('Failed to send member joined email to member:', e.message || e);
+      }
+    });
+    Promise.allSettled(sendPromises).then(() => {});
+  } catch (e) {
+    console.error('Error notifying members on joinGroup:', e.message || e);
+  }
 
   return group;
 };
@@ -109,6 +137,32 @@ const addMemberToGroup = async (groupId, searchField, searchValue, userId, io) =
         role: 'member'
       }
     });
+  }
+
+  // Send a welcome email to the added user and notify existing members
+  try {
+    if (userToAdd.email) {
+      sendMemberAddedEmail(userToAdd.email, userToAdd.name || userToAdd.username, group, 'Group Member');
+    }
+  } catch (e) {
+    console.error('Error sending welcome email on addMemberToGroup:', e.message || e);
+  }
+
+  try {
+    const newMemberName = userToAdd.name || userToAdd.username || 'A user';
+    const sendPromises = group.members.map(async (m) => {
+      try {
+        const userObj = m.userId;
+        if (userObj && userObj.email && userObj._id.toString() !== userToAdd._id.toString()) {
+          await sendMemberJoinedEmail(userObj.email, userObj.name || userObj.username, group, newMemberName);
+        }
+      } catch (e) {
+        console.error('Failed to send member joined email to member:', e.message || e);
+      }
+    });
+    Promise.allSettled(sendPromises).then(() => {});
+  } catch (e) {
+    console.error('Error notifying members on addMemberToGroup:', e.message || e);
   }
 
   return group;

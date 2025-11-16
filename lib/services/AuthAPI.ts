@@ -25,8 +25,21 @@ export const authAPI = {
   },
 
   login: async (credentials: { email?: string; username?: string; password: string }) => {
-    const response = await api.post('/auth/login', credentials);
-    return response.data;
+    try {
+      const response = await api.post('/auth/login', credentials);
+      return response.data;
+    } catch (error: any) {
+      // Normalize axios/error responses so UI gets a clear message
+      const status = error.response?.status;
+      const serverMessage = error.response?.data?.message;
+
+      if (status === 401) {
+        throw new Error(serverMessage || 'Invalid email/username or password');
+      }
+
+      // Fallback to any server-provided message, or the original error message
+      throw new Error(serverMessage || error.message || 'Login failed');
+    }
   },
 
   logout: async () => {

@@ -2,7 +2,7 @@
 import { Platform } from 'react-native';
 
 // Dev machine IP for physical devices on the same LAN. Replace with your host IP if different.
-const DEV_LOCAL_IP = '10.209.229.172';
+const DEV_LOCAL_IP = '10.136.43.172';
 const DEV_PORT = 3001;
 
 // For development we prefer the LAN IP so physical devices / Expo LAN mode can reach the dev server.

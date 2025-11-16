@@ -5,6 +5,7 @@ const {
   validateExpenseGroup,
   calculateExpenseStats
 } = require('../utils/expenseUtils');
+const { sendNewExpenseEmail } = require('../utils/emailService');
 
 // Get user expenses
 const getUserExpenses = async (userId, queryParams) => {
@@ -72,6 +73,31 @@ const createExpense = async (userId, expenseData, io) => {
         expense: expense,
         groupId: validGroupId
       });
+    }
+  }
+
+  // Send email notifications to group members (fire-and-forget)
+  if (validGroupId) {
+    try {
+      const Group = require('../models/Group');
+      const group = await Group.findById(validGroupId).populate('members.userId', 'name email');
+      const creatorName = expense.userId?.name || expense.userId?.username || 'Someone';
+      const sendPromises = (group.members || []).map(async (m) => {
+        try {
+          const userObj = m.userId;
+          if (userObj && userObj.email && userObj._id.toString() !== userId.toString()) {
+            await sendNewExpenseEmail(userObj.email, userObj.name || userObj.username, expense, group, creatorName);
+          }
+        } catch (e) {
+          console.error('Failed to send new expense email to member:', e.message || e);
+        }
+      });
+
+      Promise.allSettled(sendPromises).then(results => {
+        console.log('New expense notification results:', results.map(r => ({status: r.status})).slice(0,5));
+      });
+    } catch (notifyErr) {
+      console.error('Error while sending new expense notifications:', notifyErr);
     }
   }
 

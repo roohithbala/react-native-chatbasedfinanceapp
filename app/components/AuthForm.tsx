@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import OTPInput from './OTPInput';
 
@@ -96,6 +97,8 @@ interface AuthFormProps {
   storeLoading: boolean;
   showOTPInput: boolean;
   otpError?: string;
+  authError?: string | null;
+  onClearError?: () => void;
 }
 
 export default function AuthForm({
@@ -119,10 +122,13 @@ export default function AuthForm({
   isLoading,
   storeLoading,
   showOTPInput,
-  otpError
+  otpError,
+  authError,
+  onClearError
 }: AuthFormProps) {
   const { theme } = useTheme();
   const styles = getStyles(theme);
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <View style={styles.form}>
@@ -215,14 +221,28 @@ export default function AuthForm({
               disabled={isLoading || storeLoading}
             />
 
-            <ProfessionalInput
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              theme={theme}
-              disabled={isLoading || storeLoading}
-            />
+            <View style={{ gap: 8 }}>
+              <Text style={[styles.inputLabel, { color: theme.text }]}>Password</Text>
+              <View style={[styles.inputWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <TextInput
+                  style={[styles.textInput, { color: theme.text }]}
+                  value={password}
+                  onChangeText={(text) => { setPassword(text); onClearError && onClearError(); }}
+                  placeholder="Password"
+                  placeholderTextColor={theme.textSecondary}
+                  secureTextEntry={!showPassword}
+                  editable={!isLoading && !storeLoading}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 12, top: 16 }}>
+                  <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {authError ? (
+              <Text style={{ color: '#EF4444', marginTop: 6 }}>{authError}</Text>
+            ) : null}
 
             <TouchableOpacity
               style={styles.forgotPasswordButton}
@@ -236,14 +256,24 @@ export default function AuthForm({
           </View>
         )
       ) : (
-        <ProfessionalInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          theme={theme}
-          disabled={isLoading || storeLoading}
-        />
+        <View style={{ gap: 8 }}>
+          <Text style={[styles.inputLabel, { color: theme.text }]}>Password</Text>
+          <View style={[styles.inputWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <TextInput
+              style={[styles.textInput, { color: theme.text }]}
+              value={password}
+              onChangeText={(text) => { setPassword(text); onClearError && onClearError(); }}
+              placeholder="Password"
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry={!showPassword}
+              editable={!isLoading && !storeLoading}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 12, top: 16 }}>
+              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
       <TouchableOpacity

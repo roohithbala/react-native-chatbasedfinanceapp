@@ -219,8 +219,16 @@ const executeAddExpenseCommand = async (text, userId, groupId) => {
   // Extract amount - support multiple currency formats and plain numbers
   const amountMatch = text.match(/(?:[\$₹£€¥]\s*)?(\d+(?:\.\d{1,2})?)(?:\s*[\$₹£€¥])?/);
   const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
-  const categoryMatch = text.match(/#(\w+)/);
-  const category = categoryMatch ? categoryMatch[1] : 'Other';
+  // Try to extract category from hashtag (e.g., #food) or from inline category:Food
+  const hashtagMatch = text.match(/#(\w+)/);
+  const inlineCategoryMatch = text.match(/category:\s*([A-Za-z]+)/i);
+  const rawCategory = hashtagMatch ? hashtagMatch[1] : (inlineCategoryMatch ? inlineCategoryMatch[1] : null);
+
+  // Normalize category to allowed set
+  const validCategories = ['Food', 'Transport', 'Entertainment', 'Shopping', 'Bills', 'Health', 'Other'];
+  const category = rawCategory
+    ? (validCategories.find(c => c.toLowerCase() === rawCategory.toLowerCase()) || 'Other')
+    : 'Other';
   
   // Check if --split flag is present
   const shouldSplit = text.includes('--split') || text.includes('-s');

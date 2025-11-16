@@ -10,6 +10,19 @@ const styles = StyleSheet.create({
   selectedViewModeButtonText: { fontWeight: '600' },
   categoriesSection: { padding: 20 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16 },
+  stickyPeriodHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E6E9EE',
+    // keep header compact
+  },
+  stickyPeriodTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  stickyPeriodSubtitle: {
+    fontSize: 12,
+    marginTop: 4,
+  },
   periodSelector: { padding: 16, borderRadius: 8, margin: 16 },
   periodButtons: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   periodButton: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },

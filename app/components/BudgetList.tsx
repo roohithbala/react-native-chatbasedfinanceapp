@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ColorValue } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ColorValue, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BudgetCard } from './BudgetCard';
 
@@ -16,6 +16,9 @@ interface BudgetListProps {
   onAddPress: () => void;
   onCategoryPress?: (category: string, expenses: any[]) => void;
   expenses?: any[];
+  refreshing?: boolean;
+  onRefresh?: () => void;
+  listHeaderComponent?: React.ReactNode;
 }
 
 export const BudgetList: React.FC<BudgetListProps> = ({
@@ -31,52 +34,83 @@ export const BudgetList: React.FC<BudgetListProps> = ({
   onAddPress,
   onCategoryPress,
   expenses = [],
+  refreshing = false,
+  onRefresh,
+  listHeaderComponent,
 }) => {
+  const renderItem = ({ item: cat }: { item: string }) => {
+    const budgetLimit = typeof budgets?.[cat] === 'number' ? budgets[cat] : 0;
+    const spentAmount = getSpentAmount(cat) || 0;
+    const progressPercentage = getProgressPercentage(spentAmount, budgetLimit) || 0;
+    const progressColor = getProgressColor(progressPercentage);
+
+    const getExpenseCategory = (expense: any) => {
+      if (!expense || typeof expense !== 'object') return '';
+      return (
+        expense.category || expense.categoryName || expense.categoryKey || (expense.tags && expense.tags[0]) || ''
+      ).toString();
+    };
+
+    const categoryExpenses = (Array.isArray(expenses) ? expenses : [])
+      .filter(expense => {
+        const expCat = getExpenseCategory(expense).toLowerCase();
+        return expCat && expCat === (cat || '').toString().toLowerCase();
+      });
+
+    return (
+      <BudgetCard
+        key={cat}
+        category={cat}
+        budgetLimit={budgetLimit}
+        spentAmount={spentAmount}
+        progressPercentage={progressPercentage}
+        progressColor={progressColor}
+        categoryIcon={categoryIcons[cat as keyof typeof categoryIcons]}
+        categoryColors={categoryColors[cat as keyof typeof categoryColors]}
+        onPress={() => onCategoryPress && onCategoryPress(cat, categoryExpenses)}
+        showDetailsButton={true}
+      />
+    );
+  };
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={onAddPress}
-      >
-        <Ionicons name="add" size={20} color="#2563EB" />
-        <Text style={styles.addButtonText}>Add Budget</Text>
-      </TouchableOpacity>
-
-      {categories.map((cat) => {
-        // Ensure all values are valid numbers
-        const budgetLimit = typeof budgets?.[cat] === 'number' ? budgets[cat] : 0;
-        const spentAmount = getSpentAmount(cat) || 0;
-        const progressPercentage = getProgressPercentage(spentAmount, budgetLimit) || 0;
-        const progressColor = getProgressColor(progressPercentage);
-
-        // Filter ALL expenses for this category (both personal and group)
-        const categoryExpenses = expenses.filter(expense =>
-          expense && typeof expense === 'object' &&
-          expense.category === cat
-        );
-
-        return (
-          <BudgetCard
-            key={cat}
-            category={cat}
-            budgetLimit={budgetLimit}
-            spentAmount={spentAmount}
-            progressPercentage={progressPercentage}
-            progressColor={progressColor}
-            categoryIcon={categoryIcons[cat as keyof typeof categoryIcons]}
-            categoryColors={categoryColors[cat as keyof typeof categoryColors]}
-            onPress={() => onCategoryPress && onCategoryPress(cat, categoryExpenses)}
-            showDetailsButton={true}
-          />
-        );
-      })}
+    <View style={[styles.container, { flex: 1 }]}> 
+      <FlatList
+        data={categories}
+        keyExtractor={(item) => item}
+        renderItem={renderItem}
+        contentContainerStyle={[{ paddingBottom: 40 }, styles.contentContainer]}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        ListHeaderComponent={() => (
+          <>
+            {listHeaderComponent}
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={onAddPress}
+            >
+              <Ionicons name="add" size={20} color="#2563EB" />
+              <Text style={styles.addButtonText}>Add Budget</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No categories or budgets to show</Text>
+          </View>
+        )}
+        style={{ flex: 1 }}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    // No padding here since it's handled by parent
+    flex: 1,
+  },
+  contentContainer: {
+    paddingHorizontal: 12,
   },
   addButton: {
     flexDirection: 'row',
@@ -93,6 +127,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#2563EB',
+  },
+  emptyContainer: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 14,
   },
 });
 

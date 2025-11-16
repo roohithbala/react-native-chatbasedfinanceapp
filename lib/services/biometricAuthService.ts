@@ -71,6 +71,22 @@ class BiometricAuthService {
       const enabled = await AsyncStorage.getItem(BiometricAuthService.BIOMETRIC_ENABLED_KEY);
       const result = enabled === 'true';
       console.log('🔐 Biometric enabled result:', result);
+      // Ensure device still supports biometric authentication and has enrollment
+      if (result) {
+        const capabilities = await this.getBiometricCapabilities();
+        if (!capabilities.canAuthenticate) {
+          // Stored preference exists but device can't authenticate — clear stored preference
+          console.warn('Stored biometric preference found but device cannot authenticate. Clearing preference.');
+          try {
+            await AsyncStorage.removeItem(BiometricAuthService.BIOMETRIC_ENABLED_KEY);
+            await AsyncStorage.removeItem(BiometricAuthService.BIOMETRIC_TYPE_KEY);
+          } catch (e) {
+            console.warn('Failed to clear biometric preference:', e);
+          }
+          return false;
+        }
+      }
+
       return result;
     } catch (error) {
       console.error('❌ Error checking biometric enabled status:', error);
@@ -224,9 +240,29 @@ class BiometricAuthService {
         return { success: false, error: 'Biometric authentication not enabled' };
       }
 
+      // Double-check device capabilities before attempting auth
+      const capabilities = await this.getBiometricCapabilities();
+      if (!capabilities.canAuthenticate) {
+        return { success: false, error: 'Biometric authentication not available on this device' };
+      }
+
       console.log('🔐 Starting biometric authentication for app unlock...');
       const result = await this.authenticate('Unlock SecureFinance');
       console.log('🔐 Biometric authentication result:', result);
+
+      // If authentication fails due to device changes (e.g., unenrolled), clear stored preference
+      if (!result.success) {
+        const err = result.error || '';
+        if (err.toLowerCase().includes('no biometric') || err.toLowerCase().includes('not set up') || err.toLowerCase().includes('not available')) {
+          console.warn('Biometric no longer available — clearing stored preference');
+          try {
+            await AsyncStorage.removeItem(BiometricAuthService.BIOMETRIC_ENABLED_KEY);
+            await AsyncStorage.removeItem(BiometricAuthService.BIOMETRIC_TYPE_KEY);
+          } catch (e) {
+            console.warn('Failed to clear biometric preference after auth failure:', e);
+          }
+        }
+      }
 
       return result;
     } catch (error) {

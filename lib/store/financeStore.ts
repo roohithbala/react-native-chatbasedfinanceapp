@@ -335,7 +335,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         
         return undefined; // Legacy flow - authentication successful, no OTP required
       } else {
-        throw new Error('Invalid response from server');
+        // Unexpected response shape from login endpoint - surface a clearer message
+        throw new Error('Unexpected authentication response from server');
       }
     } catch (error: any) {
       set({

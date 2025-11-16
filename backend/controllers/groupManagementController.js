@@ -5,6 +5,7 @@ const {
   validateGroupMembership,
   validateGroupSettings
 } = require('../utils/groupUtils');
+const { sendGroupSettingsUpdatedEmail } = require('../utils/emailService');
 
 /**
  * Get user groups
@@ -176,6 +177,37 @@ const updateGroupSettings = async (groupId, settings, userId) => {
   await group.save();
 
   await group.populate('members.userId', 'name username email avatar');
+
+  // Notify group members about settings change (fire-and-forget, don't block save)
+  try {
+    const adminMember = group.members.find(m => {
+      const memberUserId = m.userId._id || m.userId;
+      return memberUserId.toString() === userId.toString();
+    });
+    const adminName = adminMember?.userId?.name || adminMember?.userId?.username || 'Group Admin';
+
+    // Send email to all members with an email address
+    const sendPromises = group.members.map(async (m) => {
+      try {
+        const userObj = m.userId;
+        const email = userObj?.email;
+        const name = userObj?.name || userObj?.username || 'there';
+        if (email) {
+          await sendGroupSettingsUpdatedEmail(email, name, group, settings, adminName);
+        } else {
+          console.log('Skipping email for member without address:', userObj?._id || userObj);
+        }
+      } catch (e) {
+        console.error('Failed to send group settings email for member:', m, e.message || e);
+      }
+    });
+
+    Promise.allSettled(sendPromises).then(results => {
+      console.log('Group settings notification results:', results.map(r => ({status: r.status})).slice(0,5));
+    });
+  } catch (notifyErr) {
+    console.error('Error while sending group settings notifications:', notifyErr);
+  }
 
   return group;
 };

@@ -235,6 +235,22 @@ const createSplitBill = async (userId, splitBillData) => {
     // Get creator user info for emails
     const creatorUser = await User.findById(userId).select('name email');
 
+    // Send immediate notification to participants about the new split bill (fire-and-forget)
+    try {
+      const notifyPromises = splitBill.participants.map(async (participant) => {
+        try {
+          // Don't notify the creator
+          if (participant.userId.toString() === userId.toString()) return;
+          await emailService.sendSplitBillCreatedEmail(participant.userId, splitBill, creatorUser || { _id: userId, name: 'User' });
+        } catch (e) {
+          console.error('Failed to send split bill created email to participant:', participant.userId, e.message || e);
+        }
+      });
+      Promise.allSettled(notifyPromises).then(() => {});
+    } catch (notifyErr) {
+      console.error('Error while sending split bill created notifications:', notifyErr);
+    }
+
     // Schedule escalation emails for each participant after 24 hours
     const escalationPromises = splitBillParticipants.map(async (participant) => {
       // Only schedule for participants who haven't paid yet

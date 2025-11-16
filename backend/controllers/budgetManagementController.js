@@ -4,6 +4,9 @@ const {
   validateBudgetData,
   calculatePeriodDates,
   transformBudgetsToObject,
+  transformBudgetsToDetailedObject,
+  calculateBudgetTotals,
+  calculateBudgetMetrics,
   createDefaultAlerts
 } = require('../utils/budgetUtils');
 
@@ -243,8 +246,8 @@ async function resetBudgets(req, res) {
       // Calculate new period dates
       const { startDate, endDate } = calculatePeriodDates(period);
 
-      // Create new budget with reset amount or keep current
-      const newAmount = resetAmount !== undefined ? parseFloat(resetAmount) : budget.amount;
+      // Default behavior: if resetAmount is not provided, reset category amounts to 0
+      const newAmount = resetAmount !== undefined ? parseFloat(resetAmount) : 0;
 
       const newBudget = new Budget({
         userId: req.userId,
@@ -265,10 +268,22 @@ async function resetBudgets(req, res) {
       await budget.save();
     }
 
+    // Calculate metrics for the newly created budgets (spent, remaining, etc.)
+    const budgetsWithMetrics = await Promise.all(
+      resetBudgets.map(async (b) => await calculateBudgetMetrics(b))
+    );
+
+    const budgetsObj = transformBudgetsToObject(budgetsWithMetrics);
+    const detailedBudgets = transformBudgetsToDetailedObject(budgetsWithMetrics);
+    const totals = calculateBudgetTotals(budgetsWithMetrics);
+
     res.json({
       status: 'success',
       data: {
         resetBudgets: resetBudgets.length,
+        budgets: budgetsObj,
+        detailedBudgets,
+        totals,
         message: `Successfully reset ${resetBudgets.length} budgets for new period`
       }
     });

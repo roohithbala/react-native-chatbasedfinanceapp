@@ -29,6 +29,7 @@ export default function BudgetScreen() {
     isLoading,
     error,
     getSpentAmount,
+    getMonthlySpentAmount,
     getPersonalSpentAmount,
     getGroupSpentAmount,
     getProgressPercentage,
@@ -75,9 +76,43 @@ export default function BudgetScreen() {
     }
   };
 
-  const handleCategoryPress = (category: string, expenses: any[]) => {
+  const handleCategoryPress = (category: string, passedExpenses: any[]) => {
+    // Defensive: sometimes BudgetList passes an empty array for historical periods
+    // Try multiple fallbacks so transactions are shown when available
+    const categoryKey = category;
+    let categoryListExpenses: any[] = Array.isArray(passedExpenses) ? passedExpenses : [];
+
+    // If empty and we're in historical view, try the flattened historical array
+    if ((!categoryListExpenses || categoryListExpenses.length === 0) && viewMode === 'historical') {
+      categoryListExpenses = historicalExpensesArray.filter((e: any) => {
+        if (!e) return false;
+        const cat = e.category || e.categoryName || e.categoryKey || (e.tags && e.tags[0]);
+        if (typeof cat === 'string' && cat.toLowerCase() === categoryKey.toLowerCase()) return true;
+        // match by exact equality as a fallback
+        return e.category === categoryKey;
+      });
+    }
+
+    // Final fallback: search global `expenses` (current data) but restrict by the selected period
+    if ((!categoryListExpenses || categoryListExpenses.length === 0)) {
+      categoryListExpenses = (expenses || []).filter((e: any) => {
+        if (!e) return false;
+        const cat = e.category || e.categoryName || e.categoryKey;
+        const matchesCategory = typeof cat === 'string' ? cat.toLowerCase() === categoryKey.toLowerCase() : cat === categoryKey;
+        if (!matchesCategory) return false;
+
+        // Restrict results to the selected period for both current and historical views
+        // For current view, selectedYear/selectedMonth default to the current month in the store
+        const d = new Date(e.createdAt);
+        if (selectedPeriod === 'yearly') {
+          return d.getFullYear() === selectedYear;
+        }
+        return d.getFullYear() === selectedYear && (d.getMonth() + 1) === selectedMonth;
+      });
+    }
+
     setSelectedCategory(category);
-    setCategoryExpenses(expenses);
+    setCategoryExpenses(categoryListExpenses || []);
     setShowTransactionDetails(true);
   };
   useEffect(() => {
@@ -87,7 +122,9 @@ export default function BudgetScreen() {
 
   useEffect(() => {
     if (viewMode === 'historical') {
-      const { selectedYear, selectedMonth } = useBudgetsStore.getState();
+      // Use the selectedYear/selectedMonth values from the current render
+      // (avoid reading store via getState which can return stale values during renders)
+      console.log('📡 Requesting historical budgets with params:', { selectedPeriod, selectedYear, selectedMonth });
       if (selectedPeriod === 'yearly') {
         loadHistoricalBudgets({ period: 'yearly', year: selectedYear });
       } else {
@@ -95,6 +132,59 @@ export default function BudgetScreen() {
       }
     }
   }, [selectedPeriod, viewMode, selectedYear, selectedMonth, loadHistoricalBudgets]);
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build periodKey to lookup historical data
+  const periodKey = selectedPeriod === 'yearly' ?
+    selectedYear.toString() : `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
+
+  // Resolve period data: use exact period key if present, else synthesize an empty period object
+  let periodData: any = null;
+  if (historicalBudgets && typeof historicalBudgets === 'object') {
+    periodData = historicalBudgets[periodKey] ?? null;
+  }
+
+  if (!periodData) {
+    // No data for requested periodKey — synthesize a safe empty period structure so the UI can render
+    periodData = {
+      budgets: {},
+      totals: { totalAmount: 0, totalSpent: 0 },
+      detailedBudgets: [],
+      expenses: [],
+    };
+    console.log('ℹ️ No historical period data found for', periodKey, '. Available keys:', historicalBudgets ? Object.keys(historicalBudgets) : []);
+  }
+
+  // Flatten detailedExpenses from periodData for easier access by BudgetList
+  // Support several possible key names that the backend might return
+  const detailedCandidates = periodData?.detailedBudgets || periodData?.detailedExpenses || periodData?.expensesByCategory || periodData?.detailed || periodData?.expenses || {};
+  const historicalExpensesArray: any[] = Array.isArray(detailedCandidates)
+    ? detailedCandidates
+    : Object.values(detailedCandidates || {}).flat();
+
+  console.log('ℹ️ Historical expenses count for', periodKey, ':', historicalExpensesArray.length);
+
+  // Helper to compute spent for a category in historical view. Prefer precomputed totals if available.
+  const getHistoricalSpentAmount = (categoryKey: string) => {
+    // Check totalsByCategory or totals mapping
+    const totalsByCategory = periodData?.totalsByCategory || periodData?.categoryTotals || periodData?.totals?.byCategory;
+    if (totalsByCategory && typeof totalsByCategory === 'object') {
+      const entry = totalsByCategory[categoryKey] || totalsByCategory[categoryKey?.toString()];
+      if (entry && (typeof entry === 'number' || typeof entry?.spent === 'number' || typeof entry?.totalSpent === 'number')) {
+        return typeof entry === 'number' ? entry : (entry.spent ?? entry.totalSpent ?? 0);
+      }
+    }
+
+    // Fallback: sum amounts from historicalExpensesArray for the category
+    try {
+      return historicalExpensesArray
+        .filter((e: any) => e && e.category === categoryKey)
+        .reduce((sum: number, e: any) => sum + (e.amount || e.value || 0), 0);
+    } catch (err) {
+      return 0;
+    }
+  };
 
   const { displayBudgetsData, displayTotals } = useBudgetDisplay({
     viewMode,
@@ -142,37 +232,71 @@ export default function BudgetScreen() {
       <ViewModeSelector viewMode={viewMode} setViewMode={setViewMode} theme={theme} />
       {viewMode === 'historical' && <PeriodSelector />}
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        <BudgetSummary
-          totalBudget={typeof displayTotalBudget === 'number' ? displayTotalBudget : 0}
-          totalSpent={typeof displayTotalSpent === 'number' ? displayTotalSpent : 0}
-        />
+      <View style={{ flex: 1 }}>
+        {/* The entire scrollable area is the BudgetList FlatList. Move summary, period header and section title into the list header. */}
+        {(() => {
+          const now = new Date();
+          const currentYear = now.getFullYear();
+          const currentMonthNum = now.getMonth() + 1;
+          const expensesForList = viewMode === 'historical'
+            ? historicalExpensesArray
+            : Array.isArray(expenses)
+              ? expenses.filter((e: any) => {
+                  if (!e) return false;
+                  const d = e.createdAt ? new Date(e.createdAt) : null;
+                  if (!d || Number.isNaN(d.getTime())) return false;
+                  return d.getFullYear() === currentYear && (d.getMonth() + 1) === currentMonthNum;
+                })
+              : [];
 
-        <View style={styles.categoriesSection}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            {viewMode === 'historical' ? 'Historical Category Budgets' : 'Category Budgets'}
-          </Text>
+          const headerNode = (
+            <>
+              <BudgetSummary
+                totalBudget={typeof displayTotalBudget === 'number' ? displayTotalBudget : 0}
+                totalSpent={typeof displayTotalSpent === 'number' ? displayTotalSpent : 0}
+              />
 
-          <BudgetList
-            categories={categories}
-            budgets={displayBudgetsData}
-            categoryIcons={categoryIcons}
-            categoryColors={categoryColors}
-            getSpentAmount={getSpentAmount}
-            getPersonalSpentAmount={getPersonalSpentAmount}
-            getGroupSpentAmount={getGroupSpentAmount}
-            getProgressPercentage={getProgressPercentage}
-            getProgressColor={getProgressColor}
-            onAddPress={() => setShowAddModal(true)}
-            onCategoryPress={handleCategoryPress}
-            expenses={expenses}
-          />
-        </View>
-      </ScrollView>
+              {/* Period header */}
+              {viewMode === 'historical' && (
+                <View style={[styles.stickyPeriodHeader, { backgroundColor: theme.surface }]}> 
+                  <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+                    <Text style={[styles.stickyPeriodTitle, { color: theme.text }]}>
+                      {selectedPeriod === 'yearly' ? `${selectedYear}` : `${monthNames[selectedMonth - 1]} ${selectedYear}`}
+                    </Text>
+                    <Text style={[styles.stickyPeriodSubtitle, { color: theme.textSecondary }]}>Tap a category to view transactions for this period</Text>
+                  </View>
+                </View>
+              )}
+
+              <View style={{ paddingHorizontal: 12 }}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  {viewMode === 'historical' ? 'Historical Category Budgets' : 'Category Budgets'}
+                </Text>
+              </View>
+            </>
+          );
+
+          return (
+            <BudgetList
+              categories={categories}
+              budgets={displayBudgetsData}
+              categoryIcons={categoryIcons}
+              categoryColors={categoryColors}
+              getSpentAmount={viewMode === 'current' ? getMonthlySpentAmount : getHistoricalSpentAmount}
+              getPersonalSpentAmount={getPersonalSpentAmount}
+              getGroupSpentAmount={getGroupSpentAmount}
+              getProgressPercentage={getProgressPercentage}
+              getProgressColor={getProgressColor}
+              onAddPress={() => setShowAddModal(true)}
+              onCategoryPress={handleCategoryPress}
+              expenses={expensesForList}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              listHeaderComponent={headerNode}
+            />
+          );
+        })()}
+      </View>
 
       <AddBudgetModal
         visible={showAddModal}

@@ -9,8 +9,8 @@ const configureSocket = (server) => {
       origin: [
         'http://localhost:8081',
         'http://127.0.0.1:8081',
-        'exp://10.209.229.172:8081',
-        'http://10.209.229.172:8081',
+          'exp://10.136.43.172:8081',
+          'http://10.136.43.172:8081',
         process.env.FRONTEND_URL
       ].filter(Boolean),
       methods: ["GET", "POST"],

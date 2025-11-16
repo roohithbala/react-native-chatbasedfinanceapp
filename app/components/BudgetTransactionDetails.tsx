@@ -150,8 +150,8 @@ const getStyles = (theme: any) => StyleSheet.create({
   container: {
     backgroundColor: theme.surface || 'white',
     borderRadius: 20,
-    width: '90%',
-    maxHeight: '80%',
+    width: '96%',
+    maxHeight: '94%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,

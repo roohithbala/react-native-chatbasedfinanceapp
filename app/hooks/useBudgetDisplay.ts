@@ -18,14 +18,13 @@ export default function useBudgetDisplay({ viewMode, budgets, historicalBudgets,
       } else {
         periodKey = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
       }
-      console.log('📊 Historical budget display:', {
-        periodKey,
-        hasHistoricalData: !!historicalBudgets,
-        availableKeys: historicalBudgets ? Object.keys(historicalBudgets) : [],
-        periodData: historicalBudgets[periodKey]
-      });
-      const periodData = historicalBudgets[periodKey];
-      return periodData?.budgets || {};
+      // Strict lookup: return data for the exact requested periodKey, or synthesize an empty period object.
+      const availableKeys = historicalBudgets ? Object.keys(historicalBudgets) : [];
+      const periodData = historicalBudgets && historicalBudgets[periodKey]
+        ? historicalBudgets[periodKey]
+        : { budgets: {}, totals: { totalAmount: 0, totalSpent: 0 }, detailedBudgets: [], expenses: [] };
+      console.log('📊 Historical budget display:', { periodKey, availableKeys, hasData: !!(historicalBudgets && historicalBudgets[periodKey]) });
+      return periodData.budgets || {};
     }
     console.log('📊 Current budget display:', {
       hasBudgets: !!budgets,
@@ -43,12 +42,16 @@ export default function useBudgetDisplay({ viewMode, budgets, historicalBudgets,
       } else {
         periodKey = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
       }
-      const periodData = historicalBudgets[periodKey];
+      const availableKeys = historicalBudgets ? Object.keys(historicalBudgets) : [];
+      const periodData = historicalBudgets && historicalBudgets[periodKey]
+        ? historicalBudgets[periodKey]
+        : { totals: { totalAmount: 0, totalSpent: 0 } };
+
       const totals = {
         totalBudget: periodData?.totals?.totalAmount || 0,
         totalSpent: periodData?.totals?.totalSpent || 0,
       };
-      console.log('📊 Historical totals:', { periodKey, totals, periodData: periodData?.totals });
+      console.log('📊 Historical totals:', { periodKey, totals, availableKeys });
       return totals;
     }
     

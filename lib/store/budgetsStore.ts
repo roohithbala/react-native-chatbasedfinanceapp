@@ -117,14 +117,104 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       const response = await budgetsAPI.getHistoricalBudgets({ period, year, month });
+      // Normalize multiple possible response shapes from backend
+      const resp = response || {};
+      let budgetsData: any = {};
 
-      // Handle both response.data.budgets and response.budgets formats
-      const budgetsData = response?.budgets || response?.data?.budgets || {};
-      
-      if (budgetsData && typeof budgetsData === 'object') {
-        const historicalBudgets = !Array.isArray(budgetsData) ? budgetsData : {};
+      if (resp.budgets && typeof resp.budgets === 'object') {
+        budgetsData = resp.budgets;
+      } else if (resp.data && resp.data.budgets) {
+        budgetsData = resp.data.budgets;
+      } else if (resp.historicalBudgets && typeof resp.historicalBudgets === 'object') {
+        budgetsData = resp.historicalBudgets;
+      } else if (resp.periods && typeof resp.periods === 'object') {
+        budgetsData = resp.periods;
+      } else if (typeof resp === 'object' && Object.keys(resp).length > 0) {
+        // Heuristic: if the object looks like a mapping of periodKey -> periodData
+        const sampleVal: any = Object.values(resp)[0] as any;
+        if (sampleVal && (sampleVal.totals || sampleVal.detailedBudgets || sampleVal.budgets)) {
+          budgetsData = resp as any;
+        }
+      }
+
+      // Normalize period keys to consistent `YYYY` or `YYYY-MM` format
+      const normalizeKey = (rawKey: string) => {
+        if (!rawKey || typeof rawKey !== 'string') return rawKey;
+        // If already in YYYY or YYYY-MM format, return as-is (basic check)
+        if (/^\d{4}$/.test(rawKey)) return rawKey;
+        if (/^\d{4}-\d{2}$/.test(rawKey)) return rawKey;
+
+        // Attempt to extract first 4-digit year and last 1-2 digit month
+        const yearMatch = rawKey.match(/(\d{4})/);
+        const monthMatch = rawKey.match(/(\d{1,2})$/);
+        if (yearMatch) {
+          const y = yearMatch[1];
+          if (monthMatch) {
+            const m = parseInt(monthMatch[1], 10);
+            if (m >= 1 && m <= 12) return `${y}-${m.toString().padStart(2, '0')}`;
+          }
+          return y;
+        }
+
+        // Fallback: return rawKey unchanged
+        return rawKey;
+      };
+
+      const normalized: any = {};
+      Object.keys(budgetsData || {}).forEach((k) => {
+        const nk = normalizeKey(k);
+        if (nk in normalized) {
+          // Merge period objects if duplicate normalized key appears
+          normalized[nk] = { ...normalized[nk], ...(budgetsData[k] || {}) };
+          console.log(`⚙️ Merging historical period key ${k} -> ${nk}`);
+        } else {
+          if (nk !== k) console.log(`⚙️ Normalized historical key ${k} -> ${nk}`);
+          normalized[nk] = budgetsData[k];
+        }
+      });
+
+      // Attach raw expenses returned by the historical endpoint (if any)
+      // The API may include an `expenses` array and `expensesByCategory` map under the response
+      const respExpenses = (resp && (resp.expenses || resp.data?.expenses)) || [];
+      const respExpensesByCategory = (resp && (resp.expensesByCategory || resp.data?.expensesByCategory)) || {};
+
+      // Determine requested period key from the params passed to this action
+      const reqPeriod = (period || 'monthly');
+      const reqYear = (year !== undefined && year !== null) ? year : undefined;
+      const reqMonth = (month !== undefined && month !== null) ? month : undefined;
+      let requestedKey: string | null = null;
+      try {
+        if (reqPeriod === 'yearly' && reqYear) requestedKey = String(reqYear);
+        else if (reqYear && reqMonth) requestedKey = `${reqYear}-${String(reqMonth).padStart(2, '0')}`;
+      } catch (e) {
+        requestedKey = null;
+      }
+
+      if (requestedKey) {
+        if (!normalized[requestedKey]) {
+          // Create an empty period entry and attach expenses
+          normalized[requestedKey] = normalized[requestedKey] || {};
+          normalized[requestedKey].budgets = normalized[requestedKey].budgets || {};
+          normalized[requestedKey].totals = normalized[requestedKey].totals || { totalAmount: 0, totalSpent: 0 };
+          normalized[requestedKey].detailedBudgets = normalized[requestedKey].detailedBudgets || [];
+        }
+        if (Array.isArray(respExpenses) && respExpenses.length > 0) {
+          normalized[requestedKey].expenses = respExpenses;
+          console.log(`📥 Attached ${respExpenses.length} historical expenses to period ${requestedKey}`);
+        }
+        if (respExpensesByCategory && Object.keys(respExpensesByCategory).length > 0) {
+          normalized[requestedKey].expensesByCategory = respExpensesByCategory;
+          console.log(`📥 Attached expensesByCategory for period ${requestedKey}`);
+        }
+      }
+
+      // Merge into existing historicalBudgets so multiple periods can be cached
+      const current = get().historicalBudgets || {};
+      const merged = { ...current, ...(normalized || {}) };
+
+      if (merged && typeof merged === 'object') {
         set({
-          historicalBudgets: historicalBudgets,
+          historicalBudgets: merged,
           error: null,
           isLoading: false
         });
