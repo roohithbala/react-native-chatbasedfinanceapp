@@ -361,13 +361,60 @@ const sendOTPEmail = async (email, otp, type = 'login') => {
     }
   };
 
+  // Send signup success notification
+  const sendSignupSuccessEmail = async (email, name) => {
+    try {
+      const transporter = createTransporter();
+
+      const mailOptions = {
+        from: getFromHeader(),
+        to: email,
+        subject: 'Welcome to Secure Finance - Registration Successful!',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #0ea5a4 0%, #065f46 100%); padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 22px;">Secure Finance</h1>
+            </div>
+            <div style="background: #fff; padding: 20px; border: 1px solid #e6e6e6; border-top: none; border-radius: 0 0 8px 8px;">
+              <h2 style="color: #111827;">Welcome to Secure Finance! 🎉</h2>
+              <p style="color: #374151;">Hi ${name || 'there'},</p>
+              <p style="color: #374151;">Congratulations! Your Secure Finance account has been successfully created and verified.</p>
+
+              <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin: 0 0 8px 0; color: #166534;">What's Next?</h3>
+                <ul style="margin: 0; padding-left: 20px; color: #166534;">
+                  <li>Start tracking your expenses</li>
+                  <li>Create groups to share expenses with friends and family</li>
+                  <li>Set up budgets to manage your finances better</li>
+                  <li>Use split bill features for shared payments</li>
+                </ul>
+              </div>
+
+              <p style="color: #374151;">You can now log in to your account and start managing your finances securely.</p>
+
+              <p style="color: #374151;">Thanks for choosing Secure Finance,<br/>The Secure Finance Team</p>
+            </div>
+            <div style="text-align: center; padding: 12px; color: #6b7280; font-size: 12px;">© ${new Date().getFullYear()} Secure Finance</div>
+          </div>
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+      return true;
+    } catch (error) {
+      console.error('Error sending signup success email:', error);
+      return false;
+    }
+  };
+
 module.exports = {
   sendSplitBillEscalationEmail,
   sendPaymentConfirmationEmail,
   sendOTPEmail,
   sendPasswordResetConfirmationEmail,
   sendLoginSuccessEmail,
-  sendLoginFailureEmail
+  sendLoginFailureEmail,
+  sendSignupSuccessEmail
 };
 
 // Send notification when a member joins a group (to existing members)

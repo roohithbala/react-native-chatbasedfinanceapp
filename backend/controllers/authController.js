@@ -18,7 +18,8 @@ const {
   sendOTPEmail,
   sendPasswordResetConfirmationEmail,
   sendLoginSuccessEmail,
-  sendLoginFailureEmail
+  sendLoginFailureEmail,
+  sendSignupSuccessEmail
 } = require('../utils/emailService');
 
 // Initialize Google OAuth client
@@ -213,6 +214,15 @@ const verifySignupOTP = async (tempId, otp) => {
     // Generate JWT
     console.log('Signup complete: Generating token for user._id:', user._id, 'type:', typeof user._id);
     const token = generateToken(user._id);
+
+    // Send signup success email (best-effort)
+    try {
+      if (user && user.email) {
+        await sendSignupSuccessEmail(user.email, user.name);
+      }
+    } catch (e) {
+      console.error('Error sending signup success email:', e);
+    }
 
     return {
       message: 'Registration completed successfully',
