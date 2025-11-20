@@ -96,6 +96,7 @@ interface AuthFormProps {
   isLoading: boolean;
   storeLoading: boolean;
   showOTPInput: boolean;
+  showSignupOTP?: boolean;
   otpError?: string;
   authError?: string | null;
   onClearError?: () => void;
@@ -122,6 +123,7 @@ export default function AuthForm({
   isLoading,
   storeLoading,
   showOTPInput,
+  showSignupOTP = false,
   otpError,
   authError,
   onClearError
@@ -256,24 +258,44 @@ export default function AuthForm({
           </View>
         )
       ) : (
-        <View style={{ gap: 8 }}>
-          <Text style={[styles.inputLabel, { color: theme.text }]}>Password</Text>
-          <View style={[styles.inputWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <TextInput
-              style={[styles.textInput, { color: theme.text }]}
-              value={password}
-              onChangeText={(text) => { setPassword(text); onClearError && onClearError(); }}
-              placeholder="Password"
-              placeholderTextColor={theme.textSecondary}
-              secureTextEntry={!showPassword}
-              editable={!isLoading && !storeLoading}
-              autoCapitalize="none"
+        showSignupOTP ? (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: theme.text }]}>Enter Verification Code</Text>
+            <OTPInput
+              length={6}
+              onComplete={setOtp}
+              onChange={setOtp}
+              disabled={isLoading || storeLoading}
+              error={otpError}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 12, top: 16 }}>
-              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={theme.textSecondary} />
+            <TouchableOpacity
+              style={styles.resendButton}
+              onPress={onResendOTP}
+              disabled={isLoading || storeLoading}
+            >
+              <Text style={[styles.resendText, { color: theme.primary }]}>Resend Code</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        ) : (
+          <View style={{ gap: 8 }}>
+            <Text style={[styles.inputLabel, { color: theme.text }]}>Password</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <TextInput
+                style={[styles.textInput, { color: theme.text }]}
+                value={password}
+                onChangeText={(text) => { setPassword(text); onClearError && onClearError(); }}
+                placeholder="Password"
+                placeholderTextColor={theme.textSecondary}
+                secureTextEntry={!showPassword}
+                editable={!isLoading && !storeLoading}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 12, top: 16 }}>
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )
       )}
 
       <TouchableOpacity
@@ -284,7 +306,7 @@ export default function AuthForm({
         <View style={styles.submitGradient}>
           <Text style={[styles.submitText, { color: theme.text }]}>
             {isLoading || storeLoading ? 'Loading...' : (
-              isLogin ? (showOTPInput ? 'Verify OTP' : 'Login') : 'Sign Up'
+              isLogin ? (showOTPInput ? 'Verify OTP' : 'Login') : (showSignupOTP ? 'Verify Code' : 'Sign Up')
             )}
           </Text>
         </View>

@@ -132,7 +132,12 @@ export default function AuthScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetToken, setResetToken] = useState('');
 
-  const { login, register, biometricLogin, googleAuth, sendOTP: sendOTPStore, verifyOTP: verifyOTPStore, otpLogin, isLoading: storeLoading, error, clearError } = useFinanceStore();
+  // Signup OTP state
+  const [showSignupOTP, setShowSignupOTP] = useState(false);
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupTempId, setSignupTempId] = useState('');
+
+  const { login, register, verifySignupOTP, resendSignupOTP, biometricLogin, googleAuth, sendOTP: sendOTPStore, verifyOTP: verifyOTPStore, otpLogin, isLoading: storeLoading, error, clearError } = useFinanceStore();
   const { theme } = useTheme();
   const styles = getStyles(theme);
 
@@ -268,6 +273,34 @@ export default function AuthScreen() {
   };
 
   const handleResendOTP = async () => {
+    if (showSignupOTP) {
+      // For signup OTP, resend using tempId
+      if (!signupTempId) {
+        Alert.alert('Error', 'Registration session expired. Please start registration again.');
+        return;
+      }
+
+      setIsLoading(true);
+      clearError();
+      setOtpError(undefined);
+      setOtp(''); // Clear current OTP input
+
+      try {
+        console.log('Resending signup OTP for tempId:', signupTempId);
+        const result = await resendSignupOTP(signupTempId);
+        console.log('Resend signup OTP result:', result);
+
+        Alert.alert('OTP Resent', result.message || 'A new verification code has been sent to your email');
+      } catch (error: any) {
+        console.error('Resend signup OTP error:', error);
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to resend OTP';
+        Alert.alert('Error', errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     setIsLoading(true);
     clearError();
     setOtpError(undefined);
@@ -288,7 +321,7 @@ export default function AuthScreen() {
     }
   };
 
-  const handleVerifyOTP = async () => {
+  const handleVerifySignupOTP = async () => {
     if (!otp || otp.length !== 6) {
       setOtpError('Please enter a valid 6-digit OTP');
       return;
@@ -299,21 +332,71 @@ export default function AuthScreen() {
     setOtpError(undefined);
 
     try {
-      const identifier = (email || username || '').trim();
-      if (!identifier) {
-        Alert.alert('Error', 'Please enter your email or username before verifying OTP');
-        return;
-      }
-
-      console.log('🔐 Verifying OTP for identifier:', identifier);
-      console.log('🔐 OTP being sent:', otp, 'Type:', typeof otp, 'Length:', otp.length);
-      await otpLogin(identifier, otp);
-      Alert.alert('Success', 'OTP login successful!');
+      await verifySignupOTP(signupTempId, otp);
+      Alert.alert('Success', 'Registration completed successfully!');
       router.replace('/(tabs)');
     } catch (error: any) {
-      console.error('❌ OTP login error:', error);
+      console.error('Verify signup OTP error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'OTP verification failed';
       setOtpError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyLoginOTP = async () => {
+    if (!otp || otp.length !== 6) {
+      setOtpError('Please enter a valid 6-digit OTP');
+      return;
+    }
+
+    setIsLoading(true);
+    clearError();
+    setOtpError(undefined);
+
+    try {
+      await otpLogin(email || username, otp);
+      Alert.alert('Success', 'Login successful!');
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      console.error('Verify login OTP error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'OTP verification failed';
+      setOtpError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStartSignup = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (!name || !username || !upiId) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    setIsLoading(true);
+    clearError();
+
+    try {
+      const result = await register({ name, email, username, password, upiId });
+
+      if (result && result.requiresOTP) {
+        // OTP sent successfully, show OTP input
+        Alert.alert('OTP Sent', `Please check your email for the verification code${result.email ? ` sent to ${result.email}` : ''}`);
+        setShowSignupOTP(true);
+        setSignupEmail(result.email || email);
+        setSignupTempId(result.tempId || '');
+      } else {
+        // This shouldn't happen with the new mandatory OTP flow
+        throw new Error('Authentication service unavailable. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      Alert.alert('Error', error.message || 'Registration failed');
     } finally {
       setIsLoading(false);
     }
@@ -322,36 +405,19 @@ export default function AuthScreen() {
   const handleSubmit = async () => {
     if (isLogin) {
       if (showOTPInput) {
-        // Verify OTP
-        await handleVerifyOTP();
+        // Verify login OTP
+        await handleVerifyLoginOTP();
       } else {
         // Send OTP first (this is now the main login action)
         await handleSendOTP();
       }
     } else {
-      // Registration
-      if (!email || !password) {
-        Alert.alert('Error', 'Please fill in all required fields');
-        return;
-      }
-
-      if (!name || !username || !upiId) {
-        Alert.alert('Error', 'Please fill in all required fields');
-        return;
-      }
-
-      setIsLoading(true);
-      clearError();
-
-      try {
-        await register({ name, email, username, password, upiId });
-        Alert.alert('Success', 'Registration successful!');
-        router.replace('/(tabs)');
-      } catch (error: any) {
-        console.error('Registration error:', error);
-        Alert.alert('Error', error.message || 'Registration failed');
-      } finally {
-        setIsLoading(false);
+      if (showSignupOTP) {
+        // Verify signup OTP
+        await handleVerifySignupOTP();
+      } else {
+        // Start signup process
+        await handleStartSignup();
       }
     }
   };
@@ -360,6 +426,7 @@ export default function AuthScreen() {
     setIsLogin(loginMode);
     // Reset all form state when switching modes
     setShowOTPInput(false);
+    setShowSignupOTP(false);
     setOtp('');
     setOtpError(undefined);
     setPassword('');
@@ -367,6 +434,8 @@ export default function AuthScreen() {
     setName('');
     setUsername('');
     setUpiId('');
+    setSignupEmail('');
+    setSignupTempId('');
   };
 
   const handleSwitchMode = () => {
@@ -581,9 +650,10 @@ export default function AuthScreen() {
               isLoading={isLoading}
               storeLoading={storeLoading}
               showOTPInput={showOTPInput}
-                otpError={otpError}
-                authError={error}
-                onClearError={clearError}
+              showSignupOTP={showSignupOTP}
+              otpError={otpError}
+              authError={error}
+              onClearError={clearError}
             />
 
             {isLogin && (

@@ -18,6 +18,46 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// Verify signup OTP
+router.post('/verify-signup-otp', async (req, res) => {
+  try {
+    const { tempId, otp } = req.body;
+    if (!tempId || !otp) {
+      return res.status(400).json({
+        message: 'Temporary ID and OTP are required'
+      });
+    }
+
+    const result = await authController.verifySignupOTP(tempId, otp);
+    res.json(result);
+  } catch (error) {
+    console.error('Verify signup OTP error:', error);
+    res.status(500).json({
+      message: error.message
+    });
+  }
+});
+
+// Resend signup OTP
+router.post('/resend-signup-otp', async (req, res) => {
+  try {
+    const { tempId } = req.body;
+    if (!tempId) {
+      return res.status(400).json({
+        message: 'Temporary ID is required'
+      });
+    }
+
+    const result = await authController.resendSignupOTP(tempId);
+    res.json(result);
+  } catch (error) {
+    console.error('Resend signup OTP error:', error);
+    res.status(500).json({
+      message: error.message
+    });
+  }
+});
+
 // Login
 router.post('/login', async (req, res) => {
   try {

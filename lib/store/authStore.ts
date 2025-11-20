@@ -15,7 +15,8 @@ interface AuthState {
   // Actions
   clearStorage: () => Promise<void>;
   login: (credentials: { email?: string; username?: string; password: string }) => Promise<void>;
-  register: (userData: { name: string; email: string; username: string; password: string }) => Promise<void>;
+  register: (userData: { name: string; email: string; username: string; password: string; upiId: string }) => Promise<{ requiresOTP: boolean; tempId?: string; email?: string }>;
+  verifySignupOTP: (email: string, otp: string) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
   updateProfile: (userData: User) => Promise<void>;
@@ -93,7 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (userData: { name: string; email: string; username: string; password: string }) => {
+  register: async (userData: { name: string; email: string; username: string; password: string; upiId: string }) => {
     try {
       set({ isLoading: true, error: null });
 
@@ -102,6 +103,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const response = await authAPI.register(userData);
+
+      set({ isLoading: false });
+
+      // Return the response to indicate if OTP is required
+      return response;
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Registration failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  verifySignupOTP: async (email: string, otp: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const response = await authAPI.verifySignupOTP(email, otp);
 
       if (response.token && response.user) {
         await AsyncStorage.setItem('authToken', response.token);
@@ -121,7 +141,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (error: any) {
       set({
-        error: error.response?.data?.message || error.message || 'Registration failed',
+        error: error.response?.data?.message || error.message || 'OTP verification failed',
         isLoading: false,
       });
       throw error;

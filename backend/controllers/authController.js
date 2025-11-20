@@ -29,8 +29,9 @@ const escapeRegExp = (string) => {
   return String(string).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
 };
 
-// Register new user
+// Register new user - Now sends OTP for verification
 const register = async (userData) => {
+  console.log('🔄 NEW REGISTER FUNCTION CALLED with data:', { ...userData, password: '[HIDDEN]' });
   const { name, email, password, username, upiId } = userData;
 
   // Validate input data
@@ -45,67 +46,186 @@ const register = async (userData) => {
     throw new Error(userExists.message);
   }
 
-  // Create user
-  const user = new User({
-    name,
-    email,
+  // Generate OTP for email verification
+  const otp = generateOTP();
+  const otpExpires = generateOTPExpiry();
+
+  // Hash OTP
+  const salt = await bcrypt.genSalt(10);
+  const otpHash = await bcrypt.hash(otp, salt);
+
+  // Create temporary user data (not saved to DB yet)
+  const tempUserData = {
+    name: name.trim(),
+    email: email.trim().toLowerCase(),
     password,
-    username,
-    upiId,
+    username: username.trim(),
+    upiId: upiId.trim(),
+    otp: otpHash,
+    otpExpires,
     preferences: {
       notifications: true,
       biometric: false,
       darkMode: false,
       currency: 'INR'
     }
-  });
-
-  await user.save();
-
-  // Create default groups
-  const personalGroup = new Group({
-    name: 'Personal',
-    avatar: '👤',
-    inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-    members: [{
-      userId: user._id,
-      role: 'admin'
-    }],
-    budgets: []
-  });
-
-  const familyGroup = new Group({
-    name: 'Family',
-    avatar: '👨‍👩‍👧‍👦',
-    inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-    members: [{
-      userId: user._id,
-      role: 'admin'
-    }],
-    budgets: []
-  });
-
-  await Promise.all([
-    personalGroup.save(),
-    familyGroup.save()
-  ]);
-
-  // Add groups to user
-  user.groups = [personalGroup._id, familyGroup._id];
-  await user.save();
-
-  // Generate JWT
-  console.log('Register: Generating token for user._id:', user._id, 'type:', typeof user._id);
-  const token = generateToken(user._id);
-
-  return {
-    message: 'User created successfully',
-    token,
-    user: {
-      ...formatUserResponse(user),
-      groups: [personalGroup, familyGroup]
-    }
   };
+
+  // Store temporary data in a simple in-memory store (in production, use Redis or database)
+  // For now, we'll use a global Map - in production, implement proper temporary storage
+  if (!global.tempUserStore) {
+    global.tempUserStore = new Map();
+  }
+
+  const tempId = `${email}_${Date.now()}`;
+  global.tempUserStore.set(tempId, tempUserData);
+
+  // Send OTP via email
+  const emailSent = await sendOTPEmail(email, otp, 'signup');
+  if (!emailSent) {
+    console.error('Failed to send signup OTP email to:', email);
+    throw new Error('Failed to send verification email. Please try again.');
+  }
+
+  console.log(`Signup OTP for ${email}: ${otp} (expires at ${otpExpires})`);
+
+  const response = {
+    message: 'Verification code sent to your email. Please verify to complete registration.',
+    requiresOTP: true,
+    tempId,
+    email,
+    otp: process.env.NODE_ENV === 'development' ? otp : undefined, // Only return OTP in development
+    expiresIn: '10 minutes'
+  };
+  
+  console.log('🔄 REGISTER FUNCTION RETURNING:', response);
+  return response;
+};
+
+// Resend signup OTP
+const resendSignupOTP = async (tempId) => {
+  try {
+    console.log('Resending signup OTP for tempId:', tempId);
+
+    // Get temporary user data
+    if (!global.tempUserStore || !global.tempUserStore.has(tempId)) {
+      throw new Error('Registration session expired. Please start registration again.');
+    }
+
+    const tempUserData = global.tempUserStore.get(tempId);
+
+    // Generate new OTP
+    const otp = generateOTP();
+    const otpExpires = generateOTPExpiry();
+
+    // Hash new OTP
+    const salt = await bcrypt.genSalt(10);
+    const otpHash = await bcrypt.hash(otp, salt);
+
+    // Update temporary user data with new OTP
+    tempUserData.otp = otpHash;
+    tempUserData.otpExpires = otpExpires;
+    global.tempUserStore.set(tempId, tempUserData);
+
+    // Send new OTP via email
+    const emailSent = await sendOTPEmail(tempUserData.email, otp, 'signup');
+    if (!emailSent) {
+      console.error('Failed to resend signup OTP email to:', tempUserData.email);
+      throw new Error('Failed to send verification email. Please try again.');
+    }
+
+    console.log(`Resent signup OTP for ${tempUserData.email}: ${otp} (expires at ${otpExpires})`);
+
+    return {
+      message: 'Verification code sent to your email. Please check your inbox.',
+      otp: process.env.NODE_ENV === 'development' ? otp : undefined,
+      expiresIn: '10 minutes'
+    };
+  } catch (error) {
+    console.error('Resend signup OTP error:', error);
+    throw new Error(error.message);
+  }
+};
+
+// Verify signup OTP using tempId
+const verifySignupOTP = async (tempId, otp) => {
+  try {
+    console.log('Verifying signup OTP for tempId:', tempId);
+
+    // Get temporary user data
+    if (!global.tempUserStore || !global.tempUserStore.has(tempId)) {
+      throw new Error('Registration session expired. Please start registration again.');
+    }
+
+    const tempUserData = global.tempUserStore.get(tempId);
+
+    // Verify OTP
+    const verification = await verifyOTPUtil(otp, tempUserData.otp, tempUserData.otpExpires);
+    if (!verification.valid) {
+      throw new Error(verification.message);
+    }
+
+    // Check if user already exists (in case someone registered in the meantime)
+    const userExists = await checkUserExists(tempUserData.email, tempUserData.username);
+    if (userExists.exists) {
+      throw new Error(userExists.message);
+    }
+
+    // Create user
+    const user = new User(tempUserData);
+    await user.save();
+
+    // Create default groups
+    const personalGroup = new Group({
+      name: 'Personal',
+      avatar: '👤',
+      inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      members: [{
+        userId: user._id,
+        role: 'admin'
+      }],
+      budgets: []
+    });
+
+    const familyGroup = new Group({
+      name: 'Family',
+      avatar: '👨‍👩‍👧‍👦',
+      inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      members: [{
+        userId: user._id,
+        role: 'admin'
+      }],
+      budgets: []
+    });
+
+    await Promise.all([
+      personalGroup.save(),
+      familyGroup.save()
+    ]);
+
+    // Add groups to user
+    user.groups = [personalGroup._id, familyGroup._id];
+    await user.save();
+
+    // Clear temporary data
+    global.tempUserStore.delete(tempId);
+
+    // Generate JWT
+    console.log('Signup complete: Generating token for user._id:', user._id, 'type:', typeof user._id);
+    const token = generateToken(user._id);
+
+    return {
+      message: 'Registration completed successfully',
+      token,
+      user: {
+        ...formatUserResponse(user),
+        groups: [personalGroup, familyGroup]
+      }
+    };
+  } catch (error) {
+    console.error('Verify signup OTP error:', error);
+    throw new Error(error.message);
+  }
 };
 
 // Login user - Now triggers OTP verification for all users
@@ -746,6 +866,8 @@ const resetPassword = async (resetToken, newPassword) => {
 
 module.exports = {
   register,
+  verifySignupOTP,
+  resendSignupOTP,
   login,
   getCurrentUser,
   updateProfile,

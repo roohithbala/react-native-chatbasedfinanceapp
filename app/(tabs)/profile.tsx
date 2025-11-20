@@ -214,4 +214,3 @@ export default function ProfileScreen() {
   );
 }
 
-// styles moved to app/(tabs)/styles/profileStyles.ts

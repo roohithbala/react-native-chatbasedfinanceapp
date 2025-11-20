@@ -113,7 +113,9 @@ export interface FinanceState {
   // Auth actions
   clearStorage: () => Promise<void>;
   login: (credentials: { email?: string; username?: string; password: string }) => Promise<{ requiresOTP: boolean; email?: string; message?: string; otp?: string } | undefined>;
-  register: (userData: { name: string; email: string; username: string; password: string; upiId: string }) => Promise<void>;
+  register: (userData: { name: string; email: string; username: string; password: string; upiId: string }) => Promise<{ requiresOTP: boolean; email?: string; message?: string; otp?: string; tempId?: string } | undefined>;
+  verifySignupOTP: (tempId: string, otp: string) => Promise<void>;
+  resendSignupOTP: (tempId: string) => Promise<any>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
   updateProfile: (userData: User) => Promise<void>;
@@ -682,10 +684,29 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       
       const response = await authAPI.register(userData);
       
+      set({ isLoading: false });
+
+      // Return the response to indicate if OTP is required
+      return response;
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Registration failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  verifySignupOTP: async (tempId: string, otp: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const response = await authAPI.verifySignupOTP(tempId, otp);
+
       if (response.token && response.user) {
         await AsyncStorage.setItem('authToken', response.token);
         await AsyncStorage.setItem('userData', JSON.stringify(response.user));
-        
+
         set({
           isAuthenticated: true,
           authToken: response.token,
@@ -695,32 +716,32 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           isLoading: false,
         });
 
-        // Load all user data after successful registration
+        // Load all user data after successful OTP verification
         try {
-          console.log('Loading user data after registration...');
-          
+          console.log('Loading user data after signup OTP verification...');
+
           // Load groups first
           await get().loadGroups();
-          
+
           // After loading groups, set the first group as selected if available
           const groups = get().groups;
           if (Array.isArray(groups) && groups.length > 0) {
             set({ selectedGroup: groups[0] });
           }
-          
+
           // Load other data in parallel
           await Promise.all([
             get().loadExpenses(),
             get().loadBudgets(),
             get().getSplitBills()
           ]);
-          
-          console.log('All user data loaded successfully after registration');
-          
+
+          console.log('All user data loaded successfully after signup OTP verification');
+
           // Initialize socket listeners for real-time updates
           get().initializeSocketListeners();
         } catch (error) {
-          console.error('Error loading data after registration:', error);
+          console.error('Error loading data after signup OTP verification:', error);
           // Don't throw error, just log it - user can still use the app
         }
       } else {
@@ -728,9 +749,23 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       }
     } catch (error: any) {
       set({
-        error: error.response?.data?.message || error.message || 'Registration failed',
+        error: error.response?.data?.message || error.message || 'OTP verification failed',
         isLoading: false,
-        groups: [], // Ensure groups is always an array
+      });
+      throw error;
+    }
+  },
+
+  resendSignupOTP: async (tempId: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await authAPI.resendSignupOTP(tempId);
+      set({ isLoading: false });
+      return response;
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to resend OTP',
+        isLoading: false
       });
       throw error;
     }

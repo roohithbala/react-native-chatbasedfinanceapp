@@ -7,12 +7,10 @@ export const authAPI = {
     email: string;
     username: string;
     password: string;
+    upiId: string;
   }) => {
     try {
       const response = await api.post('/auth/register', userData);
-      if (!response.data || !response.data.user || !response.data.token) {
-        throw new Error('Invalid response format from server');
-      }
       return response.data;
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -20,6 +18,37 @@ export const authAPI = {
         error.response?.data?.message ||
         error.message ||
         'Registration failed'
+      );
+    }
+  },
+
+  verifySignupOTP: async (tempId: string, otp: string) => {
+    try {
+      const response = await api.post('/auth/verify-signup-otp', { tempId, otp });
+      if (!response.data || !response.data.user || !response.data.token) {
+        throw new Error('Invalid response from server');
+      }
+      return response.data;
+    } catch (error: any) {
+      console.error('Verify signup OTP error:', error);
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'OTP verification failed'
+      );
+    }
+  },
+
+  resendSignupOTP: async (tempId: string) => {
+    try {
+      const response = await api.post('/auth/resend-signup-otp', { tempId });
+      return response.data;
+    } catch (error: any) {
+      console.error('Resend signup OTP error:', error);
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to resend OTP'
       );
     }
   },
