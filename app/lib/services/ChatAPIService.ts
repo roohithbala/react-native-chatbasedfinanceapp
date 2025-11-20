@@ -177,3 +177,6 @@ class ChatAPIService {
 }
 
 export const chatAPIService = new ChatAPIService();
+
+// Default export to satisfy Expo Router (this is a service file, not a component)
+export default chatAPIService;

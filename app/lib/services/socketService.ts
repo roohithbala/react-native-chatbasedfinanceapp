@@ -289,3 +289,6 @@ class SocketService {
 }
 
 export const socketService = new SocketService();
+
+// Default export to satisfy Expo Router (this is a service file, not a component)
+export default socketService;

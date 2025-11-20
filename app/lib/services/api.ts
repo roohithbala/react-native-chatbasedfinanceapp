@@ -14,3 +14,6 @@ export const API_BASE_URL = __DEV__
 export const WS_BASE_URL = __DEV__
   ? `ws://${DEV_LOCAL_IP}:${DEV_PORT}`
   : 'wss://your-production-api.com';
+
+// Default export to satisfy Expo Router (this is a service file, not a component)
+export default null;
