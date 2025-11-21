@@ -224,14 +224,31 @@ cd ..
 Create `.env` file in the root directory:
 
 ```env
-# OpenAI API Key (optional)
+# OpenAI API Key (optional - legacy support)
 EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key_here
 
-# Backend API URL
-EXPO_PUBLIC_API_URL=http://10.136.43.172:3001/api
+# OpenRouter AI Configuration (recommended for advanced AI features)
+EXPO_PUBLIC_OPENROUTER_API_KEY=your_openrouter_api_key_here
+
+# Development IP Configuration (choose one approach):
+
+# Option 1: Use localhost (works for iOS simulator and web)
+EXPO_PUBLIC_DEV_IP=localhost
+EXPO_PUBLIC_DEV_PORT=3001
+
+# Option 2: For Android emulator, use:
+# EXPO_PUBLIC_DEV_IP=10.0.2.2
+# EXPO_PUBLIC_DEV_PORT=3001
+
+# Option 3: For physical devices on same network, set your computer's IP:
+# EXPO_PUBLIC_DEV_IP=192.168.1.100  # Replace with your actual IP
+# EXPO_PUBLIC_DEV_PORT=3001
+
+# Alternative: Set full API URL directly (overrides the above)
+# EXPO_PUBLIC_API_URL=http://localhost:3001/api
 
 # Frontend URL for CORS
-EXPO_PUBLIC_FRONTEND_URL=exp://10.136.43.172:8081
+EXPO_PUBLIC_FRONTEND_URL=exp://localhost:8081
 ```
 
 Create `.env` file in the `backend` directory:
@@ -270,6 +287,44 @@ npm run dev
 - **Android**: Press `a` in the terminal
 - **iOS**: Press `i` in the terminal
 - **Web**: Press `w` in the terminal
+
+### Development Network Configuration
+
+The app is configured to work with different development environments:
+
+#### For iOS Simulator / Web Development:
+- Uses `localhost` by default
+- No additional configuration needed
+
+#### For Android Emulator:
+- Set `EXPO_PUBLIC_DEV_IP=10.0.2.2` in your `.env` file
+- This IP maps to your host machine from within the Android emulator
+
+#### For Physical Devices:
+- Find your computer's IP address (run `ipconfig` on Windows or `ifconfig` on Mac/Linux)
+- Set `EXPO_PUBLIC_DEV_IP=your_ip_address` in your `.env` file
+- Make sure your device and computer are on the same Wi-Fi network
+- Disable firewall for the development port if needed
+
+#### For External Access (anyone can access):
+- Deploy your backend to a cloud service (Heroku, AWS, etc.)
+- Or use tunneling services like ngrok: `npx ngrok http 3001`
+- Set the full API URL in `EXPO_PUBLIC_API_URL`
+
+Example configurations:
+```env
+# Local development (iOS/Web)
+EXPO_PUBLIC_DEV_IP=localhost
+
+# Android emulator
+EXPO_PUBLIC_DEV_IP=10.0.2.2
+
+# Physical device on same network
+EXPO_PUBLIC_DEV_IP=192.168.1.100
+
+# Cloud deployment
+EXPO_PUBLIC_API_URL=https://your-api.herokuapp.com/api
+```
 
 ## 📡 API Documentation
 
@@ -322,15 +377,65 @@ DELETE /api/budgets/:id
 GET  /api/budgets/alerts
 ```
 
-## 🔄 Component Architecture
+## 🤖 AI Features
 
-The app uses a modular component architecture:
+The app includes advanced AI-powered features using OpenRouter API for intelligent financial analysis:
 
-- **Pages**: Route-based components
-- **Components**: Reusable UI components
-- **Services**: API communication layer
-- **Store**: Centralized state management
-- **Utils**: Helper functions and utilities
+### AI Configuration
+
+1. **Get OpenRouter API Key**: Sign up at [OpenRouter.ai](https://openrouter.ai) and get your API key
+2. **Add to Environment**: Set `EXPO_PUBLIC_OPENROUTER_API_KEY=your_key_here` in your `.env` file
+3. **Enable Features**: The app will automatically use OpenRouter for enhanced AI analysis
+
+### AI-Powered Features
+
+#### 💰 Smart Financial Insights
+- **Advanced Spending Analysis**: AI analyzes your spending patterns with detailed insights
+- **Predictive Analytics**: Forecasts future spending based on historical data
+- **Emotional Analysis**: Understands spending psychology and behavior patterns
+- **Personalized Recommendations**: Tailored financial advice based on your habits
+
+#### 🔍 Log Analysis & Debugging
+- **Error Detection**: Automatically identifies issues in app logs
+- **Data Sanitization**: Removes sensitive information before analysis
+- **Root Cause Analysis**: AI-powered problem diagnosis
+- **Suggested Fixes**: Actionable solutions for identified issues
+
+#### 📊 Enhanced Analytics
+- **Category Analysis**: Deep insights into spending by category
+- **Trend Detection**: Identifies spending trends and anomalies
+- **Budget Optimization**: AI suggests optimal budget allocations
+- **Savings Opportunities**: Finds potential areas for cost reduction
+
+### AI Commands in Chat
+
+Use these commands in any chat for instant AI analysis:
+
+- **@predict**: Get AI-powered spending predictions and insights
+- **@summary**: Generate comprehensive group expense summaries
+- **@analyze**: Deep analysis of spending patterns
+
+### Log Analysis Tool
+
+For debugging and troubleshooting:
+
+1. Access the Log Analysis screen (available in debug mode)
+2. Paste your app logs or error messages
+3. Get AI-powered analysis of issues and solutions
+4. View sanitized logs with sensitive data removed
+
+### AI Models Used
+
+- **Primary**: OpenRouter GPT-4o (recommended for best results)
+- **Fallback**: Google Gemini (via backend for @predict command)
+- **Backup**: Local analysis algorithms when AI is unavailable
+
+### Privacy & Security
+
+- **Data Sanitization**: All sensitive information is removed before AI analysis
+- **Local Processing**: Personal financial data stays on your device
+- **Secure API**: OpenRouter uses enterprise-grade security
+- **No Data Storage**: AI analysis doesn't store your financial information
 
 ## 📱 Key Features Implementation
 

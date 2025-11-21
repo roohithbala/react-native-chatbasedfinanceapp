@@ -22,8 +22,29 @@ export class SocketConnectionManager {
       }
 
       console.log('🔌 Initializing socket connection with auth token...');
-      const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const SOCKET_URL = EXPO_PUBLIC_API_URL.replace('/api', '');
+      
+      // Use the same IP detection logic as apiConfig.ts
+      const getSocketUrl = () => {
+        // Use environment variable directly for API URL
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+        
+        if (apiUrl) {
+          return apiUrl.replace('/api', '');
+        }
+        
+        // Fallback for development - use the same logic as apiConfig.ts
+        if (__DEV__) {
+          const platform = require('react-native').Platform;
+          const defaultIP = platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+          const devIP = process.env.EXPO_PUBLIC_DEV_IP || defaultIP;
+          const devPort = process.env.EXPO_PUBLIC_DEV_PORT || '3001';
+          return `http://${devIP}:${devPort}`;
+        } else {
+          return 'https://api.chatfinance.com';
+        }
+      };
+      
+      const SOCKET_URL = getSocketUrl();
 
       console.log('🔌 Connecting to socket server:', SOCKET_URL);
 

@@ -69,7 +69,7 @@ app.use('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3002;
-const HOST = process.env.HOST || '10.136.43.172';
+const HOST = process.env.HOST || '0.0.0.0';
 
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Minimal server running on ${HOST}:${PORT}`);

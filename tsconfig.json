@@ -10,10 +10,15 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "typeRoots": ["./node_modules/@types"]
   },
   "include": [
     "**/*.ts",
     "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "node_modules/expo-modules-core"
   ]
 }

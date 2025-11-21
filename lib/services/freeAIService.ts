@@ -22,8 +22,9 @@ export interface FinancialInsight {
   id: string;
   title: string;
   description: string;
-  type: 'warning' | 'success' | 'tip' | 'prediction';
+  type: 'warning' | 'success' | 'tip' | 'prediction' | 'danger' | 'info';
   icon: string;
+  severity?: 'Low' | 'Medium' | 'High';
 }
 
 export interface SpendingAnalysis {

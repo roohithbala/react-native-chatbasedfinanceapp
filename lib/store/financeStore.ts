@@ -407,7 +407,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       });
 
       if (!storedUserData || !storedToken) {
-        throw new Error('No stored credentials found. Please login with email and password first.');
+        throw new Error('No stored credentials found. Please login with email and password first to enable biometric authentication.');
       }
 
       let user;
@@ -1983,24 +1983,34 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   loadPredictions: async () => {
     try {
       set({ isLoading: true, error: null });
-      
-      // Use free AI service instead of backend API
+
+      // Try OpenRouter AI first, then fallback to backend Gemini
       const expenses = get().expenses;
       const budgets = get().budgets;
-      
-      const analysis: SpendingAnalysis = await freeAIService.analyzeSpending(expenses, budgets);
-      
-      set({ 
+
+      let analysis: SpendingAnalysis;
+      try {
+        // Import OpenRouter service dynamically to avoid issues if not configured
+        const { openRouterAIService } = await import('../services/openRouterAIService');
+        analysis = await openRouterAIService.analyzeSpending(expenses, budgets);
+        console.log('✅ Using OpenRouter AI for predictions');
+      } catch (openRouterError) {
+        console.log('⚠️ OpenRouter AI failed, falling back to backend Gemini:', openRouterError instanceof Error ? openRouterError.message : String(openRouterError));
+        // Fallback to backend Gemini via existing freeAIService
+        analysis = await freeAIService.analyzeSpending(expenses, budgets);
+      }
+
+      set({
         predictions: analysis.predictions || [],
         insights: analysis.insights || [],
-        isLoading: false 
+        isLoading: false
       });
     } catch (error: any) {
       console.error('Error loading predictions:', error);
-      set({ 
+      set({
         error: error.message || 'Failed to load predictions',
         predictions: [],
-        isLoading: false 
+        isLoading: false
       });
       throw error;
     }
@@ -2009,24 +2019,34 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   loadInsights: async () => {
     try {
       set({ isLoading: true, error: null });
-      
-      // Use free AI service instead of backend API
+
+      // Try OpenRouter AI first, then fallback to backend Gemini
       const expenses = get().expenses;
       const budgets = get().budgets;
-      
-      const analysis: SpendingAnalysis = await freeAIService.analyzeSpending(expenses, budgets);
-      
-      set({ 
+
+      let analysis: SpendingAnalysis;
+      try {
+        // Import OpenRouter service dynamically to avoid issues if not configured
+        const { openRouterAIService } = await import('../services/openRouterAIService');
+        analysis = await openRouterAIService.analyzeSpending(expenses, budgets);
+        console.log('✅ Using OpenRouter AI for insights');
+      } catch (openRouterError) {
+        console.log('⚠️ OpenRouter AI failed, falling back to backend Gemini:', openRouterError instanceof Error ? openRouterError.message : String(openRouterError));
+        // Fallback to backend Gemini via existing freeAIService
+        analysis = await freeAIService.analyzeSpending(expenses, budgets);
+      }
+
+      set({
         insights: analysis.insights || [],
         predictions: analysis.predictions || [],
-        isLoading: false 
+        isLoading: false
       });
     } catch (error: any) {
       console.error('Error loading insights:', error);
-      set({ 
+      set({
         error: error.message || 'Failed to load insights',
         insights: [],
-        isLoading: false 
+        isLoading: false
       });
       throw error;
     }

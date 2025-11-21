@@ -10,9 +10,13 @@ const getApiBaseUrl = () => {
     return apiUrl;
   }
 
-  // Fallback for development - use the configured IP and port
+  // Fallback for development - use localhost for iOS, 10.0.2.2 for Android emulator
   if (__DEV__) {
-    return 'http://10.136.43.172:3001/api';
+    const platform = require('react-native').Platform;
+    const defaultIP = platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+    const devIP = process.env.EXPO_PUBLIC_DEV_IP || defaultIP;
+    const devPort = process.env.EXPO_PUBLIC_DEV_PORT || '3001';
+    return `http://${devIP}:${devPort}/api`;
   } else {
     return 'https://api.chatfinance.com/api';
   }
@@ -49,16 +53,13 @@ export const checkServerConnectivity = async (): Promise<boolean> => {
 
 // Auto-detect server IP (useful for development)
 export const detectServerIP = async (): Promise<string | null> => {
+  const platform = require('react-native').Platform;
+  const defaultIP = platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+
   const commonIPs = [
-    '10.136.43.172', // Current configured IP - prioritize this
+    defaultIP, // Platform-specific default
     'localhost', // Localhost for development
     '127.0.0.1', // Localhost IP
-    '10.47.189.172', // Previous configured IP
-    '10.131.135.172', // Previous configured IP
-    '10.27.93.172', // Previous configured IP
-    '10.42.112.172', // Previous configured IP
-    '10.40.155.172', // Previous configured IP
-    '10.136.43.172',
     '192.168.1.101',
     '192.168.1.102',
     '192.168.0.100',

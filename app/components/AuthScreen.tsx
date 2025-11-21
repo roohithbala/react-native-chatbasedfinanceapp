@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFinanceStore } from '@/lib/store/financeStore';
 import { router } from 'expo-router';
 import biometricAuthService from '@/lib/services/biometricAuthService';
@@ -151,6 +152,11 @@ export default function AuthScreen() {
       const type = await biometricAuthService.getStoredBiometricType();
       const capabilities = await biometricAuthService.getBiometricCapabilities();
 
+      // Check if stored credentials exist
+      const storedUserData = await AsyncStorage.getItem('userData');
+      const storedToken = await AsyncStorage.getItem('authToken');
+      const hasStoredCredentials = !!(storedUserData && storedToken);
+
       let reason: string | null = null;
       if (!capabilities.canAuthenticate) {
         if (!capabilities.hasHardware) reason = 'Your device does not support biometric authentication.';
@@ -158,9 +164,11 @@ export default function AuthScreen() {
         else reason = 'Biometric authentication is not available on this device.';
       } else if (!enabled) {
         reason = 'Biometric login is not enabled. Tap Enable to set it up for quick login.';
+      } else if (!hasStoredCredentials) {
+        reason = 'Biometric login requires you to login with email/password first. Complete a regular login to enable biometric authentication.';
       }
 
-      setBiometricEnabled(enabled);
+      setBiometricEnabled(enabled && hasStoredCredentials);
       setBiometricType(type);
       setBiometricReason(reason);
     } catch (error) {
@@ -180,7 +188,16 @@ export default function AuthScreen() {
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Biometric login error:', error);
-      Alert.alert('Authentication Failed', error.message || 'Biometric authentication failed');
+      const errorMessage = error.message || 'Biometric authentication failed';
+      
+      // Provide more helpful error messages
+      if (errorMessage.includes('No stored credentials found')) {
+        Alert.alert('Setup Required', 'Please login with your email and password first to enable biometric authentication.');
+      } else if (errorMessage.includes('Biometric authentication is not enabled')) {
+        Alert.alert('Biometric Not Enabled', 'Please enable biometric authentication in your device settings first.');
+      } else {
+        Alert.alert('Authentication Failed', errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }

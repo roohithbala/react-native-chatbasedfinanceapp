@@ -106,7 +106,7 @@ setInterval(async () => {
 
 server.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on ${HOST}:${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'exp://10.136.43.172:8081'}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'exp://localhost:8081'}`);
   console.log(`🔗 API Health Check: http://${HOST}:${PORT}/api/health`);
   console.log(`🕐 Server started at: ${new Date().toISOString()}`);
 }).on('error', (err) => {
