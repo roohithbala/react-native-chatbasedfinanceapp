@@ -5,7 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
-    "scheme": "securefinance",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
@@ -38,11 +37,9 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "data": [
-            {
-              "scheme": "securefinance"
-            }
-          ],
+          "data": {
+            "scheme": "securefinance"
+          },
           "category": [
             "BROWSABLE",
             "DEFAULT"
