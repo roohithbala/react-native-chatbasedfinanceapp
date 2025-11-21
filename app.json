@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
+    "scheme": "securefinance",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
@@ -33,18 +34,6 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
-      ],
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "data": {
-            "scheme": "securefinance"
-          },
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
       ]
     },
     "web": {
